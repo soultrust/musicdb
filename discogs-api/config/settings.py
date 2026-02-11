@@ -30,7 +30,13 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'corsheaders',
+
+    # Local apps
+    'accounts',
 ]
+
+# Custom user model (must be before first migrate in a new project)
+AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # Add CORS middleware (must be high in the list)
 MIDDLEWARE = [
