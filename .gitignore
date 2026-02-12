@@ -1,2 +1,10 @@
 .venv/
 db.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
