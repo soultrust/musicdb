@@ -8,7 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Initialize environ
 env = environ.Env(
-    DEBUG=(bool, False)
+    DEBUG=(bool, False),
+    DISCOGS_USER_AGENT=(str, ""),
+    DISCOGS_TOKEN=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / '.env')
 
@@ -33,6 +35,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'accounts.apps.AccountsConfig',
+    'discogs.apps.DiscogsConfig',
 ]
 
 # Custom user model (must be before first migrate in a new project)
@@ -91,6 +94,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Static files
 STATIC_URL = 'static/'
+
+# Discogs API
+DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
+DISCOGS_TOKEN = env("DISCOGS_TOKEN")
+DISCOGS_API_BASE_URL = "https://api.discogs.com"
 
 # Auth (for admin)
 ROOT_URLCONF = 'config.urls'
