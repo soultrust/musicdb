@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     'corsheaders',
 
     # Local apps
-    'accounts',
+    'accounts.apps.AccountsConfig',
 ]
 
 # Custom user model (must be before first migrate in a new project)
