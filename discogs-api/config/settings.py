@@ -53,8 +53,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# Allow Next.js frontend to talk to us
+# Allow frontend to talk to us (Vite default port)
 CORS_ALLOWED_ORIGINS = [
+    'http://localhost:5173',
     'http://localhost:3000',
 ]
 

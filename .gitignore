@@ -9,3 +9,5 @@ __pycache__/
 *.pyd
 .Python
 *.so
+
+node_modules/
