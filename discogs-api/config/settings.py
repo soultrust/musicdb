@@ -11,6 +11,9 @@ env = environ.Env(
     DEBUG=(bool, False),
     DISCOGS_USER_AGENT=(str, ""),
     DISCOGS_TOKEN=(str, ""),
+    MUSICBRAINZ_USER_AGENT=(str, ""),
+    MUSICBRAINZ_OAUTH_CLIENT_ID=(str, ""),
+    MUSICBRAINZ_OAUTH_CLIENT_SECRET=(str, ""),
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
 )
@@ -38,6 +41,7 @@ INSTALLED_APPS = [
     # Local apps
     'accounts.apps.AccountsConfig',
     'discogs.apps.DiscogsConfig',
+    'musicbrainz.apps.MusicbrainzConfig',
     'spotify.apps.SpotifyConfig',
 ]
 
@@ -101,10 +105,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Static files
 STATIC_URL = 'static/'
 
-# Discogs API
+# Discogs API (legacy; search/detail now use MusicBrainz)
 DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
 DISCOGS_TOKEN = env("DISCOGS_TOKEN")
 DISCOGS_API_BASE_URL = "https://api.discogs.com"
+
+# MusicBrainz API (search/detail use User-Agent only; OAuth optional for future features)
+MUSICBRAINZ_USER_AGENT = env("MUSICBRAINZ_USER_AGENT") or "SoultrustMusicDB/1.0 (https://github.com/soultrust)"
+MUSICBRAINZ_OAUTH_CLIENT_ID = env("MUSICBRAINZ_OAUTH_CLIENT_ID")
+MUSICBRAINZ_OAUTH_CLIENT_SECRET = env("MUSICBRAINZ_OAUTH_CLIENT_SECRET")
 
 # Spotify API
 SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID")

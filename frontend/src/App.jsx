@@ -5,6 +5,23 @@ const API_BASE = "http://127.0.0.1:8000";
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000";
 
+/** Parse JSON from response; if server returned HTML (error page), throw a clear error. */
+async function parseJsonResponse(res, url) {
+  const text = await res.text();
+  const trimmed = text.trim();
+  if (trimmed.startsWith("<") || trimmed.toLowerCase().startsWith("<!doctype")) {
+    throw new Error(
+      res.ok
+        ? "Server returned HTML instead of JSON."
+        : `Server error (${res.status}). Is the Django API running at ${API_BASE}?`
+    );
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error("Invalid JSON from server: " + (e.message || "Unknown error"));
+  }
+}
 
 function App() {
   const [query, setQuery] = useState("");
@@ -32,7 +49,7 @@ function App() {
     setResults([]);
     try {
       const res = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "/api/search/");
       if (!res.ok) {
         setError(data.error || `Request failed: ${res.status}`);
         return;
@@ -63,7 +80,7 @@ function App() {
       const res = await fetch(
         `${API_BASE}/api/search/detail/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}`,
       );
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "/api/search/detail/");
       if (!res.ok) {
         setDetailError(data.error || `Request failed: ${res.status}`);
         return;
@@ -95,7 +112,7 @@ function App() {
         body: JSON.stringify({ tracks }),
       });
 
-      const data = await res.json();
+      const data = await parseJsonResponse(res, "/api/spotify/match-tracks/");
       if (res.ok) {
         console.log("Spotify matches received:", data.matches);
         setSpotifyMatches(data.matches || []);
@@ -165,7 +182,7 @@ function App() {
       
       // Exchange code for token via Django backend
       fetch(`${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`)
-        .then(res => res.json())
+        .then(res => parseJsonResponse(res, "/api/spotify/callback/"))
         .then(data => {
           if (data.access_token) {
             console.log("Token received, setting Spotify token");
@@ -211,7 +228,7 @@ function App() {
       if (!window.Spotify || playerRef.current) return;
 
       const newPlayer = new window.Spotify.Player({
-        name: "Discogs Music DB",
+        name: "Soultrust Music DB",
         getOAuthToken: (cb) => cb(spotifyToken),
         volume: 0.5,
       });
@@ -279,7 +296,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>Discogs Search</h1>
+        <h1>MusicBrainz Search</h1>
         {spotifyToken ? (
           <div className="spotify-controls">
             <span className="spotify-status">Spotify Connected</span>
@@ -301,7 +318,7 @@ function App() {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search releases, artists, labels…"
+          placeholder="Search albums, EPs, singles…"
           disabled={loading}
           autoFocus
         />
@@ -410,7 +427,7 @@ function App() {
                             rel="noopener noreferrer"
                             className="detail-link"
                           >
-                            View on Discogs →
+                            View on MusicBrainz →
                           </a>
                         </div>
                       )}

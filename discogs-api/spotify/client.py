@@ -8,6 +8,51 @@ from django.core.cache import cache
 import re
 
 
+# Patterns for "Part 1", "#1", "Pt. 1", etc. – normalized to " 1" for matching
+_PART_PATTERNS = [
+    re.compile(r"\s*,\s*Part\s+(\d+)\s*$", re.I),
+    re.compile(r"\s+Part\s+(\d+)\s*$", re.I),
+    re.compile(r"\s*,\s*Pt\.?\s*(\d+)\s*$", re.I),
+    re.compile(r"\s+Pt\.?\s*(\d+)\s*$", re.I),
+    re.compile(r"\s*#\s*(\d+)\s*$", re.I),
+    re.compile(r"\s*\(\s*Part\s+(\d+)\s*\)\s*$", re.I),
+    re.compile(r"\s*-\s*Part\s+(\d+)\s*$", re.I),
+    re.compile(r"\s*\(\s*(\d+)\s*\)\s*$", re.I),  # "Title (1)" or "Title (2)"
+]
+
+
+def normalize_title_for_matching(title):
+    """
+    Normalize track title so 'Secret Stair, Part 1' and 'Secret Stair #1' compare equal.
+    Strips parentheticals, then collapses Part/Pt/#N variants to ' base N'.
+    """
+    if not title:
+        return ""
+    s = title.strip().lower()
+    # Remove parenthetical suffix (e.g. "Song (Remaster)")
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s).strip()
+    for pat in _PART_PATTERNS:
+        m = pat.search(s)
+        if m:
+            num = m.group(1)
+            base = s[: m.start()].strip()
+            return f"{base} {num}"
+    return s
+
+
+def _search_query_base(title):
+    """
+    For search, use base title when we detect Part/# so Spotify finds
+    'Secret Stair #1' when we have 'Secret Stair, Part 1'.
+    """
+    clean = re.sub(r"\s*\([^)]*\)\s*$", "", title).strip()
+    for pat in _PART_PATTERNS:
+        m = pat.search(clean)
+        if m:
+            return clean[: m.start()].strip()
+    return clean
+
+
 def _get_access_token():
     """Get Spotify access token using Client Credentials flow (cached for 1 hour)."""
     cache_key = "spotify_access_token"
@@ -62,9 +107,13 @@ def search_track(query, artist=None, limit=5):
     
     # Clean up track title - remove common suffixes that might not be in Spotify
     clean_query = re.sub(r'\s*\([^)]*\)\s*$', '', query).strip()
+    # If title has "Part 1" / "#1" etc., search by base so Spotify finds "Secret Stair #1" for "Secret Stair, Part 1"
+    search_base = _search_query_base(clean_query)
+    # Request more results when searching by base so we get both #1 and #2 (etc.) in the candidate set
+    effective_limit = max(limit, 10) if search_base != clean_query else limit
     
     # Build search query: "track:name artist:artist" or just "track:name"
-    search_query = f'track:"{clean_query}"'
+    search_query = f'track:"{search_base}"'
     if artist:
         # Use the artist name in quotes for exact match
         search_query += f' artist:"{artist}"'
@@ -75,7 +124,7 @@ def search_track(query, artist=None, limit=5):
         params={
             "q": search_query,
             "type": "track",
-            "limit": limit,
+            "limit": effective_limit,
         },
     )
     
@@ -101,8 +150,8 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
     if not spotify_results:
         return None
     
-    # Normalize for comparison
-    discogs_title_lower = discogs_title.lower().strip()
+    # Normalize for comparison (so "Secret Stair, Part 1" matches "Secret Stair #1")
+    discogs_norm = normalize_title_for_matching(discogs_title)
     discogs_artists_lower = [a.lower().strip() for a in discogs_artists]
     
     # Score each result
@@ -111,14 +160,19 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
     
     for track in spotify_results:
         score = 0
-        spotify_title = track.get("name", "").lower().strip()
+        spotify_title_raw = track.get("name", "").strip()
+        spotify_norm = normalize_title_for_matching(spotify_title_raw)
         spotify_artists = [a.get("name", "").lower().strip() for a in track.get("artists", [])]
         
-        # Exact title match gets high score
-        if discogs_title_lower == spotify_title:
+        # Exact title match (raw or normalized) gets high score
+        if discogs_norm == spotify_norm:
             score += 100
-        # Title contains or is contained (partial match)
-        elif discogs_title_lower in spotify_title or spotify_title in discogs_title_lower:
+        elif discogs_title.lower().strip() == spotify_title_raw.lower():
+            score += 100
+        # Title contains or is contained (partial match), raw or normalized
+        elif discogs_norm in spotify_norm or spotify_norm in discogs_norm:
+            score += 50
+        elif discogs_title.lower().strip() in spotify_title_raw.lower() or spotify_title_raw.lower() in discogs_title.lower().strip():
             score += 50
         
         # Artist matching - check if any Discogs artist matches any Spotify artist
