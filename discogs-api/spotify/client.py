@@ -5,6 +5,7 @@ import base64
 import requests
 from django.conf import settings
 from django.core.cache import cache
+import re
 
 
 def _get_access_token():
@@ -59,10 +60,14 @@ def search_track(query, artist=None, limit=5):
     """
     access_token = _get_access_token()
     
+    # Clean up track title - remove common suffixes that might not be in Spotify
+    clean_query = re.sub(r'\s*\([^)]*\)\s*$', '', query).strip()
+    
     # Build search query: "track:name artist:artist" or just "track:name"
-    search_query = f"track:{query}"
+    search_query = f'track:"{clean_query}"'
     if artist:
-        search_query += f" artist:{artist}"
+        # Use the artist name in quotes for exact match
+        search_query += f' artist:"{artist}"'
     
     response = requests.get(
         "https://api.spotify.com/v1/search",
@@ -79,3 +84,58 @@ def search_track(query, artist=None, limit=5):
     
     data = response.json()
     return data.get("tracks", {}).get("items", [])
+
+
+def find_best_match(discogs_title, discogs_artists, spotify_results):
+    """
+    Find the best matching Spotify track from results.
+    
+    Args:
+        discogs_title: Track title from Discogs
+        discogs_artists: List of artist names from Discogs
+        spotify_results: List of Spotify track objects
+    
+    Returns:
+        Best matching Spotify track or None
+    """
+    if not spotify_results:
+        return None
+    
+    # Normalize for comparison
+    discogs_title_lower = discogs_title.lower().strip()
+    discogs_artists_lower = [a.lower().strip() for a in discogs_artists]
+    
+    # Score each result
+    best_match = None
+    best_score = 0
+    
+    for track in spotify_results:
+        score = 0
+        spotify_title = track.get("name", "").lower().strip()
+        spotify_artists = [a.get("name", "").lower().strip() for a in track.get("artists", [])]
+        
+        # Exact title match gets high score
+        if discogs_title_lower == spotify_title:
+            score += 100
+        # Title contains or is contained (partial match)
+        elif discogs_title_lower in spotify_title or spotify_title in discogs_title_lower:
+            score += 50
+        
+        # Artist matching - check if any Discogs artist matches any Spotify artist
+        artist_matches = sum(1 for da in discogs_artists_lower for sa in spotify_artists if da == sa)
+        if artist_matches > 0:
+            score += 30 * artist_matches
+        
+        # Bonus if all artists match
+        if set(discogs_artists_lower) == set(spotify_artists):
+            score += 20
+        
+        if score > best_score:
+            best_score = score
+            best_match = track
+    
+    # Only return if score is above threshold (at least some match)
+    if best_score >= 30:
+        return best_match
+    
+    return None

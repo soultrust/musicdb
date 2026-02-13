@@ -7,7 +7,7 @@ import requests
 import base64
 from django.conf import settings
 
-from .client import search_track
+from .client import search_track, find_best_match
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -58,9 +58,10 @@ class MatchTracksAPIView(View):
                     continue
                 
                 try:
-                    # Search Spotify for this track
-                    spotify_results = search_track(query=title, artist=artist, limit=1)
-                    spotify_track = spotify_results[0] if spotify_results else None
+                    # Search Spotify for this track - get multiple results to find best match
+                    spotify_results = search_track(query=title, artist=artist, limit=5)
+                    # Use best match algorithm instead of just taking first result
+                    spotify_track = find_best_match(title, artists, spotify_results)
                     
                     matches.append({
                         "discogs_title": title,
