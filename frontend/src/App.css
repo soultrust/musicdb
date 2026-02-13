@@ -267,22 +267,29 @@
   padding: 0.5rem;
   border-radius: 4px;
   background: #1a1a1a;
+  min-width: 0; /* Allow flex items to shrink */
 }
 
 .track-position {
   color: #737373;
   font-size: 0.875rem;
   min-width: 40px;
+  flex-shrink: 0;
 }
 
 .track-title {
   flex: 1;
   color: #e5e5e5;
+  min-width: 0; /* Allow text to truncate */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .track-duration {
   color: #737373;
   font-size: 0.875rem;
+  flex-shrink: 0;
 }
 
 .play-track-btn {
@@ -295,6 +302,8 @@
   color: #000;
   cursor: pointer;
   margin-left: auto;
+  flex-shrink: 0; /* Prevent button from shrinking */
+  white-space: nowrap;
 }
 
 .play-track-btn:hover {
@@ -306,6 +315,8 @@
   font-size: 0.875rem;
   margin-left: auto;
   font-style: italic;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .matching-indicator {

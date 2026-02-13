@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "http://127.0.0.1:8000";
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000";
 
@@ -21,6 +21,7 @@ function App() {
   const [player, setPlayer] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
+  const [deviceId, setDeviceId] = useState(null);
   const playerRef = useRef(null);
 
   async function handleSubmit(e) {
@@ -96,7 +97,10 @@ function App() {
 
       const data = await res.json();
       if (res.ok) {
+        console.log("Spotify matches received:", data.matches);
         setSpotifyMatches(data.matches || []);
+      } else {
+        console.error("Match tracks API error:", data);
       }
     } catch (err) {
       console.error("Failed to match tracks:", err);
@@ -105,19 +109,25 @@ function App() {
     }
   }
 
-  function handleSpotifyLogin() {
+  function handleSpotifyLogin(e) {
+    e?.preventDefault?.();
+    
     if (!SPOTIFY_CLIENT_ID) {
-      alert("Spotify Client ID not configured. Please set VITE_SPOTIFY_CLIENT_ID in frontend/.env");
+      console.error("Spotify Client ID not configured. Please set VITE_SPOTIFY_CLIENT_ID in frontend/.env");
       return;
     }
 
-    // Show what we're sending for debugging
-    const debugInfo = `Client ID: ${SPOTIFY_CLIENT_ID}\nRedirect URI: ${SPOTIFY_REDIRECT_URI}\n\nPlease verify these match your Spotify Dashboard exactly.`;
-    console.log(debugInfo);
-    
     const scopes = "streaming user-read-email user-read-private";
-    const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}&scope=${encodeURIComponent(scopes)}`;
-    console.log("Full auth URL:", authUrl);
+    const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
+    // Use authorization code flow instead of implicit grant
+    const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
+    
+    console.log("=== Spotify Login Debug ===");
+    console.log("Client ID:", SPOTIFY_CLIENT_ID);
+    console.log("Redirect URI:", SPOTIFY_REDIRECT_URI);
+    console.log("Full Auth URL:", authUrl);
+    console.log("===========================");
+    
     window.location.href = authUrl;
   }
 
@@ -134,19 +144,44 @@ function App() {
   }
 
   useEffect(() => {
-    // Handle OAuth callback
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1));
-      const token = params.get("access_token");
-      if (token) {
-        setSpotifyToken(token);
-        window.location.hash = "";
+    // Handle OAuth callback - check for authorization code in query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get("code");
+    const error = urlParams.get("error");
+    
+    console.log("Checking OAuth callback - code:", code ? "Found" : "Not found", "error:", error);
+    
+      if (error) {
+        console.error("Spotify OAuth error:", error);
+        // Clean up URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        return;
       }
+    
+    if (code) {
+      console.log("Exchanging authorization code for token...");
+      // Clean up URL immediately to prevent retries
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Exchange code for token via Django backend
+      fetch(`${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.access_token) {
+            console.log("Token received, setting Spotify token");
+            setSpotifyToken(data.access_token);
+          } else {
+            console.error("Failed to get token:", data);
+          }
+        })
+        .catch(err => {
+          console.error("Token exchange error (Django may not be running):", err.message);
+        });
     } else {
       // Check if token exists in localStorage
       const savedToken = localStorage.getItem("spotify_token");
       if (savedToken) {
+        console.log("Found saved token in localStorage");
         setSpotifyToken(savedToken);
       }
     }
@@ -156,40 +191,66 @@ function App() {
     if (spotifyToken) {
       localStorage.setItem("spotify_token", spotifyToken);
 
-      // Initialize Spotify Web Playback SDK
-      if (window.Spotify && !playerRef.current) {
-        const newPlayer = new window.Spotify.Player({
-          name: "Discogs Music DB",
-          getOAuthToken: (cb) => cb(spotifyToken),
-          volume: 0.5,
-        });
+      // Load Spotify Web Playback SDK dynamically
+      if (!window.Spotify && !document.getElementById("spotify-player-script")) {
+        const script = document.createElement("script");
+        script.id = "spotify-player-script";
+        script.src = "https://sdk.scdn.co/spotify-player.js";
+        script.async = true;
+        document.body.appendChild(script);
 
-        newPlayer.addListener("ready", ({ device_id }) => {
-          console.log("Spotify player ready:", device_id);
-        });
-
-        newPlayer.addListener("player_state_changed", (state) => {
-          if (state) {
-            setIsPlaying(!state.paused);
-            setCurrentTrack(state.track_window.current_track);
-          }
-        });
-
-        newPlayer.connect();
-        setPlayer(newPlayer);
-        playerRef.current = newPlayer;
+        script.onload = () => {
+          initializePlayer();
+        };
+      } else if (window.Spotify && !playerRef.current) {
+        initializePlayer();
       }
+    }
+
+    function initializePlayer() {
+      if (!window.Spotify || playerRef.current) return;
+
+      const newPlayer = new window.Spotify.Player({
+        name: "Discogs Music DB",
+        getOAuthToken: (cb) => cb(spotifyToken),
+        volume: 0.5,
+      });
+
+      newPlayer.addListener("ready", ({ device_id }) => {
+        console.log("Spotify player ready, device_id:", device_id);
+        setDeviceId(device_id);
+      });
+
+      newPlayer.addListener("player_state_changed", (state) => {
+        if (state) {
+          setIsPlaying(!state.paused);
+          setCurrentTrack(state.track_window.current_track);
+        }
+      });
+
+      newPlayer.connect();
+      setPlayer(newPlayer);
+      playerRef.current = newPlayer;
     }
   }, [spotifyToken]);
 
   async function playTrack(spotifyUri) {
+    console.log("playTrack called with URI:", spotifyUri);
+    console.log("player:", player, "spotifyToken:", spotifyToken ? "exists" : "missing", "deviceId:", deviceId);
+    
     if (!player || !spotifyToken) {
-      alert("Please log in to Spotify first");
+      console.error("Please log in to Spotify first");
+      return;
+    }
+
+    if (!deviceId) {
+      console.error("Device ID not ready yet. Waiting for player to initialize...");
       return;
     }
 
     try {
-      await fetch(`https://api.spotify.com/v1/me/player/play`, {
+      console.log("Calling Spotify API to play track...");
+      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
         method: "PUT",
         headers: {
           "Authorization": `Bearer ${spotifyToken}`,
@@ -197,9 +258,15 @@ function App() {
         },
         body: JSON.stringify({ uris: [spotifyUri] }),
       });
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error("Spotify play API error:", response.status, errorData);
+      } else {
+        console.log("Play request sent successfully");
+      }
     } catch (err) {
       console.error("Failed to play track:", err);
-      alert("Failed to play track. Make sure Spotify is open.");
     }
   }
 
@@ -372,13 +439,18 @@ function App() {
                             {spotifyTrack ? (
                               <button
                                 className="play-track-btn"
-                                onClick={() => playTrack(spotifyTrack.uri)}
+                                onClick={() => {
+                                  console.log("Play button clicked for:", spotifyTrack.uri);
+                                  playTrack(spotifyTrack.uri);
+                                }}
                                 title={`Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
                               >
                                 ▶ Play
                               </button>
+                            ) : match !== undefined ? (
+                              <span className="no-match">No match</span>
                             ) : (
-                              match !== undefined && <span className="no-match">No match</span>
+                              <span className="no-match">Matching…</span>
                             )}
                           </li>
                         );
