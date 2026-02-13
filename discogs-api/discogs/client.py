@@ -27,3 +27,21 @@ def search(q, per_page=20, page=1, resource_type=None):
     if resource_type is not None:
         params["type"] = resource_type
     return requests.get(url, headers=_headers(), params=params)
+
+
+def get_release(release_id):
+    """GET /releases/{id} — get full release details including tracklist."""
+    url = f"{settings.DISCOGS_API_BASE_URL.rstrip('/')}/releases/{release_id}"
+    return requests.get(url, headers=_headers())
+
+
+def get_artist(artist_id):
+    """GET /artists/{id} — get full artist details."""
+    url = f"{settings.DISCOGS_API_BASE_URL.rstrip('/')}/artists/{artist_id}"
+    return requests.get(url, headers=_headers())
+
+
+def get_label(label_id):
+    """GET /labels/{id} — get full label details."""
+    url = f"{settings.DISCOGS_API_BASE_URL.rstrip('/')}/labels/{label_id}"
+    return requests.get(url, headers=_headers())
