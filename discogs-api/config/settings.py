@@ -11,6 +11,8 @@ env = environ.Env(
     DEBUG=(bool, False),
     DISCOGS_USER_AGENT=(str, ""),
     DISCOGS_TOKEN=(str, ""),
+    SPOTIFY_CLIENT_ID=(str, ""),
+    SPOTIFY_CLIENT_SECRET=(str, ""),
 )
 environ.Env.read_env(BASE_DIR / '.env')
 
@@ -36,6 +38,7 @@ INSTALLED_APPS = [
     # Local apps
     'accounts.apps.AccountsConfig',
     'discogs.apps.DiscogsConfig',
+    'spotify.apps.SpotifyConfig',
 ]
 
 # Custom user model (must be before first migrate in a new project)
@@ -100,6 +103,10 @@ STATIC_URL = 'static/'
 DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
 DISCOGS_TOKEN = env("DISCOGS_TOKEN")
 DISCOGS_API_BASE_URL = "https://api.discogs.com"
+
+# Spotify API
+SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = env("SPOTIFY_CLIENT_SECRET")
 
 # Auth (for admin)
 ROOT_URLCONF = 'config.urls'

@@ -7,10 +7,68 @@
   flex-direction: column;
 }
 
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
 .app h1 {
   font-size: 1.5rem;
   font-weight: 600;
-  margin: 0 0 1rem;
+  margin: 0;
+}
+
+.spotify-login-btn,
+.spotify-logout-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #1db954;
+  color: #000;
+}
+
+.spotify-login-btn:hover,
+.spotify-logout-btn:hover {
+  background: #1ed760;
+}
+
+.spotify-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.spotify-status {
+  font-size: 0.875rem;
+  color: #737373;
+}
+
+.play-pause-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #1db954;
+  color: #000;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.play-pause-btn:hover:not(:disabled) {
+  background: #1ed760;
+}
+
+.play-pause-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .search-form {
@@ -204,7 +262,7 @@
 
 .tracklist li {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.5rem;
   border-radius: 4px;
@@ -225,6 +283,36 @@
 .track-duration {
   color: #737373;
   font-size: 0.875rem;
+}
+
+.play-track-btn {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: #1db954;
+  color: #000;
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.play-track-btn:hover {
+  background: #1ed760;
+}
+
+.no-match {
+  color: #737373;
+  font-size: 0.875rem;
+  margin-left: auto;
+  font-style: italic;
+}
+
+.matching-indicator {
+  font-size: 0.875rem;
+  color: #737373;
+  font-weight: normal;
+  font-style: italic;
 }
 
 .detail-profile {
