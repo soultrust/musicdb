@@ -97,78 +97,104 @@ class DetailAPIView(View):
         return JsonResponse(response.json())
 
 
+import re
+import logging
+import requests
+import google.generativeai as genai
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Configure the Gemini API
+genai.configure(api_key=settings.GEMINI_API_KEY)
+
+
 class AlbumOverviewView(APIView):
     """
     Fetches a critical overview of an album.
-    First checks the local DB cache, then queries
-    Google Gemini API if no cached version exists.
+
+    Priority order:
+    1. Check local PostgreSQL cache
+    2. Try Google Gemini API
+    3. Fall back to Wikipedia MediaWiki API
+    4. Return a graceful error if all sources fail
     """
 
     def get(self, request):
-        try:
-            album = request.query_params.get('album', '').strip()
-            artist = request.query_params.get('artist', '').strip()
+        album = request.query_params.get('album', '').strip()
+        artist = request.query_params.get('artist', '').strip()
 
-            # Validate input
-            if not album or not artist:
-                return Response(
-                    {"error": "Both 'album' and 'artist' query parameters are required."},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Step 1: Check the cache
-            cached_overview = AlbumOverview.objects.filter(
-                artist__iexact=artist,
-                album__iexact=album
-            ).first()
-
-            if cached_overview:
-                serializer = AlbumOverviewSerializer(cached_overview)
-                return Response({
-                    "source": "cache",
-                    "data": serializer.data
-                })
-
-            # Step 2: Query Google Gemini API
-            try:
-                overview_text = self._fetch_overview_from_gemini(artist, album)
-            except Exception as e:
-                err_msg = str(e)
-                if "429" in err_msg or "quota" in err_msg.lower() or "exceeded" in err_msg.lower():
-                    err_msg = "Gemini quota exceeded. Try again later or check your API plan and billing."
-                else:
-                    err_msg = f"Failed to fetch overview from Gemini: {err_msg}"
-                return Response(
-                    {"error": err_msg},
-                    status=status.HTTP_503_SERVICE_UNAVAILABLE
-                )
-
-            # Step 3: Cache the result
-            new_overview = AlbumOverview.objects.create(
-                artist=artist,
-                album=album,
-                overview=overview_text
+        # Validate input
+        if not album or not artist:
+            return Response(
+                {"error": "Both 'album' and 'artist' query parameters are required."},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
-            serializer = AlbumOverviewSerializer(new_overview)
+        # Step 1: Check the cache
+        cached_overview = AlbumOverview.objects.filter(
+            artist__iexact=artist,
+            album__iexact=album
+        ).first()
+
+        if cached_overview:
+            serializer = AlbumOverviewSerializer(cached_overview)
             return Response({
-                "source": "gemini",
+                "source": "cache",
                 "data": serializer.data
             })
+
+        # Step 2: Try Google Gemini API
+        overview_text = None
+        source = None
+
+        try:
+            overview_text = self._fetch_from_gemini(artist, album)
+            source = "gemini"
+            logger.info(f"Successfully fetched overview from Gemini for '{album}' by {artist}")
         except Exception as e:
+            logger.warning(f"Gemini failed for '{album}' by {artist}: {str(e)}")
+
+        # Step 3: Fall back to Wikipedia if Gemini failed
+        if not overview_text:
+            try:
+                overview_text = self._fetch_from_wikipedia(artist, album)
+                source = "wikipedia"
+                logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
+            except Exception as e:
+                logger.warning(f"Wikipedia failed for '{album}' by {artist}: {str(e)}")
+
+        # Step 4: Return error if all sources failed
+        if not overview_text:
             return Response(
-                {"error": f"Overview unavailable: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "Unable to fetch album overview from any source."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-    def _fetch_overview_from_gemini(self, artist, album):
+        # Step 5: Cache the result in PostgreSQL
+        new_overview = AlbumOverview.objects.create(
+            artist=artist,
+            album=album,
+            overview=overview_text,
+            source=source
+        )
+
+        serializer = AlbumOverviewSerializer(new_overview)
+        return Response({
+            "source": source,
+            "data": serializer.data
+        })
+
+    def _fetch_from_gemini(self, artist, album):
         """
         Queries the Google Gemini API to generate a critical
         overview of the specified album.
         """
-        if _genai is None:
-            raise ValueError("GEMINI_API_KEY is not configured. Set it in .env to use album overviews.")
-        model = _genai.GenerativeModel('gemini-2.0-flash')
+        model = genai.GenerativeModel('gemini-2.0-flash')
 
         prompt = f"""
         You are an experienced music critic. Provide a concise but insightful
@@ -185,4 +211,147 @@ class AlbumOverviewView(APIView):
         """
 
         response = model.generate_content(prompt)
-        return response.text
+
+        if response and response.text:
+            return response.text
+        else:
+            raise Exception("Gemini returned an empty response.")
+
+    def _fetch_from_wikipedia(self, artist, album):
+        """
+        Queries the Wikipedia MediaWiki API to fetch an album's
+        description and critical reception section.
+
+        Wikipedia is completely free to use in both development
+        and production with no API key required.
+        """
+        base_url = "https://en.wikipedia.org/w/api.php"
+
+        # Strategy 1: Try searching for "{album} ({artist} album)"
+        # This handles cases where multiple albums share the same name
+        search_queries = [
+            f"{album} ({artist} album)",
+            f"{album} (album)",
+            f"{album} {artist}",
+            album
+        ]
+
+        page_content = None
+
+        for query in search_queries:
+            try:
+                page_content = self._search_wikipedia(base_url, query)
+                if page_content:
+                    break
+            except Exception:
+                continue
+
+        if not page_content:
+            raise Exception(f"No Wikipedia article found for '{album}' by {artist}")
+
+        # Extract relevant sections
+        overview = self._extract_album_overview(page_content, artist, album)
+
+        if not overview:
+            raise Exception("Wikipedia article found but no useful overview content extracted.")
+
+        return overview
+
+    def _search_wikipedia(self, base_url, query):
+        """
+        Searches Wikipedia for a page matching the query and
+        returns the page content if found.
+        """
+        # Step 1: Search for the page
+        search_params = {
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "srlimit": 3,
+            "format": "json",
+        }
+
+        search_response = requests.get(base_url, params=search_params)
+        search_response.raise_for_status()
+        search_data = search_response.json()
+
+        search_results = search_data.get("query", {}).get("search", [])
+
+        if not search_results:
+            return None
+
+        # Step 2: Get the full page content for the first result
+        page_title = search_results[0]["title"]
+
+        content_params = {
+            "action": "query",
+            "titles": page_title,
+            "prop": "extracts",
+            "exintro": False,  # Get full content, not just intro
+            "explaintext": True,  # Plain text, no HTML
+            "format": "json",
+        }
+
+        content_response = requests.get(base_url, params=content_params)
+        content_response.raise_for_status()
+        content_data = content_response.json()
+
+        pages = content_data.get("query", {}).get("pages", {})
+
+        for page_id, page_info in pages.items():
+            if page_id == "-1":
+                return None
+            return page_info.get("extract", "")
+
+        return None
+
+    def _extract_album_overview(self, content, artist, album):
+        """
+        Extracts the most relevant sections from a Wikipedia
+        article about an album, focusing on:
+        - The introduction (general overview)
+        - Critical reception
+        - Legacy / influence
+        """
+        if not content:
+            return None
+
+        sections_to_extract = []
+
+        # Extract the introduction (everything before the first section header)
+        intro_match = re.match(r'^(.*?)(?=\n==\s)', content, re.DOTALL)
+        if intro_match:
+            intro = intro_match.group(1).strip()
+            if len(intro) > 50:  # Only include if substantial
+                sections_to_extract.append(f"Overview:\n{intro}")
+
+        # Define section headers we're interested in
+        target_sections = [
+            r'critical\s*reception',
+            r'reception',
+            r'legacy',
+            r'influence',
+            r'review',
+            r'critical\s*response',
+            r'acclaim',
+        ]
+
+        # Extract matching sections
+        for section_pattern in target_sections:
+            pattern = rf'==\s*({section_pattern})\s*==\s*\n(.*?)(?=\n==\s|\Z)'
+            matches = re.findall(pattern, content, re.IGNORECASE | re.DOTALL)
+            for header, body in matches:
+                body = body.strip()
+                if len(body) > 50:  # Only include if substantial
+                    sections_to_extract.append(f"{header.strip().title()}:\n{body}")
+
+        if not sections_to_extract:
+            # If no specific sections found, use the first 1000 characters
+            truncated = content[:1000].strip()
+            if len(truncated) > 50:
+                sections_to_extract.append(f"Overview:\n{truncated}...")
+
+        if sections_to_extract:
+            return "\n\n".join(sections_to_extract)
+
+        return None

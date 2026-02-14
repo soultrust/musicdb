@@ -4,4 +4,4 @@ from .models import AlbumOverview
 class AlbumOverviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = AlbumOverview
-        fields = ['id', 'artist', 'album', 'overview', 'created_at', 'updated_at']
+        fields = ['id', 'artist', 'album', 'overview', 'source', 'created_at', 'updated_at']
