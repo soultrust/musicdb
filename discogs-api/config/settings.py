@@ -1,16 +1,25 @@
 # config/settings.py
-
+import os
 import environ
 from pathlib import Path
+from dotenv import load_dotenv 
+
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+
+SECRET_KEY = os.getenv('SECRET_KEY') 
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
 # Initialize environ
 env = environ.Env(
     DEBUG=(bool, False),
     DISCOGS_USER_AGENT=(str, ""),
     DISCOGS_TOKEN=(str, ""),
+    GEMINI_API_KEY=(str, ""),
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
 )
@@ -64,6 +73,8 @@ CORS_ALLOWED_ORIGINS = [
     'http://127.0.0.1:5173',
 ]
 
+CORS_ALLOW_ALL_ORIGINS = True
+
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
@@ -105,6 +116,9 @@ STATIC_URL = 'static/'
 DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
 DISCOGS_TOKEN = env("DISCOGS_TOKEN")
 DISCOGS_API_BASE_URL = "https://api.discogs.com"
+
+# Gemini API (optional; for AI overviews)
+GEMINI_API_KEY = env("GEMINI_API_KEY")
 
 # Spotify API
 SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID")

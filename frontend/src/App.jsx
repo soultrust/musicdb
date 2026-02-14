@@ -15,6 +15,9 @@ function App() {
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  const [overview, setOverview] = useState(null);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState(null);
   const [spotifyMatches, setSpotifyMatches] = useState([]);
   const [spotifyMatching, setSpotifyMatching] = useState(false);
   const [spotifyToken, setSpotifyToken] = useState(null);
@@ -52,6 +55,8 @@ function App() {
     setSelectedItem(item);
     setDetailData(null);
     setDetailError(null);
+    setOverview(null);
+    setOverviewError(null);
 
     if (!item.id || !item.type) {
       setDetailError("Item missing id or type");
@@ -73,6 +78,38 @@ function App() {
       // If it's a release with tracks, match them to Spotify
       if (data.tracklist && data.tracklist.length > 0 && data.artists) {
         matchTracksToSpotify(data.tracklist, data.artists);
+      }
+
+      // Fetch AI overview if we have title and artist
+      const album = data.title || "";
+      const artist = data.artists?.length ? data.artists.map((a) => a.name).join(", ") : "";
+      if (album && artist) {
+        setOverviewLoading(true);
+        setOverviewError(null);
+        try {
+          const ovRes = await fetch(
+            `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`
+          );
+          const text = await ovRes.text();
+          if (text.trim().startsWith("<")) {
+            setOverviewError("Overview unavailable (server error). Is the Django API running?");
+          } else {
+            try {
+              const ovData = JSON.parse(text);
+              if (ovRes.ok && ovData?.data?.overview) {
+                setOverview(ovData.data.overview);
+              } else if (!ovRes.ok && ovData?.error) {
+                setOverviewError(ovData.error);
+              }
+            } catch (e) {
+              setOverviewError("Could not load overview.");
+            }
+          }
+        } catch (err) {
+          setOverviewError(err.message || "Failed to load overview");
+        } finally {
+          setOverviewLoading(false);
+        }
       }
     } catch (err) {
       setDetailError(err.message || "Request failed");
@@ -144,6 +181,14 @@ function App() {
   }
 
   useEffect(() => {
+    // Clear any stale token state on mount — treat app restart as logged out
+    setSpotifyToken(null);
+    setPlayer(null);
+    setDeviceId(null);
+    setIsPlaying(false);
+    setCurrentTrack(null);
+    localStorage.removeItem("spotify_token");
+    
     // Handle OAuth callback - check for authorization code in query params
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
@@ -151,12 +196,12 @@ function App() {
     
     console.log("Checking OAuth callback - code:", code ? "Found" : "Not found", "error:", error);
     
-      if (error) {
-        console.error("Spotify OAuth error:", error);
-        // Clean up URL
-        window.history.replaceState({}, document.title, window.location.pathname);
-        return;
-      }
+    if (error) {
+      console.error("Spotify OAuth error:", error);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return;
+    }
     
     if (code) {
       console.log("Exchanging authorization code for token...");
@@ -177,20 +222,11 @@ function App() {
         .catch(err => {
           console.error("Token exchange error (Django may not be running):", err.message);
         });
-    } else {
-      // Check if token exists in localStorage
-      const savedToken = localStorage.getItem("spotify_token");
-      if (savedToken) {
-        console.log("Found saved token in localStorage");
-        setSpotifyToken(savedToken);
-      }
     }
   }, []);
 
   useEffect(() => {
     if (spotifyToken) {
-      localStorage.setItem("spotify_token", spotifyToken);
-
       // Load Spotify Web Playback SDK dynamically
       if (!window.Spotify && !document.getElementById("spotify-player-script")) {
         const script = document.createElement("script");
@@ -226,6 +262,21 @@ function App() {
           setIsPlaying(!state.paused);
           setCurrentTrack(state.track_window.current_track);
         }
+      });
+
+      newPlayer.addListener("authentication_error", ({ message }) => {
+        console.error("Spotify authentication error:", message);
+        handleSpotifyLogout();
+      });
+
+      newPlayer.addListener("account_error", ({ message }) => {
+        console.error("Spotify account error:", message);
+        handleSpotifyLogout();
+      });
+
+      newPlayer.addListener("playback_error", ({ message }) => {
+        console.error("Spotify playback error:", message);
+        // Don't logout on playback errors, just log
       });
 
       newPlayer.connect();
@@ -280,7 +331,7 @@ function App() {
     <div className="app">
       <div className="app-header">
         <h1>Discogs Search</h1>
-        {spotifyToken ? (
+        {spotifyToken && deviceId ? (
           <div className="spotify-controls">
             <span className="spotify-status">Spotify Connected</span>
             <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
@@ -456,6 +507,18 @@ function App() {
                         );
                       })}
                     </ol>
+                  </div>
+                )}
+                {(overviewLoading || overview || overviewError) && (
+                  <div className="detail-profile">
+                    <h3>Overview</h3>
+                    {overviewLoading && <p className="detail-loading">Loading overview…</p>}
+                    {overviewError && !overviewLoading && (
+                      <p className="error">{overviewError}</p>
+                    )}
+                    {overview && !overviewLoading && (
+                      <p className="overview-text">{overview}</p>
+                    )}
                   </div>
                 )}
                 {detailData.profile && (

@@ -35,6 +35,12 @@ def get_release(release_id):
     return requests.get(url, headers=_headers())
 
 
+def get_master(master_id):
+    """GET /masters/{id} — get master release details (title, artists, tracklist, main_release, etc.)."""
+    url = f"{settings.DISCOGS_API_BASE_URL.rstrip('/')}/masters/{master_id}"
+    return requests.get(url, headers=_headers())
+
+
 def get_artist(artist_id):
     """GET /artists/{id} — get full artist details."""
     url = f"{settings.DISCOGS_API_BASE_URL.rstrip('/')}/artists/{artist_id}"
