@@ -6,11 +6,12 @@ const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000";
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 
+const isConsumedPage = typeof window !== "undefined" && window.location.pathname === "/consumed";
 
 function App() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(isConsumedPage);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
@@ -43,6 +44,22 @@ function App() {
   const [consumedTitles, setConsumedTitles] = useState(new Set());
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
+
+  // On /consumed, load the consumed list once
+  useEffect(() => {
+    if (!isConsumedPage) return;
+    setLoading(true);
+    setError(null);
+    fetch(`${API_BASE}/api/search/consumed-list/`)
+      .then((res) => res.json())
+      .then((data) => {
+        setResults(data.results || []);
+        setSelectedItem(null);
+        setDetailData(null);
+      })
+      .catch((err) => setError(err.message || "Failed to load consumed list"))
+      .finally(() => setLoading(false));
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -465,7 +482,11 @@ function App() {
 
     const next = !consumed;
     setConsumed(next);
-    const titleToSave = (detailData?.title || selectedItem?.title || "").trim();
+    const titleToSave = (
+      detailData?.artists?.length && detailData?.title
+        ? `${detailData.artists.map((a) => a.name).join(", ")} - ${detailData.title}`
+        : detailData?.title || selectedItem?.title || ""
+    ).trim();
     try {
       await fetch(
         `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
@@ -540,7 +561,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>Discogs Search</h1>
+        <h1>{isConsumedPage ? "Consumed" : "Discogs Search"}</h1>
         {spotifyToken && deviceId ? (
           <div className="spotify-controls">
             <span className="spotify-status">Spotify Connected</span>
@@ -559,20 +580,24 @@ function App() {
       </div>
       <div className="content">
         <div className="sidebar">
-          <form onSubmit={handleSubmit} className="search-form">
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search releases, artists, labels…"
-              disabled={loading}
-              autoFocus
-            />
-            <button type="submit" disabled={loading}>
-              {loading ? "Searching…" : "Search"}
-            </button>
-          </form>
+          {!isConsumedPage && (
+            <form onSubmit={handleSubmit} className="search-form">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search releases, artists, labels…"
+                disabled={loading}
+                autoFocus
+              />
+              <button type="submit" disabled={loading}>
+                {loading ? "Searching…" : "Search"}
+              </button>
+            </form>
+          )}
+          {isConsumedPage && <p className="sidebar-label">Albums you’ve marked as consumed</p>}
           {error && <p className="error">{error}</p>}
+          {loading && isConsumedPage && <p className="detail-loading">Loading consumed list…</p>}
           <ul className="results">
           {results.map((item, i) => (
             <li

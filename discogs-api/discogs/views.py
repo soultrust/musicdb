@@ -10,6 +10,29 @@ from .models import AlbumOverview, ConsumedAlbum
 from .serializers import AlbumOverviewSerializer
 from .client import search, get_release, get_master, get_artist, get_label
 
+
+def _fetch_display_title_from_discogs(resource_type, resource_id):
+    """Fetch 'Artist - Album' from Discogs API for a release or master. Returns '' on failure."""
+    try:
+        if resource_type == "release":
+            resp = get_release(int(resource_id))
+        elif resource_type == "master":
+            resp = get_master(int(resource_id))
+        else:
+            return ""
+        if resp.status_code != 200:
+            return ""
+        data = resp.json()
+        artists = data.get("artists") or []
+        album_title = (data.get("title") or "").strip()
+        if artists and album_title:
+            artist_str = ", ".join(a.get("name", "") for a in artists).strip()
+            return f"{artist_str} - {album_title}"
+        return album_title
+    except Exception:
+        return ""
+
+
 class SearchAPIView(View):
     """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON."""
 
@@ -77,6 +100,10 @@ class ConsumedAlbumView(APIView):
         except Exception:
             consumed = True
             title = ""
+        if consumed:
+            fetched = _fetch_display_title_from_discogs(resource_type, resource_id)
+            if fetched:
+                title = fetched
         record, _ = ConsumedAlbum.objects.update_or_create(
             type=resource_type,
             discogs_id=str(resource_id),
@@ -102,6 +129,41 @@ class ConsumedTitlesView(APIView):
             .distinct()
         )
         return Response({"titles": titles})
+
+
+class ConsumedListView(View):
+    """GET /api/search/consumed-list/ — full list of consumed albums, shape like search results (type, id, title)."""
+
+    def get(self, request):
+        records = list(
+            ConsumedAlbum.objects.filter(consumed=True).values("type", "discogs_id", "title")
+        )
+        results = []
+        for r in records:
+            tid = r["discogs_id"]
+            id_val = int(tid) if tid.isdigit() else tid
+            title = (r["title"] or "").strip()
+            if not title:
+                title = f"({r['type']} #{tid})"
+            results.append({"type": r["type"], "id": id_val, "title": title})
+        return JsonResponse({"results": results})
+
+
+class ConsumedBackfillView(View):
+    """GET /api/search/consumed-backfill/ — fetch 'Artist - Album' from Discogs for consumed records with empty or album-only title."""
+
+    def get(self, request):
+        updated = 0
+        for rec in ConsumedAlbum.objects.filter(consumed=True):
+            fetched = _fetch_display_title_from_discogs(rec.type, rec.discogs_id)
+            if not fetched:
+                continue
+            current = (rec.title or "").strip()
+            if not current or " - " not in current:
+                rec.title = fetched
+                rec.save(update_fields=["title"])
+                updated += 1
+        return JsonResponse({"updated": updated})
 
 
 class DetailAPIView(View):

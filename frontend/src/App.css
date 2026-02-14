@@ -131,6 +131,12 @@
   color: #f87171;
 }
 
+.sidebar-label {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: #a3a3a3;
+}
+
 .sidebar .error {
   margin-bottom: 0.75rem;
   font-size: 0.875rem;
