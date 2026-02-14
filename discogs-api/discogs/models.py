@@ -1,5 +1,22 @@
 from django.db import models
 
+
+class ConsumedAlbum(models.Model):
+    """
+    Tracks whether an album (release or master) has been consumed/listened to.
+    """
+    type = models.CharField(max_length=20)  # 'release' or 'master'
+    discogs_id = models.CharField(max_length=32)
+    consumed = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ("type", "discogs_id")
+        ordering = ["-id"]
+
+    def __str__(self):
+        return f"{self.type}-{self.discogs_id}: consumed={self.consumed}"
+
+
 class AlbumOverview(models.Model):
     """
     Caches AI-generated album overviews to minimize API calls.

@@ -4,6 +4,7 @@ import "./App.css";
 const API_BASE = "http://127.0.0.1:8000";
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 const SPOTIFY_REDIRECT_URI = import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000";
+const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 
 
 function App() {
@@ -24,15 +25,29 @@ function App() {
   const [player, setPlayer] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
+  const [playbackPosition, setPlaybackPosition] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(0);
   const [deviceId, setDeviceId] = useState(null);
   const playerRef = useRef(null);
+  const [likedTracks, setLikedTracks] = useState(() => {
+    try {
+      const stored = localStorage.getItem(LIKED_TRACKS_KEY);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [autoplay, setAutoplay] = useState(true);
+  const autoplayTriggeredRef = useRef(false);
+  const [consumed, setConsumed] = useState(false);
+  const lastPlayedTrackRef = useRef(null);
+  const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
 
   async function handleSubmit(e) {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
-    setResults([]);
     try {
       const res = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
       const data = await res.json();
@@ -74,6 +89,7 @@ function App() {
         return;
       }
       setDetailData(data);
+      setConsumed(false);
 
       // If it's a release with tracks, match them to Spotify
       if (data.tracklist && data.tracklist.length > 0 && data.artists) {
@@ -156,16 +172,14 @@ function App() {
 
     const scopes = "streaming user-read-email user-read-private";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
-    // Use authorization code flow instead of implicit grant
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
     
-    console.log("=== Spotify Login Debug ===");
-    console.log("Client ID:", SPOTIFY_CLIENT_ID);
-    console.log("Redirect URI:", SPOTIFY_REDIRECT_URI);
-    console.log("Full Auth URL:", authUrl);
-    console.log("===========================");
-    
-    window.location.href = authUrl;
+    // Open in popup so the main page stays visible
+    const popup = window.open(authUrl, "spotify-auth", "width=500,height=700,scrollbars=yes");
+    if (!popup) {
+      // Fallback if popup blocked
+      window.location.href = authUrl;
+    }
   }
 
   function handleSpotifyLogout() {
@@ -173,6 +187,8 @@ function App() {
     setPlayer(null);
     setIsPlaying(false);
     setCurrentTrack(null);
+    setPlaybackPosition(0);
+    setPlaybackDuration(0);
     if (playerRef.current) {
       playerRef.current.disconnect();
       playerRef.current = null;
@@ -181,48 +197,75 @@ function App() {
   }
 
   useEffect(() => {
-    // Clear any stale token state on mount — treat app restart as logged out
-    setSpotifyToken(null);
-    setPlayer(null);
-    setDeviceId(null);
-    setIsPlaying(false);
-    setCurrentTrack(null);
-    localStorage.removeItem("spotify_token");
-    
-    // Handle OAuth callback - check for authorization code in query params
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get("code");
     const error = urlParams.get("error");
-    
-    console.log("Checking OAuth callback - code:", code ? "Found" : "Not found", "error:", error);
-    
+    const isPopup = window.opener != null;
+
+    // OAuth callback (popup or redirect)
     if (error) {
-      console.error("Spotify OAuth error:", error);
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
+      if (isPopup && window.opener) {
+        window.opener.postMessage({ type: "spotify-auth-error", error }, window.location.origin);
+        window.close();
+      } else {
+        setSpotifyToken(null);
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       return;
     }
-    
+
     if (code) {
-      console.log("Exchanging authorization code for token...");
-      // Clean up URL immediately to prevent retries
       window.history.replaceState({}, document.title, window.location.pathname);
       
-      // Exchange code for token via Django backend
       fetch(`${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`)
         .then(res => res.json())
         .then(data => {
           if (data.access_token) {
-            console.log("Token received, setting Spotify token");
-            setSpotifyToken(data.access_token);
-          } else {
-            console.error("Failed to get token:", data);
+            if (isPopup && window.opener) {
+              window.opener.postMessage({ type: "spotify-token", token: data.access_token }, window.location.origin);
+              window.close();
+            } else {
+              setSpotifyToken(data.access_token);
+            }
+          } else if (isPopup) {
+            window.opener?.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, window.location.origin);
+            window.close();
           }
         })
         .catch(err => {
-          console.error("Token exchange error (Django may not be running):", err.message);
+          if (isPopup && window.opener) {
+            window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, window.location.origin);
+            window.close();
+          }
         });
+      return;
     }
+
+    // Not a callback: clear stale state on fresh load
+    if (!isPopup) {
+      setSpotifyToken(null);
+      setPlayer(null);
+      setDeviceId(null);
+      setIsPlaying(false);
+      setCurrentTrack(null);
+      setPlaybackPosition(0);
+      setPlaybackDuration(0);
+      localStorage.removeItem("spotify_token");
+    }
+  }, []);
+
+  // Listen for token from popup
+  useEffect(() => {
+    function onMessage(e) {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type === "spotify-token") {
+        setSpotifyToken(e.data.token);
+      } else if (e.data?.type === "spotify-auth-error") {
+        console.error("Spotify auth error:", e.data.error);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
   }, []);
 
   useEffect(() => {
@@ -259,8 +302,18 @@ function App() {
 
       newPlayer.addListener("player_state_changed", (state) => {
         if (state) {
+          lastPlayedTrackRef.current = state.track_window.current_track;
           setIsPlaying(!state.paused);
           setCurrentTrack(state.track_window.current_track);
+          setPlaybackPosition(state.position || 0);
+          setPlaybackDuration(state.duration || 0);
+        } else {
+          const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
+          lastPlayedTrackRef.current = null;
+          setCurrentTrack(null);
+          setPlaybackPosition(0);
+          setPlaybackDuration(0);
+          if (finishedUri) setTrackJustEndedUri(finishedUri);
         }
       });
 
@@ -284,6 +337,19 @@ function App() {
       playerRef.current = newPlayer;
     }
   }, [spotifyToken]);
+
+  // Poll playback position for progress bar when playing
+  useEffect(() => {
+    if (!playerRef.current || !isPlaying) return;
+    const interval = setInterval(async () => {
+      const state = await playerRef.current?.getCurrentState();
+      if (state) {
+        setPlaybackPosition(state.position);
+        setPlaybackDuration(state.duration);
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, [isPlaying, currentTrack?.uri]);
 
   async function playTrack(spotifyUri) {
     console.log("playTrack called with URI:", spotifyUri);
@@ -327,6 +393,132 @@ function App() {
     }
   }
 
+  function seekTrack(positionMs) {
+    if (!player || !playbackDuration) return;
+    const clamped = Math.max(0, Math.min(Math.round(positionMs), playbackDuration));
+    player.seek(clamped);
+    setPlaybackPosition(clamped);
+  }
+
+  function handleTrackRowClick(e, isActive) {
+    if (!isActive || playbackDuration <= 0) return;
+    if (e.target.closest("button")) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const fraction = Math.max(0, Math.min(1, x / rect.width));
+    seekTrack(fraction * playbackDuration);
+  }
+
+  function getTrackKey(track) {
+    if (!selectedItem || !detailData) return null;
+    return `${selectedItem.type}-${selectedItem.id}-${track.title}`;
+  }
+
+  function toggleLikeTrack(track) {
+    const key = getTrackKey(track);
+    if (!key) return;
+    setLikedTracks((prev) => {
+      const next = { ...prev };
+      const current = next[key] ?? 0;
+      next[key] = (current + 1) % 3;
+      return next;
+    });
+  }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedTracks));
+    } catch {
+      /* ignore */
+    }
+  }, [likedTracks]);
+
+  // Fetch consumed status when viewing an album (release or master)
+  useEffect(() => {
+    if (!selectedItem || !detailData) return;
+    const t = (selectedItem.type || "").toLowerCase();
+    if (t !== "release" && t !== "master") return;
+
+    fetch(
+      `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
+    )
+      .then((res) => res.json())
+      .then((data) => setConsumed(data.consumed === true))
+      .catch(() => setConsumed(false));
+  }, [selectedItem, detailData]);
+
+  // Toggle consumed status
+  async function toggleConsumed() {
+    if (!selectedItem) return;
+    const t = (selectedItem.type || "").toLowerCase();
+    if (t !== "release" && t !== "master") return;
+
+    const next = !consumed;
+    setConsumed(next);
+    try {
+      await fetch(
+        `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ consumed: next }),
+        }
+      );
+    } catch {
+      setConsumed(!next);
+    }
+  }
+
+  // Reset autoplay trigger when track changes
+  useEffect(() => {
+    autoplayTriggeredRef.current = false;
+  }, [currentTrack?.uri]);
+
+  // Autoplay: when track ends (state=null), play next track in list
+  useEffect(() => {
+    if (!trackJustEndedUri) return;
+    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !deviceId || !spotifyToken) {
+      setTrackJustEndedUri(null);
+      return;
+    }
+
+    const match = spotifyMatches.find((m) => m.spotify_track?.uri === trackJustEndedUri);
+    setTrackJustEndedUri(null);
+    if (!match) return;
+
+    const currentIndex = detailData.tracklist.findIndex((t) => t.title === match.discogs_title);
+    if (currentIndex < 0) return;
+
+    const nextIndex = (currentIndex + 1) % detailData.tracklist.length;
+    const nextTrack = detailData.tracklist[nextIndex];
+    const nextMatch = spotifyMatches.find((m) => m.discogs_title === nextTrack.title);
+    if (!nextMatch?.spotify_track?.uri) return;
+
+    playTrack(nextMatch.spotify_track.uri);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
+  }, [trackJustEndedUri, autoplay, detailData, spotifyMatches, deviceId, spotifyToken]);
+
+  // Autoplay fallback: when position reaches end (in case state=null doesn't fire)
+  useEffect(() => {
+    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !currentTrack?.uri || !deviceId || !spotifyToken) return;
+    if (playbackDuration <= 0 || playbackPosition < Math.max(0, playbackDuration - 300)) return;
+    if (autoplayTriggeredRef.current) return;
+
+    const match = spotifyMatches.find((m) => m.spotify_track?.uri === currentTrack.uri);
+    if (!match) return;
+    const currentIndex = detailData.tracklist.findIndex((t) => t.title === match.discogs_title);
+    if (currentIndex < 0) return;
+
+    const nextIndex = (currentIndex + 1) % detailData.tracklist.length;
+    const nextTrack = detailData.tracklist[nextIndex];
+    const nextMatch = spotifyMatches.find((m) => m.discogs_title === nextTrack.title);
+    if (!nextMatch?.spotify_track?.uri) return;
+
+    autoplayTriggeredRef.current = true;
+    playTrack(nextMatch.spotify_track.uri);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
+  }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken]);
+
   return (
     <div className="app">
       <div className="app-header">
@@ -347,22 +539,23 @@ function App() {
           </button>
         )}
       </div>
-      <form onSubmit={handleSubmit} className="search-form">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search releases, artists, labels…"
-          disabled={loading}
-          autoFocus
-        />
-        <button type="submit" disabled={loading}>
-          {loading ? "Searching…" : "Search"}
-        </button>
-      </form>
-      {error && <p className="error">{error}</p>}
       <div className="content">
-        <ul className="results">
+        <div className="sidebar">
+          <form onSubmit={handleSubmit} className="search-form">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search releases, artists, labels…"
+              disabled={loading}
+              autoFocus
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? "Searching…" : "Search"}
+            </button>
+          </form>
+          {error && <p className="error">{error}</p>}
+          <ul className="results">
           {results.map((item, i) => (
             <li
               key={item.id != null ? `${item.type}-${item.id}` : i}
@@ -372,145 +565,212 @@ function App() {
               {item.title}
             </li>
           ))}
-        </ul>
+          </ul>
+        </div>
         {selectedItem && (
           <div className="detail">
             {detailLoading && <p className="detail-loading">Loading details…</p>}
             {detailError && <p className="error">{detailError}</p>}
             {detailData && (
-              <>
-                <div className="detail-header">
-                  <div className="detail-thumb-container">
-                    {detailData.thumb || detailData.images?.[0]?.uri ? (
-                      <img
-                        src={detailData.thumb || detailData.images?.[0]?.uri}
-                        alt={detailData.title || selectedItem.title}
-                        className="detail-thumb"
-                        onError={(e) => {
-                          console.error(
-                            "Image failed to load:",
-                            detailData.thumb || detailData.images?.[0]?.uri,
-                          );
-                          e.target.style.display = "none";
-                        }}
-                      />
-                    ) : (
-                      <div className="detail-thumb-placeholder">No Image</div>
-                    )}
-                  </div>
-                  <div className="detail-content">
-                    <h2>{detailData.title || selectedItem.title}</h2>
-                    <div className="detail-meta">
-                      {detailData.artists && detailData.artists.length > 0 && (
-                        <div className="detail-row">
-                          <span className="label">Artist:</span>
-                          <span className="value">
-                            {detailData.artists.map((a) => a.name).join(", ")}
-                          </span>
-                        </div>
-                      )}
-                      {detailData.year && (
-                        <div className="detail-row">
-                          <span className="label">Year:</span>
-                          <span className="value">{detailData.year}</span>
-                        </div>
-                      )}
-                      {detailData.formats && detailData.formats.length > 0 && (
-                        <div className="detail-row">
-                          <span className="label">Format:</span>
-                          <span className="value">
-                            {detailData.formats
-                              .map((f) => f.name + (f.qty ? ` (${f.qty})` : ""))
-                              .join(", ")}
-                          </span>
-                        </div>
-                      )}
-                      {detailData.country && (
-                        <div className="detail-row">
-                          <span className="label">Country:</span>
-                          <span className="value">{detailData.country}</span>
-                        </div>
-                      )}
-                      {detailData.genres && detailData.genres.length > 0 && (
-                        <div className="detail-row">
-                          <span className="label">Genre:</span>
-                          <span className="value">{detailData.genres.join(", ")}</span>
-                        </div>
-                      )}
-                      {detailData.styles && detailData.styles.length > 0 && (
-                        <div className="detail-row">
-                          <span className="label">Style:</span>
-                          <span className="value">{detailData.styles.join(", ")}</span>
-                        </div>
-                      )}
-                      {detailData.labels && detailData.labels.length > 0 && (
-                        <div className="detail-row">
-                          <span className="label">Label:</span>
-                          <span className="value">
-                            {detailData.labels
-                              .map((l) => l.name + (l.catno ? ` (${l.catno})` : ""))
-                              .join(", ")}
-                          </span>
-                        </div>
-                      )}
-                      {detailData.uri && (
-                        <div className="detail-row">
-                          <a
-                            href={detailData.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="detail-link"
-                          >
-                            View on Discogs →
-                          </a>
-                        </div>
+              <div className="detail-columns">
+                <div className="detail-main">
+                  <div className="detail-header">
+                    <div className="detail-thumb-container">
+                      {detailData.thumb || detailData.images?.[0]?.uri ? (
+                        <img
+                          src={detailData.thumb || detailData.images?.[0]?.uri}
+                          alt={detailData.title || selectedItem.title}
+                          className="detail-thumb"
+                          onError={(e) => {
+                            console.error(
+                              "Image failed to load:",
+                              detailData.thumb || detailData.images?.[0]?.uri,
+                            );
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="detail-thumb-placeholder">No Image</div>
                       )}
                     </div>
-                  </div>
-                </div>
-                {detailData.tracklist && detailData.tracklist.length > 0 && (
-                  <div className="detail-tracklist">
-                    <h3>
-                      Tracklist{" "}
-                      {spotifyMatching && (
-                        <span className="matching-indicator">(Matching to Spotify…)</span>
-                      )}
-                    </h3>
-                    <ol className="tracklist">
-                      {detailData.tracklist.map((track, i) => {
-                        const match = spotifyMatches.find((m) => m.discogs_title === track.title);
-                        const spotifyTrack = match?.spotify_track;
-                        return (
-                          <li key={i}>
-                            <span className="track-position">{track.position || `${i + 1}.`}</span>
-                            <span className="track-title">{track.title}</span>
-                            {track.duration && (
-                              <span className="track-duration">{track.duration}</span>
-                            )}
-                            {spotifyTrack ? (
-                              <button
-                                className="play-track-btn"
-                                onClick={() => {
-                                  console.log("Play button clicked for:", spotifyTrack.uri);
-                                  playTrack(spotifyTrack.uri);
+                    <div className="detail-content">
+                      <h2>{detailData.title || selectedItem.title}</h2>
+                      <div className="detail-meta">
+                        {detailData.artists && detailData.artists.length > 0 && (
+                          <div className="detail-row">
+                            <span className="label">Artist:</span>
+                            <span className="value">
+                              {detailData.artists.map((a) => a.name).join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {detailData.year && (
+                          <div className="detail-row">
+                            <span className="label">Year:</span>
+                            <span className="value">{detailData.year}</span>
+                          </div>
+                        )}
+                        {detailData.formats && detailData.formats.length > 0 && (
+                          <div className="detail-row">
+                            <span className="label">Format:</span>
+                            <span className="value">
+                              {detailData.formats
+                                .map((f) => f.name + (f.qty ? ` (${f.qty})` : ""))
+                                .join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {detailData.country && (
+                          <div className="detail-row">
+                            <span className="label">Country:</span>
+                            <span className="value">{detailData.country}</span>
+                          </div>
+                        )}
+                        {detailData.genres && detailData.genres.length > 0 && (
+                          <div className="detail-row">
+                            <span className="label">Genre:</span>
+                            <span className="value">{detailData.genres.join(", ")}</span>
+                          </div>
+                        )}
+                        {detailData.styles && detailData.styles.length > 0 && (
+                          <div className="detail-row">
+                            <span className="label">Style:</span>
+                            <span className="value">{detailData.styles.join(", ")}</span>
+                          </div>
+                        )}
+                        {detailData.labels && detailData.labels.length > 0 && (
+                          <div className="detail-row">
+                            <span className="label">Label:</span>
+                            <span className="value">
+                              {detailData.labels
+                                .map((l) => l.name + (l.catno ? ` (${l.catno})` : ""))
+                                .join(", ")}
+                            </span>
+                          </div>
+                        )}
+                        {(detailData.uri || selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                          <div className="detail-row detail-row-links">
+                            {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                              <label
+                                className="consumed-checkbox"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  toggleConsumed();
                                 }}
-                                title={`Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
                               >
-                                ▶ Play
-                              </button>
-                            ) : match !== undefined ? (
-                              <span className="no-match">No match</span>
-                            ) : (
-                              <span className="no-match">Matching…</span>
+                                <input
+                                  type="checkbox"
+                                  checked={consumed}
+                                  readOnly
+                                  tabIndex={-1}
+                                  aria-label="Mark album as consumed"
+                                />
+                                <span className="consumed-checkbox-box" />
+                                <span className="consumed-checkbox-label">Consumed</span>
+                              </label>
                             )}
-                          </li>
-                        );
-                      })}
-                    </ol>
+                            {detailData.uri && (
+                              <a
+                                href={detailData.uri}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="detail-link"
+                              >
+                                View on Discogs →
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                )}
+                  {detailData.tracklist && detailData.tracklist.length > 0 && (
+                    <div className="detail-tracklist">
+                      <div className="tracklist-header">
+                        <h3>
+                          Tracklist{" "}
+                          {spotifyMatching && (
+                            <span className="matching-indicator">(Matching to Spotify…)</span>
+                          )}
+                        </h3>
+                        <label className="autoplay-switch">
+                          <input
+                            type="checkbox"
+                            checked={autoplay}
+                            onChange={(e) => setAutoplay(e.target.checked)}
+                            role="switch"
+                            aria-label="Autoplay next track"
+                          />
+                          <span className="autoplay-switch-track">
+                            <span className="autoplay-switch-thumb" />
+                          </span>
+                          <span className="autoplay-switch-label">Autoplay</span>
+                        </label>
+                      </div>
+                      <ol className="tracklist">
+                        {detailData.tracklist.map((track, i) => {
+                          const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+                          const spotifyTrack = match?.spotify_track;
+                          const isCurrentTrack = spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
+                          const isTrackFinished = playbackDuration > 0 && playbackPosition >= playbackDuration;
+                          const isActive = isCurrentTrack && !isTrackFinished;
+                          const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
+                          const likeState = likedTracks[getTrackKey(track)] ?? 0;
+                          return (
+                            <li
+                              key={i}
+                              className={isActive ? "track-playing" : ""}
+                              onClick={(e) => handleTrackRowClick(e, isActive)}
+                              title={isActive ? "Click to seek" : undefined}
+                            >
+                              <div className="track-progress-bar" style={{ width: isActive ? `${progress}%` : "0" }} />
+                              <span className="track-position">{track.position || `${i + 1}.`}</span>
+                              <span className="track-title">{track.title}</span>
+                              {track.duration && (
+                                <span className="track-duration">{track.duration}</span>
+                              )}
+                              {spotifyTrack ? (
+                                <button
+                                  className="play-track-btn"
+                                  onClick={() => {
+                                    console.log("Play button clicked for:", spotifyTrack.uri);
+                                    playTrack(spotifyTrack.uri);
+                                  }}
+                                  title={`Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
+                                >
+                                  ▶ Play
+                                </button>
+                              ) : match !== undefined ? (
+                                <span className="no-match">No match</span>
+                              ) : (
+                                <span className="no-match">Matching…</span>
+                              )}
+                              <button
+                                type="button"
+                                className={`track-like-btn track-like-${likeState}`}
+                                onClick={() => toggleLikeTrack(track)}
+                                title={likeState === 0 ? "Like" : likeState === 1 ? "Especially like" : "Remove like"}
+                                aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Especially like track" : "Remove like"}
+                              >
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  )}
+                  {detailData.profile && (
+                    <div className="detail-profile">
+                      <h3>Profile</h3>
+                      <p>{detailData.profile}</p>
+                    </div>
+                  )}
+                </div>
                 {(overviewLoading || overview || overviewError) && (
-                  <div className="detail-profile">
+                  <div className="detail-overview">
                     <h3>Overview</h3>
                     {overviewLoading && <p className="detail-loading">Loading overview…</p>}
                     {overviewError && !overviewLoading && (
@@ -521,13 +781,7 @@ function App() {
                     )}
                   </div>
                 )}
-                {detailData.profile && (
-                  <div className="detail-profile">
-                    <h3>Profile</h3>
-                    <p>{detailData.profile}</p>
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
         )}

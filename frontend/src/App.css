@@ -1,7 +1,7 @@
 .app {
   max-width: 100%;
   margin: 0;
-  padding: 2rem;
+  padding: 1rem 1.5rem;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -11,7 +11,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .app h1 {
@@ -71,14 +72,26 @@
   cursor: not-allowed;
 }
 
+.sidebar {
+  flex: 0 0 300px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid #262626;
+  padding-right: 1rem;
+}
+
 .search-form {
   display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .search-form input {
-  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.6rem 0.75rem;
   font-size: 1rem;
   border: 1px solid #333;
@@ -101,6 +114,8 @@
   background: #22c55e;
   color: #000;
   cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .search-form button:hover:not(:disabled) {
@@ -114,13 +129,19 @@
 
 .error {
   color: #f87171;
-  margin-bottom: 1rem;
+}
+
+.sidebar .error {
+  margin-bottom: 0.75rem;
+  font-size: 0.875rem;
+  flex-shrink: 0;
 }
 
 .content {
   display: flex;
   gap: 2rem;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -128,10 +149,9 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  flex: 0 0 300px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  border-right: 1px solid #262626;
-  padding-right: 1rem;
 }
 
 .results li {
@@ -158,8 +178,44 @@
 
 .detail {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   padding-left: 1rem;
+}
+
+.detail-columns {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.detail-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-overview {
+  flex: 0 0 320px;
+  padding: 1rem;
+  background: #1a1a1a;
+  border-radius: 8px;
+  border: 1px solid #262626;
+  align-self: stretch;
+}
+
+.detail-overview h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.detail-overview .overview-text {
+  color: #e5e5e5;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .detail-header {
@@ -225,6 +281,11 @@
   color: #e5e5e5;
 }
 
+.detail-row-links {
+  align-items: center;
+  flex-wrap: wrap;
+}
+
 .detail-link {
   color: #22c55e;
   text-decoration: none;
@@ -245,10 +306,133 @@
   margin-top: 2rem;
 }
 
+.tracklist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.tracklist-header h3 {
+  margin: 0;
+}
+
 .detail-tracklist h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin: 0 0 1rem;
+}
+
+.autoplay-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.autoplay-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.autoplay-switch-track {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 2px;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #262626;
+  transition: background 0.2s;
+}
+
+.autoplay-switch:has(input:checked) .autoplay-switch-track {
+  background: #1db954;
+}
+
+.autoplay-switch-thumb {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+}
+
+.autoplay-switch:has(input:checked) .autoplay-switch-thumb {
+  transform: translateX(16px);
+}
+
+.autoplay-switch-label {
+  font-size: 0.875rem;
+  color: #a3a3a3;
+}
+
+.consumed-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.consumed-checkbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.consumed-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 2px solid #525252;
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.consumed-checkbox:has(input:checked) .consumed-checkbox-box {
+  background: #1db954;
+  border-color: #1db954;
+}
+
+.consumed-checkbox:has(input:checked) .consumed-checkbox-box::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-bottom: 2px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.consumed-checkbox:hover .consumed-checkbox-box {
+  border-color: #737373;
+}
+
+.consumed-checkbox-label {
+  font-size: 0.875rem;
+  color: #a3a3a3;
 }
 
 .tracklist {
@@ -268,6 +452,33 @@
   border-radius: 4px;
   background: #1a1a1a;
   min-width: 0; /* Allow flex items to shrink */
+  position: relative;
+  overflow: hidden;
+}
+
+.track-playing {
+  cursor: pointer;
+}
+
+.track-playing::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #0d2818;
+  z-index: 0;
+}
+
+.track-progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: #1db954;
+  transition: width 0.3s ease-out;
+  z-index: 1;
 }
 
 .track-position {
@@ -293,8 +504,8 @@
 }
 
 .play-track-btn {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.875rem;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.75rem;
   font-weight: 600;
   border: none;
   border-radius: 4px;
@@ -308,6 +519,59 @@
 
 .play-track-btn:hover {
   background: #1ed760;
+}
+
+.track-like-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #525252;
+  outline: none;
+  box-shadow: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.track-like-btn:focus,
+.track-like-btn:focus-visible,
+.track-like-btn:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.track-like-btn:hover {
+  color: #737373;
+}
+
+.track-like-btn svg {
+  display: block;
+}
+
+.track-like-0 svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.track-like-1 {
+  color: rgba(29, 185, 84, 0.3);
+}
+
+.track-like-1 svg path {
+  fill: currentColor;
+}
+
+.track-like-2 {
+  color: #1db954;
+}
+
+.track-like-2 svg path {
+  fill: currentColor;
 }
 
 .no-match {

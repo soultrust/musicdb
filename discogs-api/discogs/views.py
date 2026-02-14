@@ -1,26 +1,14 @@
 from django.conf import settings
 from django.http import JsonResponse
+from django.utils.decorators import method_decorator
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import AlbumOverview
+from .models import AlbumOverview, ConsumedAlbum
 from .serializers import AlbumOverviewSerializer
 from .client import search, get_release, get_master, get_artist, get_label
-import google.generativeai as genai
-
-# This now reads from your .env file via settings.py
-genai.configure(api_key=settings.GEMINI_API_KEY)
-
-# Configure Gemini only when key is set (avoids startup error and FutureWarning when unused)
-_genai = None
-if getattr(settings, "GEMINI_API_KEY", None):
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=settings.GEMINI_API_KEY)
-        _genai = genai
-    except Exception:
-        pass
 
 class SearchAPIView(View):
     """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON."""
@@ -45,6 +33,60 @@ class SearchAPIView(View):
                 status=502,
             )
         return JsonResponse(response.json())
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ConsumedAlbumView(APIView):
+    """GET/PUT /api/search/consumed/?type=release&id=123 — get or set consumed status."""
+
+    def get(self, request):
+        resource_type = request.query_params.get("type", "").strip().lower()
+        resource_id = request.query_params.get("id", "").strip()
+        if not resource_type or not resource_id:
+            return Response(
+                {"error": "Missing required parameters: type and id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if resource_type not in ("release", "master"):
+            return Response(
+                {"error": "type must be 'release' or 'master'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        record = ConsumedAlbum.objects.filter(type=resource_type, discogs_id=str(resource_id)).first()
+        consumed = record.consumed if record else False
+        return Response({"consumed": consumed})
+
+    def _set_consumed(self, request):
+        resource_type = request.query_params.get("type", "").strip().lower()
+        resource_id = request.query_params.get("id", "").strip()
+        if not resource_type or not resource_id:
+            return Response(
+                {"error": "Missing required parameters: type and id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if resource_type not in ("release", "master"):
+            return Response(
+                {"error": "type must be 'release' or 'master'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            consumed = request.data.get("consumed", True)
+            if not isinstance(consumed, bool):
+                consumed = bool(consumed)
+        except Exception:
+            consumed = True
+        record, _ = ConsumedAlbum.objects.update_or_create(
+            type=resource_type,
+            discogs_id=str(resource_id),
+            defaults={"consumed": consumed},
+        )
+        return Response({"consumed": record.consumed})
+
+    def put(self, request):
+        return self._set_consumed(request)
+
+    def post(self, request):
+        return self._set_consumed(request)
 
 
 class DetailAPIView(View):
@@ -100,17 +142,10 @@ class DetailAPIView(View):
 import re
 import logging
 import requests
-import google.generativeai as genai
 from django.conf import settings
-from rest_framework.views import APIView
-from rest_framework.response import Response
-
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Configure the Gemini API
-genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
 class AlbumOverviewView(APIView):
@@ -148,16 +183,21 @@ class AlbumOverviewView(APIView):
                 "data": serializer.data
             })
 
-        # Step 2: Try Google Gemini API
+        # Step 2: Try Google Gemini API (only if key is configured)
         overview_text = None
         source = None
+        gemini_error = None
+        wikipedia_error = None
 
-        try:
-            overview_text = self._fetch_from_gemini(artist, album)
-            source = "gemini"
-            logger.info(f"Successfully fetched overview from Gemini for '{album}' by {artist}")
-        except Exception as e:
-            logger.warning(f"Gemini failed for '{album}' by {artist}: {str(e)}")
+        gemini_key = getattr(settings, "GEMINI_API_KEY", None) or ""
+        if gemini_key.strip():
+            try:
+                overview_text = self._fetch_from_gemini(artist, album)
+                source = "gemini"
+                logger.info(f"Successfully fetched overview from Gemini for '{album}' by {artist}")
+            except Exception as e:
+                gemini_error = str(e)
+                logger.warning(f"Gemini failed for '{album}' by {artist}: {gemini_error}")
 
         # Step 3: Fall back to Wikipedia if Gemini failed
         if not overview_text:
@@ -166,12 +206,22 @@ class AlbumOverviewView(APIView):
                 source = "wikipedia"
                 logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
             except Exception as e:
-                logger.warning(f"Wikipedia failed for '{album}' by {artist}: {str(e)}")
+                wikipedia_error = str(e)
+                logger.warning(f"Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
 
         # Step 4: Return error if all sources failed
         if not overview_text:
+            err_detail = "Unable to fetch album overview."
+            if gemini_error and wikipedia_error:
+                err_detail += " Gemini and Wikipedia both failed."
+            elif gemini_error:
+                err_detail += f" Gemini: {gemini_error[:200]}."
+            elif wikipedia_error:
+                err_detail += f" Wikipedia: {wikipedia_error[:200]}."
+            elif not gemini_key.strip():
+                err_detail += " GEMINI_API_KEY not configured and Wikipedia had no results."
             return Response(
-                {"error": "Unable to fetch album overview from any source."},
+                {"error": err_detail},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
@@ -194,28 +244,29 @@ class AlbumOverviewView(APIView):
         Queries the Google Gemini API to generate a critical
         overview of the specified album.
         """
-        model = genai.GenerativeModel('gemini-2.0-flash')
+        import google.generativeai as genai
 
-        prompt = f"""
-        You are an experienced music critic. Provide a concise but insightful
-        critical overview of the album '{album}' by {artist}.
+        api_key = getattr(settings, "GEMINI_API_KEY", None) or ""
+        if not api_key.strip():
+            raise Exception("GEMINI_API_KEY not configured")
 
-        Include the following in your overview:
-        - A brief summary of the album's themes and sound
-        - Critical reception and significance
-        - Notable tracks and highlights
-        - Its place in the artist's discography
-        - A rating out of 10
+        genai.configure(api_key=api_key.strip())
 
-        Keep the overview between 150-300 words. Be informative yet engaging.
-        """
+        # Try gemini-2.0-flash first, fall back to gemini-1.5-flash
+        for model_name in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"):
+            try:
+                model = genai.GenerativeModel(model_name)
+                prompt = f"""You are an experienced music critic. Provide a concise but insightful critical overview of the album '{album}' by {artist}. Include: a brief summary of the album's themes and sound; critical reception and significance; notable tracks; its place in the artist's discography; and a rating out of 10. Keep the overview between 150-300 words."""
 
-        response = model.generate_content(prompt)
+                response = model.generate_content(prompt)
 
-        if response and response.text:
-            return response.text
-        else:
-            raise Exception("Gemini returned an empty response.")
+                if response and response.text:
+                    return response.text
+            except Exception as e:
+                logger.warning(f"Gemini model {model_name} failed: {e}")
+                continue
+
+        raise Exception("All Gemini models failed")
 
     def _fetch_from_wikipedia(self, artist, album):
         """
