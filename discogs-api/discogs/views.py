@@ -73,12 +73,14 @@ class ConsumedAlbumView(APIView):
             consumed = request.data.get("consumed", True)
             if not isinstance(consumed, bool):
                 consumed = bool(consumed)
+            title = (request.data.get("title") or "").strip()
         except Exception:
             consumed = True
+            title = ""
         record, _ = ConsumedAlbum.objects.update_or_create(
             type=resource_type,
             discogs_id=str(resource_id),
-            defaults={"consumed": consumed},
+            defaults={"consumed": consumed, "title": title},
         )
         return Response({"consumed": record.consumed})
 
@@ -87,6 +89,19 @@ class ConsumedAlbumView(APIView):
 
     def post(self, request):
         return self._set_consumed(request)
+
+
+class ConsumedTitlesView(APIView):
+    """GET /api/search/consumed-titles/ — list of titles that have a consumed album (for hiding duplicates)."""
+
+    def get(self, request):
+        titles = list(
+            ConsumedAlbum.objects.filter(consumed=True)
+            .exclude(title="")
+            .values_list("title", flat=True)
+            .distinct()
+        )
+        return Response({"titles": titles})
 
 
 class DetailAPIView(View):

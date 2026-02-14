@@ -40,6 +40,7 @@ function App() {
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTriggeredRef = useRef(false);
   const [consumed, setConsumed] = useState(false);
+  const [consumedTitles, setConsumedTitles] = useState(new Set());
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
 
@@ -49,16 +50,25 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || `Request failed: ${res.status}`);
+      const [searchRes, titlesRes] = await Promise.all([
+        fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`),
+        fetch(`${API_BASE}/api/search/consumed-titles/`),
+      ]);
+      const data = await searchRes.json();
+      if (!searchRes.ok) {
+        setError(data.error || `Request failed: ${searchRes.status}`);
         return;
       }
       setResults(data.results || []);
       setSelectedItem(null);
       setDetailData(null);
       setSpotifyMatches([]);
+      try {
+        const titlesData = await titlesRes.json();
+        setConsumedTitles(new Set(titlesData.titles || []));
+      } catch {
+        setConsumedTitles(new Set());
+      }
     } catch (err) {
       setError(err.message || "Request failed");
     } finally {
@@ -455,15 +465,23 @@ function App() {
 
     const next = !consumed;
     setConsumed(next);
+    const titleToSave = (detailData?.title || selectedItem?.title || "").trim();
     try {
       await fetch(
         `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ consumed: next }),
+          body: JSON.stringify({ consumed: next, title: titleToSave }),
         }
       );
+      if (next && titleToSave) {
+        setConsumedTitles((prev) => new Set(prev).add(titleToSave));
+      } else {
+        const titlesRes = await fetch(`${API_BASE}/api/search/consumed-titles/`);
+        const titlesData = await titlesRes.json();
+        setConsumedTitles(new Set(titlesData.titles || []));
+      }
     } catch {
       setConsumed(!next);
     }

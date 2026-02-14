@@ -7,6 +7,7 @@ class ConsumedAlbum(models.Model):
     """
     type = models.CharField(max_length=20)  # 'release' or 'master'
     discogs_id = models.CharField(max_length=32)
+    title = models.CharField(max_length=512, blank=True)  # search result title for duplicate hiding
     consumed = models.BooleanField(default=True)
 
     class Meta:
