@@ -178,6 +178,23 @@
   border-color: #22c55e;
 }
 
+.results li.consumed {
+  position: relative;
+  padding-left: 1.25rem;
+}
+
+.results li.consumed::before {
+  content: "";
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #22c55e;
+}
+
 .results li:last-child {
   border-bottom: none;
 }

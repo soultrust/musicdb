@@ -41,7 +41,6 @@ function App() {
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTriggeredRef = useRef(false);
   const [consumed, setConsumed] = useState(false);
-  const [consumedTitles, setConsumedTitles] = useState(new Set());
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
 
@@ -67,10 +66,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const [searchRes, titlesRes] = await Promise.all([
-        fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`),
-        fetch(`${API_BASE}/api/search/consumed-titles/`),
-      ]);
+      const searchRes = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
       const data = await searchRes.json();
       if (!searchRes.ok) {
         setError(data.error || `Request failed: ${searchRes.status}`);
@@ -80,12 +76,6 @@ function App() {
       setSelectedItem(null);
       setDetailData(null);
       setSpotifyMatches([]);
-      try {
-        const titlesData = await titlesRes.json();
-        setConsumedTitles(new Set(titlesData.titles || []));
-      } catch {
-        setConsumedTitles(new Set());
-      }
     } catch (err) {
       setError(err.message || "Request failed");
     } finally {
@@ -496,15 +486,24 @@ function App() {
           body: JSON.stringify({ consumed: next, title: titleToSave }),
         }
       );
-      if (next && titleToSave) {
-        setConsumedTitles((prev) => new Set(prev).add(titleToSave));
-      } else {
-        const titlesRes = await fetch(`${API_BASE}/api/search/consumed-titles/`);
-        const titlesData = await titlesRes.json();
-        setConsumedTitles(new Set(titlesData.titles || []));
-      }
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === selectedItem.id && (r.type || "").toLowerCase() === t
+            ? { ...r, consumed: next }
+            : r
+        )
+      );
+      setSelectedItem((prev) => (prev ? { ...prev, consumed: next } : prev));
     } catch {
       setConsumed(!next);
+      setResults((prev) =>
+        prev.map((r) =>
+          r.id === selectedItem.id && (r.type || "").toLowerCase() === t
+            ? { ...r, consumed: !next }
+            : r
+        )
+      );
+      setSelectedItem((prev) => (prev ? { ...prev, consumed: !next } : prev));
     }
   }
 
@@ -602,7 +601,7 @@ function App() {
           {results.map((item, i) => (
             <li
               key={item.id != null ? `${item.type}-${item.id}` : i}
-              className={selectedItem?.id === item.id ? "selected" : ""}
+              className={`${selectedItem?.id === item.id ? "selected" : ""} ${item.consumed ? "consumed" : ""}`}
               onClick={() => handleItemClick(item)}
             >
               {item.title}

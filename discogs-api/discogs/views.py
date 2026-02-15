@@ -34,7 +34,7 @@ def _fetch_display_title_from_discogs(resource_type, resource_id):
 
 
 class SearchAPIView(View):
-    """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON."""
+    """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON. Adds consumed flag per result."""
 
     def get(self, request):
         q = request.GET.get("q", "").strip()
@@ -55,7 +55,21 @@ class SearchAPIView(View):
                 {"error": f"Discogs API returned {response.status_code}"},
                 status=502,
             )
-        return JsonResponse(response.json())
+        data = response.json()
+        try:
+            consumed_ids = set(
+                (r["type"].lower(), str(r["discogs_id"]))
+                for r in ConsumedAlbum.objects.filter(consumed=True).values("type", "discogs_id")
+            )
+        except Exception:
+            consumed_ids = set()
+        if consumed_ids and "results" in data:
+            for r in data["results"]:
+                t = (r.get("type") or "").lower()
+                if t in ("release", "master"):
+                    rid = r.get("id")
+                    r["consumed"] = (t, str(rid)) in consumed_ids
+        return JsonResponse(data)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
