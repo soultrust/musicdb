@@ -15,6 +15,19 @@ def _normalize_artist(name):
     return re.sub(r"\s*\(\d+\)\s*$", "", (name or "").strip())
 
 
+def _normalize_title_for_match(title):
+    """Canonicalize title variations: 'Part 1'/'Pt. 1'/'#1'/'Pt 1' all become '1' for comparison."""
+    if not title:
+        return ""
+    s = (title or "").lower().strip()
+    s = re.sub(r"\bpart\s+(\d+)\b", r"\1", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bpt\.?\s*(\d+)\b", r"\1", s, flags=re.IGNORECASE)
+    s = re.sub(r"#(\d+)\b", r"\1", s)
+    s = re.sub(r"\(\s*(\d+)\s*\)", r"\1", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def _get_access_token():
     """Get Spotify access token using Client Credentials flow (cached for 1 hour)."""
     cache_key = "spotify_access_token"
@@ -67,8 +80,9 @@ def search_track(query, artist=None, limit=5):
     """
     access_token = _get_access_token()
     
-    # Clean up track title - remove common suffixes that might not be in Spotify
+    # Clean up track title - remove common suffixes, canonicalize "Part 1"/"#1" etc for search
     clean_query = re.sub(r'\s*\([^)]*\)\s*$', '', query).strip()
+    clean_query = _normalize_title_for_match(clean_query) or clean_query
     
     # Build search query: "track:name artist:artist" or just "track:name"
     search_query = f'track:"{clean_query}"'
@@ -122,9 +136,14 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
         spotify_title = track.get("name", "").lower().strip()
         spotify_artists = [a.get("name", "").lower().strip() for a in track.get("artists", [])]
         
+        discogs_title_norm = _normalize_title_for_match(discogs_title)
+        spotify_title_norm = _normalize_title_for_match(track.get("name", ""))
         # Exact title match gets high score
         if discogs_title_lower == spotify_title:
             score += 100
+        # Normalized title match (e.g. "Part 1" vs "#1") - same song, different spelling
+        elif discogs_title_norm and discogs_title_norm == spotify_title_norm:
+            score += 95
         # Title contains or is contained (partial match)
         elif discogs_title_lower in spotify_title or spotify_title in discogs_title_lower:
             score += 50
