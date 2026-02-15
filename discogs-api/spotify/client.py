@@ -8,6 +8,13 @@ from django.core.cache import cache
 import re
 
 
+def _normalize_artist(name):
+    """Strip Discogs disambiguation suffix like ' (2)' or ' (3)' from artist name."""
+    if not name:
+        return ""
+    return re.sub(r"\s*\(\d+\)\s*$", "", (name or "").strip())
+
+
 def _get_access_token():
     """Get Spotify access token using Client Credentials flow (cached for 1 hour)."""
     cache_key = "spotify_access_token"
@@ -66,8 +73,9 @@ def search_track(query, artist=None, limit=5):
     # Build search query: "track:name artist:artist" or just "track:name"
     search_query = f'track:"{clean_query}"'
     if artist:
-        # Use the artist name in quotes for exact match
-        search_query += f' artist:"{artist}"'
+        clean_artist = _normalize_artist(artist)
+        if clean_artist:
+            search_query += f' artist:"{clean_artist}"'
     
     response = requests.get(
         "https://api.spotify.com/v1/search",
@@ -101,9 +109,9 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
     if not spotify_results:
         return None
     
-    # Normalize for comparison
+    # Normalize for comparison (strip Discogs disambiguation suffixes like " (2)")
     discogs_title_lower = discogs_title.lower().strip()
-    discogs_artists_lower = [a.lower().strip() for a in discogs_artists]
+    discogs_artists_lower = [_normalize_artist(a).lower() for a in discogs_artists]
     
     # Score each result
     best_match = None
