@@ -1,11 +1,11 @@
-# Deployment Guide: Render.com + Neon PostgreSQL
+# Deployment Guide: Render.com & Railway + Neon PostgreSQL
 
-This guide will help you deploy your music database app to Render.com with Neon PostgreSQL.
+This guide will help you deploy your music database app to either Render.com or Railway with Neon PostgreSQL.
 
 ## Prerequisites
 
 - A GitHub account (or GitLab/Bitbucket)
-- A Render.com account
+- A Render.com account OR Railway account (or both!)
 - A Neon account (free tier works great)
 
 ## Step 1: Set Up Neon PostgreSQL Database
@@ -138,9 +138,124 @@ If you have a frontend:
 
 For production use, consider Render Starter ($7/month) to avoid cold starts.
 
+---
+
+## Alternative: Deploy to Railway + Neon PostgreSQL
+
+Railway offers a free trial with $5 credits, then $1/month free credits. It's great for comparing with Render!
+
+### Step 1: Set Up Neon PostgreSQL Database
+
+(Same as above - use Neon for both platforms)
+
+### Step 2: Push Code to GitHub
+
+(Same as above)
+
+### Step 3: Deploy to Railway
+
+1. Go to [Railway Dashboard](https://railway.app)
+2. Click "New Project"
+3. Select "Deploy from GitHub repo"
+4. Connect your GitHub repository
+5. Railway will auto-detect Django and use `railway.json` configuration
+6. Set environment variables (see below)
+
+### Step 4: Configure Environment Variables
+
+In Railway dashboard, go to your service → Variables → Add:
+
+**Required Variables:**
+- `SECRET_KEY`: Generate with `python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"`
+- `DATABASE_URL`: Your Neon connection string from Step 1
+- `DEBUG`: `False`
+- `ALLOWED_HOSTS`: Your Railway URL (e.g., `soultrust-musicdb-production.up.railway.app`) - **Update after first deployment**
+- `DISCOGS_USER_AGENT`: Your Discogs app name (e.g., `SoulTrustMusicDB/1.0`)
+
+**Optional Variables:**
+- `DISCOGS_TOKEN`: Your Discogs API token (if you have one)
+- `GEMINI_API_KEY`: Your Google Gemini API key (for AI overviews)
+- `SPOTIFY_CLIENT_ID`: Your Spotify client ID
+- `SPOTIFY_CLIENT_SECRET`: Your Spotify client secret
+- `CORS_ALLOW_ALL_ORIGINS`: `False` (for production)
+- `CORS_ALLOWED_ORIGINS`: Your frontend URL
+
+### Step 5: Run Database Migrations
+
+**Option A: Using Railway CLI (Recommended)**
+1. Install Railway CLI: `npm i -g @railway/cli`
+2. Login: `railway login`
+3. Link project: `railway link`
+4. Run migrations: `railway run python discogs-api/manage.py migrate`
+
+**Option B: Using Railway Dashboard**
+1. In Railway dashboard, go to your service
+2. Click "Deployments" → Select latest deployment → "View Logs"
+3. Or use the "Shell" option if available
+
+### Step 6: Create Superuser (Optional)
+
+```bash
+railway run python discogs-api/manage.py createsuperuser
+```
+
+### Step 7: Update ALLOWED_HOSTS
+
+After deployment, Railway will give you a URL like `https://soultrust-musicdb-production.up.railway.app`. Update the `ALLOWED_HOSTS` environment variable in Railway with this exact URL.
+
+### Railway vs Render Comparison
+
+| Feature | Railway | Render |
+|---------|---------|--------|
+| Free Tier | $5 trial, then $1/month credits | 750 hours/month |
+| Cold Start | ~10-30 seconds | ~30-60 seconds |
+| Sleep Timeout | 10 minutes | 15 minutes |
+| Always-On | Hobby: $5/month | Starter: $7/month |
+| Ease of Use | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| Auto-Detection | Excellent (Django, Node, etc.) | Good (needs config) |
+
+### Railway Troubleshooting
+
+**Database Connection Issues:**
+- Ensure `DATABASE_URL` is set correctly
+- Neon allows connections from Railway by default
+- Verify SSL mode in connection string (`?sslmode=require`)
+
+**Static Files:**
+- Railway auto-runs `collectstatic` if configured in `railway.json`
+- Check `STATIC_ROOT` in settings.py
+
+**Service Sleeping:**
+- Free tier services sleep after 10 min inactivity
+- Upgrade to Hobby ($5/month) to disable sleep
+- Or keep service awake with periodic requests
+
+**Build Failures:**
+- Check Railway build logs in dashboard
+- Ensure all dependencies in `requirements.txt`
+- Railway auto-detects Python version, but you can specify in `runtime.txt` if needed
+
+**Railway CLI Issues:**
+- Make sure you're logged in: `railway login`
+- Link to correct project: `railway link`
+- Check you're in the right directory
+
+## Cost Comparison
+
+### Free Tier
+- **Render**: 750 hours/month (shared across services)
+- **Railway**: $5 trial credits, then $1/month credits
+
+### Always-On Plans
+- **Render Starter**: $7/month
+- **Railway Hobby**: $5/month
+
+Both platforms work excellently with Neon PostgreSQL!
+
 ## Next Steps
 
-1. Set up monitoring (Render provides basic logs)
+1. Set up monitoring (both platforms provide logs)
 2. Configure custom domain (optional)
 3. Set up automated backups for Neon database
-4. Consider upgrading to Render Starter plan for always-on service
+4. Compare performance and choose your preferred platform
+5. Consider upgrading to always-on plan when ready for production
