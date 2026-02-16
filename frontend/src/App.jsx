@@ -489,7 +489,7 @@ function App() {
         : detailData?.title || selectedItem?.title || ""
     ).trim();
     try {
-      await fetch(
+      const res = await fetch(
         `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
         {
           method: "POST",
@@ -497,6 +497,14 @@ function App() {
           body: JSON.stringify({ consumed: next, title: titleToSave }),
         }
       );
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        console.error('Failed to toggle consumed:', errorData);
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
+      
+      const data = await res.json().catch(() => ({}));
       setResults((prev) =>
         prev.map((r) =>
           r.id === selectedItem.id && (r.type || "").toLowerCase() === t
@@ -505,7 +513,8 @@ function App() {
         )
       );
       setSelectedItem((prev) => (prev ? { ...prev, consumed: next } : prev));
-    } catch {
+    } catch (err) {
+      console.error('Error toggling consumed status:', err);
       setConsumed(!next);
       setResults((prev) =>
         prev.map((r) =>
