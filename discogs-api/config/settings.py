@@ -26,7 +26,8 @@ env = environ.Env(
 environ.Env.read_env(BASE_DIR / '.env')
 
 # Now use env variables instead of hardcoded values
-SECRET_KEY = env('SECRET_KEY')
+# SECRET_KEY is required, but allow a dummy value during build/collectstatic
+SECRET_KEY = env('SECRET_KEY', default='dummy-key-for-build-only-replace-in-production')
 DEBUG = env('DEBUG')
 
 # Allow Render domain and localhost for development
