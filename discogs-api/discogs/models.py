@@ -25,6 +25,7 @@ class AlbumOverview(models.Model):
     artist = models.CharField(max_length=255)
     album = models.CharField(max_length=255)
     overview = models.TextField()
+    source = models.CharField(max_length=50, default='unknown')  # 'gemini', 'wikipedia', 'cache', etc.
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
