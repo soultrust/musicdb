@@ -190,6 +190,7 @@ function App() {
 
     const scopes = "streaming user-read-email user-read-private";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
+    console.log('Spotify Redirect URI being used:', SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
     
     // Open in popup so the main page stays visible
