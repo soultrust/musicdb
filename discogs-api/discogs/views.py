@@ -508,8 +508,17 @@ class ListsView(APIView):
 
     def get(self, request):
         """Get all lists for the current user."""
-        lists = List.objects.filter(user=request.user).values("id", "name", "created_at", "updated_at")
-        return Response({"lists": list(lists)})
+        lists = List.objects.filter(user=request.user).order_by("-updated_at")
+        lists_data = [
+            {
+                "id": lst.id,
+                "name": lst.name,
+                "created_at": lst.created_at.isoformat() if lst.created_at else None,
+                "updated_at": lst.updated_at.isoformat() if lst.updated_at else None,
+            }
+            for lst in lists
+        ]
+        return Response({"lists": lists_data})
 
     def post(self, request):
         """Create a new list."""
@@ -526,7 +535,12 @@ class ListsView(APIView):
             )
         list_obj = List.objects.create(user=request.user, name=name)
         return Response(
-            {"id": list_obj.id, "name": list_obj.name, "created_at": list_obj.created_at, "updated_at": list_obj.updated_at},
+            {
+                "id": list_obj.id,
+                "name": list_obj.name,
+                "created_at": list_obj.created_at.isoformat() if list_obj.created_at else None,
+                "updated_at": list_obj.updated_at.isoformat() if list_obj.updated_at else None,
+            },
             status=status.HTTP_201_CREATED,
         )
 
