@@ -571,10 +571,10 @@ class ListItemsView(APIView):
     def post(self, request):
         """Add an album to selected lists."""
         try:
-            resource_type = (request.data.get("type") or "").strip().lower()
-            resource_id = (request.data.get("id") or "").strip()
+            resource_type = str(request.data.get("type") or "").strip().lower()
+            resource_id = str(request.data.get("id") or "").strip()
             list_ids = request.data.get("list_ids", [])
-            title = (request.data.get("title") or "").strip()
+            title = str(request.data.get("title") or "").strip()
 
             if not resource_type or not resource_id:
                 return Response(
