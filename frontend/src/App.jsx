@@ -809,8 +809,6 @@ function App() {
                 {loading ? "Searching…" : "Search"}
               </button>
             </form>
-          )}
-          {isConsumedPage && <p className="sidebar-label">Albums you’ve marked as consumed</p>}
           {error && <p className="error">{error}</p>}
           {loading && <p className="detail-loading">Loading…</p>}
           <ul className="results">
