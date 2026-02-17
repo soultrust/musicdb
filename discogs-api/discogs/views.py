@@ -531,27 +531,37 @@ class ListsView(APIView):
 
     def post(self, request):
         """Create a new list."""
-        name = (request.data.get("name") or "").strip()
-        if not name:
+        try:
+            name = (request.data.get("name") or "").strip()
+            if not name:
+                return Response(
+                    {"error": "List name is required"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if List.objects.filter(user=request.user, name=name).exists():
+                return Response(
+                    {"error": "A list with this name already exists"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            list_obj = List.objects.create(user=request.user, name=name)
             return Response(
-                {"error": "List name is required"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {
+                    "id": list_obj.id,
+                    "name": list_obj.name,
+                    "created_at": list_obj.created_at.isoformat() if list_obj.created_at else None,
+                    "updated_at": list_obj.updated_at.isoformat() if list_obj.updated_at else None,
+                },
+                status=status.HTTP_201_CREATED,
             )
-        if List.objects.filter(user=request.user, name=name).exists():
+        except Exception as e:
+            import traceback
+            error_msg = {"error": f"Failed to create list: {str(e)}"}
+            if settings.DEBUG:
+                error_msg["traceback"] = traceback.format_exc()
             return Response(
-                {"error": "A list with this name already exists"},
-                status=status.HTTP_400_BAD_REQUEST,
+                error_msg,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        list_obj = List.objects.create(user=request.user, name=name)
-        return Response(
-            {
-                "id": list_obj.id,
-                "name": list_obj.name,
-                "created_at": list_obj.created_at.isoformat() if list_obj.created_at else None,
-                "updated_at": list_obj.updated_at.isoformat() if list_obj.updated_at else None,
-            },
-            status=status.HTTP_201_CREATED,
-        )
 
 
 class ListItemsView(APIView):
@@ -560,56 +570,66 @@ class ListItemsView(APIView):
 
     def post(self, request):
         """Add an album to selected lists."""
-        resource_type = (request.data.get("type") or "").strip().lower()
-        resource_id = (request.data.get("id") or "").strip()
-        list_ids = request.data.get("list_ids", [])
-        title = (request.data.get("title") or "").strip()
+        try:
+            resource_type = (request.data.get("type") or "").strip().lower()
+            resource_id = (request.data.get("id") or "").strip()
+            list_ids = request.data.get("list_ids", [])
+            title = (request.data.get("title") or "").strip()
 
-        if not resource_type or not resource_id:
+            if not resource_type or not resource_id:
+                return Response(
+                    {"error": "Missing required parameters: type and id"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if resource_type not in ("release", "master"):
+                return Response(
+                    {"error": "type must be 'release' or 'master'"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not isinstance(list_ids, list) or not list_ids:
+                return Response(
+                    {"error": "list_ids must be a non-empty list"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Verify all lists belong to the user
+            user_lists = List.objects.filter(user=request.user, id__in=list_ids)
+            if user_lists.count() != len(list_ids):
+                return Response(
+                    {"error": "One or more lists not found or do not belong to you"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Fetch title from Discogs if not provided
+            if not title:
+                title = _fetch_display_title_from_discogs(resource_type, resource_id)
+
+            # Add item to each selected list
+            added_to = []
+            for list_obj in user_lists:
+                item, created = ListItem.objects.get_or_create(
+                    list=list_obj,
+                    type=resource_type,
+                    discogs_id=str(resource_id),
+                    defaults={"title": title},
+                )
+                if created:
+                    added_to.append(list_obj.id)
+                # Update title if it was empty
+                elif not item.title and title:
+                    item.title = title
+                    item.save()
+
+            return Response({"added_to": added_to, "message": f"Added to {len(added_to)} list(s)"})
+        except Exception as e:
+            import traceback
+            error_msg = {"error": f"Failed to add to lists: {str(e)}"}
+            if settings.DEBUG:
+                error_msg["traceback"] = traceback.format_exc()
             return Response(
-                {"error": "Missing required parameters: type and id"},
-                status=status.HTTP_400_BAD_REQUEST,
+                error_msg,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        if resource_type not in ("release", "master"):
-            return Response(
-                {"error": "type must be 'release' or 'master'"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not isinstance(list_ids, list) or not list_ids:
-            return Response(
-                {"error": "list_ids must be a non-empty list"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Verify all lists belong to the user
-        user_lists = List.objects.filter(user=request.user, id__in=list_ids)
-        if user_lists.count() != len(list_ids):
-            return Response(
-                {"error": "One or more lists not found or do not belong to you"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Fetch title from Discogs if not provided
-        if not title:
-            title = _fetch_display_title_from_discogs(resource_type, resource_id)
-
-        # Add item to each selected list
-        added_to = []
-        for list_obj in user_lists:
-            item, created = ListItem.objects.get_or_create(
-                list=list_obj,
-                type=resource_type,
-                discogs_id=str(resource_id),
-                defaults={"title": title},
-            )
-            if created:
-                added_to.append(list_obj.id)
-            # Update title if it was empty
-            elif not item.title and title:
-                item.title = title
-                item.save()
-
-        return Response({"added_to": added_to, "message": f"Added to {len(added_to)} list(s)"})
 
 
 class ListItemsCheckView(APIView):
