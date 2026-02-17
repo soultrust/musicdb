@@ -44,3 +44,46 @@ class AlbumOverview(models.Model):
 
     def __str__(self):
         return f"{self.artist} - {self.album} ({self.source})"
+
+
+class List(models.Model):
+    """
+    User-created lists for organizing albums.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="lists",
+    )
+    name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "name")
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.name}"
+
+
+class ListItem(models.Model):
+    """
+    Items (albums) in a user's list.
+    """
+    list = models.ForeignKey(
+        List,
+        on_delete=models.CASCADE,
+        related_name="items",
+    )
+    type = models.CharField(max_length=20)  # 'release' or 'master'
+    discogs_id = models.CharField(max_length=32)
+    title = models.CharField(max_length=512, blank=True)  # search result title for display
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("list", "type", "discogs_id")
+        ordering = ["-added_at"]
+
+    def __str__(self):
+        return f"{self.list.name} - {self.type}-{self.discogs_id}"

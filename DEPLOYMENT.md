@@ -47,7 +47,7 @@ git push origin main
    - **Name**: `soultrust-musicdb-api`
    - **Environment**: `Python 3`
    - **Build Command**: `pip install -r discogs-api/requirements.txt && cd discogs-api && python manage.py collectstatic --noinput`
-   - **Start Command**: `cd discogs-api && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+   - **Start Command**: `cd discogs-api && python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
    - **Root Directory**: Leave empty (or set to `discogs-api` if you prefer)
 
 ## Step 4: Configure Environment Variables
@@ -71,17 +71,9 @@ In Render dashboard, go to your service → Environment → Add the following:
 - `CORS_ALLOW_ALL_ORIGINS`: `False` (for production)
 - `CORS_ALLOWED_ORIGINS`: Your frontend URL (e.g., `https://soultrust-musicdb.onrender.com`)
 
-## Step 5: Run Database Migrations
+## Step 5: Database Migrations (No Shell Required)
 
-After your first deployment, run migrations:
-
-1. In Render dashboard, go to your service
-2. Click "Shell" tab
-3. Run:
-   ```bash
-   cd discogs-api
-   python manage.py migrate
-   ```
+Migrations run automatically every time the service starts. The start command runs `python manage.py migrate --noinput` before starting Gunicorn, so new migrations are applied on each deploy and when the service wakes from sleep. You don’t need (or need to pay for) the Shell.
 
 ## Step 6: Create Superuser (Optional)
 
