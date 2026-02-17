@@ -508,17 +508,26 @@ class ListsView(APIView):
 
     def get(self, request):
         """Get all lists for the current user."""
-        lists = List.objects.filter(user=request.user).order_by("-updated_at")
-        lists_data = [
-            {
-                "id": lst.id,
-                "name": lst.name,
-                "created_at": lst.created_at.isoformat() if lst.created_at else None,
-                "updated_at": lst.updated_at.isoformat() if lst.updated_at else None,
-            }
-            for lst in lists
-        ]
-        return Response({"lists": lists_data})
+        try:
+            lists = List.objects.filter(user=request.user).order_by("-updated_at")
+            lists_data = []
+            for lst in lists:
+                lists_data.append({
+                    "id": lst.id,
+                    "name": lst.name,
+                    "created_at": lst.created_at.isoformat() if lst.created_at else None,
+                    "updated_at": lst.updated_at.isoformat() if lst.updated_at else None,
+                })
+            return Response({"lists": lists_data})
+        except Exception as e:
+            import traceback
+            error_msg = {"error": f"Failed to load lists: {str(e)}"}
+            if settings.DEBUG:
+                error_msg["traceback"] = traceback.format_exc()
+            return Response(
+                error_msg,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
     def post(self, request):
         """Create a new list."""
