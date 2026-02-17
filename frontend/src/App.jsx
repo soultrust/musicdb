@@ -10,7 +10,8 @@ const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const AUTH_REFRESH_KEY = "soultrust_refresh_token";
 
-const isConsumedPage = typeof window !== "undefined" && window.location.pathname === "/consumed";
+// Removed consumed page - replaced with lists feature
+const isConsumedPage = false; // Kept for compatibility but always false
 
 function App() {
   const [accessToken, setAccessToken] = useState(null);
@@ -18,7 +19,7 @@ function App() {
   const [authError, setAuthError] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(isConsumedPage);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
@@ -47,13 +48,18 @@ function App() {
   });
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTriggeredRef = useRef(false);
-  const [consumed, setConsumed] = useState(false);
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
   const [authMode, setAuthMode] = useState("login");
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [showListModal, setShowListModal] = useState(false);
+  const [lists, setLists] = useState([]);
+  const [selectedListIds, setSelectedListIds] = useState([]);
+  const [newListName, setNewListName] = useState("");
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState(null);
 
   function logout() {
     setAccessToken(null);
@@ -153,21 +159,7 @@ function App() {
     return () => { cancelled = true; };
   }, []);
 
-  // On /consumed, load the consumed list once (when logged in)
-  useEffect(() => {
-    if (!isConsumedPage || !accessToken) return;
-    setLoading(true);
-    setError(null);
-    authFetch(`${API_BASE}/api/search/consumed-list/`)
-      .then((res) => res.json())
-      .then((data) => {
-        setResults(data.results || []);
-        setSelectedItem(null);
-        setDetailData(null);
-      })
-      .catch((err) => setError(err.message || "Failed to load consumed list"))
-      .finally(() => setLoading(false));
-  }, [isConsumedPage, accessToken]);
+  // Removed consumed list loading - replaced with lists feature
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -215,7 +207,7 @@ function App() {
         return;
       }
       setDetailData(data);
-      setConsumed(false);
+      // Removed consumed state
 
       // If it's a release with tracks, match them to Spotify
       if (data.tracklist && data.tracklist.length > 0 && data.artists) {
@@ -567,69 +559,122 @@ function App() {
     }
   }, [likedTracks]);
 
-  // Fetch consumed status when viewing an album (release or master)
+  // Load user's lists when modal opens
   useEffect(() => {
-    if (!selectedItem || !detailData) return;
-    const t = (selectedItem.type || "").toLowerCase();
-    if (t !== "release" && t !== "master") return;
-
-    authFetch(
-      `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
-    )
+    if (!showListModal || !accessToken) return;
+    setListLoading(true);
+    setListError(null);
+    authFetch(`${API_BASE}/api/search/lists/`)
       .then((res) => res.json())
-      .then((data) => setConsumed(data.consumed === true))
-      .catch(() => setConsumed(false));
-  }, [selectedItem, detailData]);
+      .then((data) => {
+        setLists(data.lists || []);
+        // Check which lists already contain this album
+        if (selectedItem) {
+          const t = (selectedItem.type || "").toLowerCase();
+          if (t === "release" || t === "master") {
+            authFetch(
+              `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
+            )
+              .then((res) => res.json())
+              .then((checkData) => setSelectedListIds(checkData.list_ids || []))
+              .catch(() => setSelectedListIds([]));
+          }
+        }
+      })
+      .catch((err) => {
+        setListError(err.message || "Failed to load lists");
+        setLists([]);
+      })
+      .finally(() => setListLoading(false));
+  }, [showListModal, accessToken, selectedItem]);
 
-  // Toggle consumed status
-  async function toggleConsumed() {
+  // Handle opening list modal
+  function handleAddToList() {
     if (!selectedItem) return;
     const t = (selectedItem.type || "").toLowerCase();
     if (t !== "release" && t !== "master") return;
+    setShowListModal(true);
+    setNewListName("");
+    setListError(null);
+  }
 
-    const next = !consumed;
-    setConsumed(next);
+  // Handle closing modal
+  function handleCloseListModal() {
+    setShowListModal(false);
+    setSelectedListIds([]);
+    setNewListName("");
+    setListError(null);
+  }
+
+  // Toggle list selection
+  function toggleListSelection(listId) {
+    setSelectedListIds((prev) =>
+      prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId]
+    );
+  }
+
+  // Create new list
+  async function handleCreateList(e) {
+    e.preventDefault();
+    const name = newListName.trim();
+    if (!name) return;
+    setListLoading(true);
+    setListError(null);
+    try {
+      const res = await authFetch(`${API_BASE}/api/search/lists/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        throw new Error(errorData.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      setLists((prev) => [data, ...prev]);
+      setSelectedListIds((prev) => [...prev, data.id]);
+      setNewListName("");
+    } catch (err) {
+      setListError(err.message || "Failed to create list");
+    } finally {
+      setListLoading(false);
+    }
+  }
+
+  // Add album to selected lists
+  async function handleAddToLists() {
+    if (!selectedItem || selectedListIds.length === 0) return;
+    const t = (selectedItem.type || "").toLowerCase();
+    if (t !== "release" && t !== "master") return;
+
     const titleToSave = (
       detailData?.artists?.length && detailData?.title
         ? `${detailData.artists.map((a) => a.name).join(", ")} - ${detailData.title}`
         : detailData?.title || selectedItem?.title || ""
     ).trim();
+
+    setListLoading(true);
+    setListError(null);
     try {
-      const res = await authFetch(
-        `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ consumed: next, title: titleToSave }),
-        }
-      );
-      
+      const res = await authFetch(`${API_BASE}/api/search/lists/items/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: t,
+          id: selectedItem.id,
+          list_ids: selectedListIds,
+          title: titleToSave,
+        }),
+      });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        console.error('Failed to toggle consumed:', errorData);
         throw new Error(errorData.error || `HTTP ${res.status}`);
       }
-      
-      const data = await res.json().catch(() => ({}));
-      setResults((prev) =>
-        prev.map((r) =>
-          r.id === selectedItem.id && (r.type || "").toLowerCase() === t
-            ? { ...r, consumed: next }
-            : r
-        )
-      );
-      setSelectedItem((prev) => (prev ? { ...prev, consumed: next } : prev));
+      handleCloseListModal();
     } catch (err) {
-      console.error('Error toggling consumed status:', err);
-      setConsumed(!next);
-      setResults((prev) =>
-        prev.map((r) =>
-          r.id === selectedItem.id && (r.type || "").toLowerCase() === t
-            ? { ...r, consumed: !next }
-            : r
-        )
-      );
-      setSelectedItem((prev) => (prev ? { ...prev, consumed: !next } : prev));
+      setListError(err.message || "Failed to add to lists");
+    } finally {
+      setListLoading(false);
     }
   }
 
@@ -688,7 +733,7 @@ function App() {
       <div className="app">
         <div className="auth-screen">
           <h1>Soultrust MusicDB</h1>
-          <p className="auth-subtitle">Sign in to search and manage your consumed albums.</p>
+          <p className="auth-subtitle">Sign in to search and manage your music lists.</p>
           <form onSubmit={handleAuthSubmit} className="auth-form">
             <input
               type="email"
@@ -729,7 +774,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>{isConsumedPage ? "Consumed" : "Soultrust MusicDB"}</h1>
+        <h1>Soultrust MusicDB</h1>
         {spotifyToken && deviceId ? (
           <div className="spotify-controls">
             <span className="spotify-status">Spotify Connected</span>
@@ -751,8 +796,7 @@ function App() {
       </div>
       <div className="content">
         <div className="sidebar">
-          {!isConsumedPage && (
-            <form onSubmit={handleSubmit} className="search-form">
+          <form onSubmit={handleSubmit} className="search-form">
               <input
                 type="search"
                 value={query}
@@ -768,12 +812,12 @@ function App() {
           )}
           {isConsumedPage && <p className="sidebar-label">Albums you’ve marked as consumed</p>}
           {error && <p className="error">{error}</p>}
-          {loading && isConsumedPage && <p className="detail-loading">Loading consumed list…</p>}
+          {loading && <p className="detail-loading">Loading…</p>}
           <ul className="results">
           {results.map((item, i) => (
             <li
               key={item.id != null ? `${item.type}-${item.id}` : i}
-              className={`${selectedItem?.id === item.id ? "selected" : ""} ${item.consumed ? "consumed" : ""}`}
+              className={selectedItem?.id === item.id ? "selected" : ""}
               onClick={() => handleItemClick(item)}
             >
               {item.title}
@@ -865,23 +909,12 @@ function App() {
                         {(detailData.uri || selectedItem?.type === "release" || selectedItem?.type === "master") && (
                           <div className="detail-row detail-row-links">
                             {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
-                              <label
-                                className="consumed-checkbox"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  toggleConsumed();
-                                }}
+                              <button
+                                onClick={handleAddToList}
+                                className="add-to-list-btn"
                               >
-                                <input
-                                  type="checkbox"
-                                  checked={consumed}
-                                  readOnly
-                                  tabIndex={-1}
-                                  aria-label="Mark album as consumed"
-                                />
-                                <span className="consumed-checkbox-box" />
-                                <span className="consumed-checkbox-label">Consumed</span>
-                              </label>
+                                Add to List
+                              </button>
                             )}
                             {detailData.uri && (
                               <a
@@ -1000,6 +1033,70 @@ function App() {
           </div>
         )}
       </div>
+      {showListModal && (
+        <div className="modal-overlay" onClick={handleCloseListModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Add to List</h2>
+              <button className="modal-close" onClick={handleCloseListModal}>×</button>
+            </div>
+            <div className="modal-body">
+              {listLoading && lists.length === 0 ? (
+                <p className="detail-loading">Loading lists…</p>
+              ) : (
+                <>
+                  {lists.length > 0 && (
+                    <div className="lists-checkbox-group">
+                      <p className="lists-label">Select lists:</p>
+                      {lists.map((list) => (
+                        <label key={list.id} className="list-checkbox">
+                          <input
+                            type="checkbox"
+                            checked={selectedListIds.includes(list.id)}
+                            onChange={() => toggleListSelection(list.id)}
+                            disabled={listLoading}
+                          />
+                          <span className="list-checkbox-box" />
+                          <span className="list-checkbox-label">{list.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <form onSubmit={handleCreateList} className="create-list-form">
+                    <label htmlFor="new-list-name">Create a new list</label>
+                    <div className="create-list-input-group">
+                      <input
+                        id="new-list-name"
+                        type="text"
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        placeholder="List name"
+                        disabled={listLoading}
+                      />
+                      <button type="submit" disabled={listLoading || !newListName.trim()}>
+                        Create
+                      </button>
+                    </div>
+                  </form>
+                  {listError && <p className="error">{listError}</p>}
+                  <div className="modal-actions">
+                    <button
+                      onClick={handleAddToLists}
+                      disabled={listLoading || selectedListIds.length === 0}
+                      className="add-to-lists-btn"
+                    >
+                      {listLoading ? "Adding…" : `Add to ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`}
+                    </button>
+                    <button onClick={handleCloseListModal} className="modal-cancel-btn">
+                      Cancel
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

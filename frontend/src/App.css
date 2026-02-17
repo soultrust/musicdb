@@ -723,3 +723,247 @@
 .auth-toggle:hover {
   color: #a3a3a3;
 }
+
+.add-to-list-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid #525252;
+  border-radius: 6px;
+  background: transparent;
+  color: #e5e5e5;
+  cursor: pointer;
+}
+
+.add-to-list-btn:hover {
+  background: #262626;
+  border-color: #737373;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #1a1a1a;
+  border: 1px solid #262626;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #262626;
+}
+
+.modal-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: #a3a3a3;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: #e5e5e5;
+}
+
+.modal-body {
+  padding: 1.5rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.lists-checkbox-group {
+  margin-bottom: 1.5rem;
+}
+
+.lists-label {
+  font-size: 0.9rem;
+  color: #a3a3a3;
+  margin: 0 0 0.75rem;
+}
+
+.list-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  padding: 0.5rem 0;
+}
+
+.list-checkbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.list-checkbox-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  border: 2px solid #525252;
+  background: transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.list-checkbox:has(input:checked) .list-checkbox-box {
+  background: #1db954;
+  border-color: #1db954;
+}
+
+.list-checkbox:has(input:checked) .list-checkbox-box::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-bottom: 2px;
+  border: solid #000;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.list-checkbox:hover .list-checkbox-box {
+  border-color: #737373;
+}
+
+.list-checkbox-label {
+  font-size: 0.9rem;
+  color: #e5e5e5;
+}
+
+.create-list-form {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #262626;
+}
+
+.create-list-form label {
+  display: block;
+  font-size: 0.9rem;
+  color: #a3a3a3;
+  margin-bottom: 0.5rem;
+}
+
+.create-list-input-group {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.create-list-input-group input {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  border: 1px solid #525252;
+  border-radius: 6px;
+  background: #262626;
+  color: #fff;
+}
+
+.create-list-input-group input::placeholder {
+  color: #737373;
+}
+
+.create-list-input-group button {
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #1db954;
+  color: #000;
+  cursor: pointer;
+}
+
+.create-list-input-group button:hover:not(:disabled) {
+  background: #1ed760;
+}
+
+.create-list-input-group button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #262626;
+}
+
+.add-to-lists-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #1db954;
+  color: #000;
+  cursor: pointer;
+}
+
+.add-to-lists-btn:hover:not(:disabled) {
+  background: #1ed760;
+}
+
+.add-to-lists-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modal-cancel-btn {
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  border: 1px solid #525252;
+  border-radius: 6px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.modal-cancel-btn:hover {
+  background: #262626;
+  color: #e5e5e5;
+}
