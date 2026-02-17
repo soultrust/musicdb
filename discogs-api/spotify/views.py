@@ -1,47 +1,35 @@
-from django.http import JsonResponse
-from django.views import View
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 import json
 import requests
 import base64
 from django.conf import settings
+from django.http import JsonResponse
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 
 from .client import search_track, find_best_match
 
 
 @method_decorator(csrf_exempt, name='dispatch')
-class MatchTracksAPIView(View):
+class MatchTracksAPIView(APIView):
     """
     POST /api/spotify/match-tracks/ — match Discogs tracks to Spotify tracks.
-    
-    Body: {
-        "tracks": [
-            {"title": "Song Name", "artists": ["Artist Name"]},
-            ...
-        ]
-    }
-    
-    Returns: {
-        "matches": [
-            {
-                "discogs_title": "Song Name",
-                "spotify_track": {id, name, artists, uri, preview_url, ...} or null
-            },
-            ...
-        ]
-    }
     """
-    
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
-            data = json.loads(request.body)
+            data = request.data
             tracks = data.get("tracks", [])
             
             if not tracks:
-                return JsonResponse(
+                return Response(
                     {"error": "Missing 'tracks' array in request body"},
-                    status=400,
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             
             matches = []
@@ -68,24 +56,18 @@ class MatchTracksAPIView(View):
                         "spotify_track": spotify_track,
                     })
                 except Exception as e:
-                    # If search fails, return null for this track
                     matches.append({
                         "discogs_title": title,
                         "spotify_track": None,
                         "error": str(e),
                     })
             
-            return JsonResponse({"matches": matches})
+            return Response({"matches": matches})
             
-        except json.JSONDecodeError:
-            return JsonResponse(
-                {"error": "Invalid JSON in request body"},
-                status=400,
-            )
         except Exception as e:
-            return JsonResponse(
+            return Response(
                 {"error": str(e)},
-                status=500,
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 

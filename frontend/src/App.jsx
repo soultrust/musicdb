@@ -8,10 +8,14 @@ const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 // Remove trailing slash from redirect URI to match Spotify's exact matching requirement
 const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000").replace(/\/$/, '');
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
+const AUTH_REFRESH_KEY = "soultrust_refresh_token";
 
 const isConsumedPage = typeof window !== "undefined" && window.location.pathname === "/consumed";
 
 function App() {
+  const [accessToken, setAccessToken] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(isConsumedPage);
@@ -46,13 +50,115 @@ function App() {
   const [consumed, setConsumed] = useState(false);
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
+  const [authMode, setAuthMode] = useState("login");
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // On /consumed, load the consumed list once
+  function logout() {
+    setAccessToken(null);
+    setUser(null);
+    setAuthError(null);
+    localStorage.removeItem(AUTH_REFRESH_KEY);
+  }
+
+  async function refreshAccessToken() {
+    const refresh = localStorage.getItem(AUTH_REFRESH_KEY);
+    if (!refresh) return false;
+    const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    setAccessToken(data.access);
+    return true;
+  }
+
+  async function authFetch(url, options = {}) {
+    const headers = { ...options.headers };
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    let res = await fetch(url, { ...options, headers });
+    if (res.status === 401) {
+      const refresh = localStorage.getItem(AUTH_REFRESH_KEY);
+      if (refresh) {
+        const refreshRes = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh }),
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshData.access) {
+          setAccessToken(refreshData.access);
+          const retryHeaders = { ...options.headers, Authorization: `Bearer ${refreshData.access}` };
+          res = await fetch(url, { ...options, headers: retryHeaders });
+        }
+      }
+      if (res.status === 401) logout();
+    }
+    return res;
+  }
+
+  async function handleAuthSubmit(e) {
+    e.preventDefault();
+    setAuthError(null);
+    const email = (authEmail || "").trim().toLowerCase();
+    const password = authPassword;
+    if (!email || !password) {
+      setAuthError("Email and password are required.");
+      return;
+    }
+    setAuthLoading(true);
+    try {
+      const endpoint = authMode === "register" ? `${API_BASE}/api/auth/register/` : `${API_BASE}/api/auth/login/`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAuthError(data.error || "Something went wrong.");
+        return;
+      }
+      if (data.access) setAccessToken(data.access);
+      if (data.refresh) localStorage.setItem(AUTH_REFRESH_KEY, data.refresh);
+      if (data.user) setUser(data.user);
+      setAuthError(null);
+    } catch (err) {
+      setAuthError(err.message || "Request failed.");
+    } finally {
+      setAuthLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!isConsumedPage) return;
+    let cancelled = false;
+    (async () => {
+      const refresh = localStorage.getItem(AUTH_REFRESH_KEY);
+      if (!refresh) return;
+      const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      });
+      if (cancelled || !res.ok) {
+        if (!res.ok) localStorage.removeItem(AUTH_REFRESH_KEY);
+        return;
+      }
+      const data = await res.json();
+      if (data.access) setAccessToken(data.access);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // On /consumed, load the consumed list once (when logged in)
+  useEffect(() => {
+    if (!isConsumedPage || !accessToken) return;
     setLoading(true);
     setError(null);
-    fetch(`${API_BASE}/api/search/consumed-list/`)
+    authFetch(`${API_BASE}/api/search/consumed-list/`)
       .then((res) => res.json())
       .then((data) => {
         setResults(data.results || []);
@@ -61,7 +167,7 @@ function App() {
       })
       .catch((err) => setError(err.message || "Failed to load consumed list"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [isConsumedPage, accessToken]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -69,7 +175,7 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const searchRes = await fetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
+      const searchRes = await authFetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
       const data = await searchRes.json();
       if (!searchRes.ok) {
         setError(data.error || `Request failed: ${searchRes.status}`);
@@ -100,7 +206,7 @@ function App() {
 
     setDetailLoading(true);
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${API_BASE}/api/search/detail/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}`,
       );
       const data = await res.json();
@@ -123,7 +229,7 @@ function App() {
         setOverviewLoading(true);
         setOverviewError(null);
         try {
-          const ovRes = await fetch(
+          const ovRes = await authFetch(
             `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`
           );
           const text = await ovRes.text();
@@ -162,7 +268,7 @@ function App() {
         artists: artists.map((a) => a.name),
       }));
 
-      const res = await fetch(`${API_BASE}/api/spotify/match-tracks/`, {
+      const res = await authFetch(`${API_BASE}/api/spotify/match-tracks/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tracks }),
@@ -467,7 +573,7 @@ function App() {
     const t = (selectedItem.type || "").toLowerCase();
     if (t !== "release" && t !== "master") return;
 
-    fetch(
+    authFetch(
       `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
     )
       .then((res) => res.json())
@@ -489,7 +595,7 @@ function App() {
         : detailData?.title || selectedItem?.title || ""
     ).trim();
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `${API_BASE}/api/search/consumed/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
         {
           method: "POST",
@@ -577,6 +683,49 @@ function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
   }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken]);
 
+  if (!accessToken) {
+    return (
+      <div className="app">
+        <div className="auth-screen">
+          <h1>Discogs Search</h1>
+          <p className="auth-subtitle">Sign in to search and manage your consumed albums.</p>
+          <form onSubmit={handleAuthSubmit} className="auth-form">
+            <input
+              type="email"
+              value={authEmail}
+              onChange={(e) => setAuthEmail(e.target.value)}
+              placeholder="Email"
+              autoComplete="email"
+              disabled={authLoading}
+            />
+            <input
+              type="password"
+              value={authPassword}
+              onChange={(e) => setAuthPassword(e.target.value)}
+              placeholder="Password"
+              autoComplete={authMode === "register" ? "new-password" : "current-password"}
+              disabled={authLoading}
+            />
+            {authError && <p className="error">{authError}</p>}
+            <button type="submit" disabled={authLoading}>
+              {authLoading ? "Please wait…" : authMode === "register" ? "Register" : "Log in"}
+            </button>
+          </form>
+          <button
+            type="button"
+            className="auth-toggle"
+            onClick={() => {
+              setAuthMode((m) => (m === "login" ? "register" : "login"));
+              setAuthError(null);
+            }}
+          >
+            {authMode === "login" ? "Create an account" : "Already have an account? Log in"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <div className="app-header">
@@ -593,9 +742,12 @@ function App() {
           </div>
         ) : (
           <button onClick={handleSpotifyLogin} className="spotify-login-btn">
-            Login to Spotify
+            Connect to Spotify
           </button>
         )}
+        <button onClick={logout} className="app-logout-btn" title="Log out of the app">
+          Log out
+        </button>
       </div>
       <div className="content">
         <div className="sidebar">

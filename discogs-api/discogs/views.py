@@ -1,11 +1,11 @@
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
-from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from .models import AlbumOverview, ConsumedAlbum
 from .serializers import AlbumOverviewSerializer
 from .client import search, get_release, get_master, get_artist, get_label
@@ -33,33 +33,34 @@ def _fetch_display_title_from_discogs(resource_type, resource_id):
         return ""
 
 
-class SearchAPIView(View):
+class SearchAPIView(APIView):
     """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON. Adds consumed flag per result."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         q = request.GET.get("q", "").strip()
         if not q:
-            return JsonResponse(
+            return Response(
                 {"error": "Missing query parameter: q"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
         if not getattr(settings, "DISCOGS_USER_AGENT", None):
-            return JsonResponse(
+            return Response(
                 {"error": "Discogs is not configured."},
-                status=503,
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         page = max(1, int(request.GET.get("page", 1)))
         response = search(q=q, per_page=20, page=page)
         if response.status_code != 200:
-            return JsonResponse(
+            return Response(
                 {"error": f"Discogs API returned {response.status_code}"},
-                status=502,
+                status=status.HTTP_502_BAD_GATEWAY,
             )
         data = response.json()
         try:
             consumed_ids = set(
                 (r["type"].lower(), str(r["discogs_id"]))
-                for r in ConsumedAlbum.objects.filter(consumed=True).values("type", "discogs_id")
+                for r in ConsumedAlbum.objects.filter(user=request.user, consumed=True).values("type", "discogs_id")
             )
         except Exception:
             consumed_ids = set()
@@ -69,12 +70,13 @@ class SearchAPIView(View):
                 if t in ("release", "master"):
                     rid = r.get("id")
                     r["consumed"] = (t, str(rid)) in consumed_ids
-        return JsonResponse(data)
+        return Response(data)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ConsumedAlbumView(APIView):
     """GET/PUT /api/search/consumed/?type=release&id=123 — get or set consumed status."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         resource_type = request.query_params.get("type", "").strip().lower()
@@ -89,7 +91,7 @@ class ConsumedAlbumView(APIView):
                 {"error": "type must be 'release' or 'master'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        record = ConsumedAlbum.objects.filter(type=resource_type, discogs_id=str(resource_id)).first()
+        record = ConsumedAlbum.objects.filter(user=request.user, type=resource_type, discogs_id=str(resource_id)).first()
         consumed = record.consumed if record else False
         return Response({"consumed": consumed})
 
@@ -119,6 +121,7 @@ class ConsumedAlbumView(APIView):
             if fetched:
                 title = fetched
         record, _ = ConsumedAlbum.objects.update_or_create(
+            user=request.user,
             type=resource_type,
             discogs_id=str(resource_id),
             defaults={"consumed": consumed, "title": title},
@@ -134,10 +137,11 @@ class ConsumedAlbumView(APIView):
 
 class ConsumedTitlesView(APIView):
     """GET /api/search/consumed-titles/ — list of titles that have a consumed album (for hiding duplicates)."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         titles = list(
-            ConsumedAlbum.objects.filter(consumed=True)
+            ConsumedAlbum.objects.filter(user=request.user, consumed=True)
             .exclude(title="")
             .values_list("title", flat=True)
             .distinct()
@@ -145,12 +149,13 @@ class ConsumedTitlesView(APIView):
         return Response({"titles": titles})
 
 
-class ConsumedListView(View):
+class ConsumedListView(APIView):
     """GET /api/search/consumed-list/ — full list of consumed albums, shape like search results (type, id, title)."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         records = list(
-            ConsumedAlbum.objects.filter(consumed=True).values("type", "discogs_id", "title")
+            ConsumedAlbum.objects.filter(user=request.user, consumed=True).values("type", "discogs_id", "title")
         )
         results = []
         for r in records:
@@ -160,15 +165,16 @@ class ConsumedListView(View):
             if not title:
                 title = f"({r['type']} #{tid})"
             results.append({"type": r["type"], "id": id_val, "title": title})
-        return JsonResponse({"results": results})
+        return Response({"results": results})
 
 
-class ConsumedBackfillView(View):
+class ConsumedBackfillView(APIView):
     """GET /api/search/consumed-backfill/ — fetch 'Artist - Album' from Discogs for consumed records with empty or album-only title."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         updated = 0
-        for rec in ConsumedAlbum.objects.filter(consumed=True):
+        for rec in ConsumedAlbum.objects.filter(user=request.user, consumed=True):
             fetched = _fetch_display_title_from_discogs(rec.type, rec.discogs_id)
             if not fetched:
                 continue
@@ -177,34 +183,35 @@ class ConsumedBackfillView(View):
                 rec.title = fetched
                 rec.save(update_fields=["title"])
                 updated += 1
-        return JsonResponse({"updated": updated})
+        return Response({"updated": updated})
 
 
-class DetailAPIView(View):
+class DetailAPIView(APIView):
     """GET /api/detail/?type=release&id=123 — get full details for a release/artist/label."""
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         resource_type = request.GET.get("type", "").strip().lower()
         resource_id = request.GET.get("id", "").strip()
         
         if not resource_type or not resource_id:
-            return JsonResponse(
+            return Response(
                 {"error": "Missing required parameters: type and id"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
         
         if not getattr(settings, "DISCOGS_USER_AGENT", None):
-            return JsonResponse(
+            return Response(
                 {"error": "Discogs is not configured."},
-                status=503,
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         
         try:
             resource_id = int(resource_id)
         except ValueError:
-            return JsonResponse(
+            return Response(
                 {"error": "Invalid id parameter"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
         
         if resource_type == "release":
@@ -216,18 +223,18 @@ class DetailAPIView(View):
         elif resource_type == "label":
             response = get_label(resource_id)
         else:
-            return JsonResponse(
+            return Response(
                 {"error": f"Invalid type: {resource_type}. Must be 'release', 'master', 'artist', or 'label'"},
-                status=400,
+                status=status.HTTP_400_BAD_REQUEST,
             )
         
         if response.status_code != 200:
-            return JsonResponse(
+            return Response(
                 {"error": f"Discogs API returned {response.status_code}"},
-                status=502,
+                status=status.HTTP_502_BAD_GATEWAY,
             )
         
-        return JsonResponse(response.json())
+        return Response(response.json())
 
 
 import re
@@ -242,13 +249,9 @@ logger = logging.getLogger(__name__)
 class AlbumOverviewView(APIView):
     """
     Fetches a critical overview of an album.
-
-    Priority order:
-    1. Check local PostgreSQL cache
-    2. Try Google Gemini API
-    3. Fall back to Wikipedia MediaWiki API
-    4. Return a graceful error if all sources fail
+    Priority order: cache, Gemini, Wikipedia.
     """
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         album = request.query_params.get('album', '').strip()
