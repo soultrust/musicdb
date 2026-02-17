@@ -185,13 +185,16 @@ In Railway dashboard, go to your service → Variables → Add:
 **Option A: Using Railway CLI (Recommended)**
 1. Install Railway CLI: `npm i -g @railway/cli`
 2. Login: `railway login`
-3. Link project: `railway link`
-4. Run migrations: `railway run python discogs-api/manage.py migrate`
+3. Link project: `railway link` (from your repo root)
+4. Run migrations:
+   ```bash
+   cd discogs-api && railway run python manage.py migrate
+   ```
+   (Or from repo root: `railway run bash -c "cd discogs-api && python manage.py migrate"`)
 
 **Option B: Using Railway Dashboard**
 1. In Railway dashboard, go to your service
-2. Click "Deployments" → Select latest deployment → "View Logs"
-3. Or use the "Shell" option if available
+2. Open a shell (if your plan includes it) or trigger a deploy that runs migrate (see below)
 
 ### Step 6: Create Superuser (Optional)
 
