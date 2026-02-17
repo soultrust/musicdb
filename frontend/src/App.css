@@ -16,9 +16,11 @@
 }
 
 .app h1 {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.875rem;
+  font-weight: 400;
   margin: 0;
+  text-transform: uppercase;
 }
 
 .spotify-login-btn,
@@ -655,7 +657,9 @@
 }
 
 .auth-screen h1 {
+  font-family: 'Oswald', sans-serif;
   margin-bottom: 0.5rem;
+  text-transform: uppercase;
 }
 
 .auth-subtitle {

@@ -687,7 +687,7 @@ function App() {
     return (
       <div className="app">
         <div className="auth-screen">
-          <h1>Discogs Search</h1>
+          <h1>Soultrust MusicDB</h1>
           <p className="auth-subtitle">Sign in to search and manage your consumed albums.</p>
           <form onSubmit={handleAuthSubmit} className="auth-form">
             <input
@@ -729,7 +729,7 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>{isConsumedPage ? "Consumed" : "Discogs Search"}</h1>
+        <h1>{isConsumedPage ? "Consumed" : "Soultrust MusicDB"}</h1>
         {spotifyToken && deviceId ? (
           <div className="spotify-controls">
             <span className="spotify-status">Spotify Connected</span>
