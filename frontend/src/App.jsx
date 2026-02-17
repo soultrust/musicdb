@@ -10,12 +10,9 @@ const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const AUTH_REFRESH_KEY = "soultrust_refresh_token";
 
-// Removed consumed page - replaced with lists feature
-const isConsumedPage = false; // Kept for compatibility but always false
-
 function App() {
   const [accessToken, setAccessToken] = useState(null);
-  const [user, setUser] = useState(null);
+  const [_user, setUser] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
@@ -66,20 +63,6 @@ function App() {
     setUser(null);
     setAuthError(null);
     localStorage.removeItem(AUTH_REFRESH_KEY);
-  }
-
-  async function refreshAccessToken() {
-    const refresh = localStorage.getItem(AUTH_REFRESH_KEY);
-    if (!refresh) return false;
-    const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    setAccessToken(data.access);
-    return true;
   }
 
   async function authFetch(url, options = {}) {
@@ -565,7 +548,25 @@ function App() {
     setListLoading(true);
     setListError(null);
     authFetch(`${API_BASE}/api/search/lists/`)
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          let errorText = `HTTP ${res.status}`;
+          if (contentType.includes("application/json")) {
+            try {
+              const errorData = await res.json();
+              errorText = errorData.error || errorData.detail || errorText;
+            } catch {
+              // If JSON parsing fails, use default
+            }
+          } else {
+            // If it's HTML or other, just use status
+            errorText = `Failed to load lists (${res.status})`;
+          }
+          throw new Error(errorText);
+        }
+        return res.json();
+      })
       .then((data) => {
         setLists(data.lists || []);
         // Check which lists already contain this album
@@ -575,7 +576,12 @@ function App() {
             authFetch(
               `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
             )
-              .then((res) => res.json())
+              .then(async (res) => {
+                if (!res.ok) {
+                  return { list_ids: [] };
+                }
+                return res.json();
+              })
               .then((checkData) => setSelectedListIds(checkData.list_ids || []))
               .catch(() => setSelectedListIds([]));
           }
@@ -627,8 +633,19 @@ function App() {
         body: JSON.stringify({ name }),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errorData.error || `HTTP ${res.status}`);
+        const contentType = res.headers.get("content-type") || "";
+        let errorMessage = `HTTP ${res.status}`;
+        if (contentType.includes("application/json")) {
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorData.detail || errorMessage;
+          } catch {
+            // If JSON parsing fails, use default
+          }
+        } else {
+          errorMessage = `Failed to create list (${res.status})`;
+        }
+        throw new Error(errorMessage);
       }
       const data = await res.json();
       setLists((prev) => [data, ...prev]);
@@ -667,8 +684,19 @@ function App() {
         }),
       });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(errorData.error || `HTTP ${res.status}`);
+        const contentType = res.headers.get("content-type") || "";
+        let errorMessage = `HTTP ${res.status}`;
+        if (contentType.includes("application/json")) {
+          try {
+            const errorData = await res.json();
+            errorMessage = errorData.error || errorData.detail || errorMessage;
+          } catch {
+            // If JSON parsing fails, use default
+          }
+        } else {
+          errorMessage = `Failed to add to lists (${res.status})`;
+        }
+        throw new Error(errorMessage);
       }
       handleCloseListModal();
     } catch (err) {
