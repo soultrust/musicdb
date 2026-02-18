@@ -388,6 +388,8 @@
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  margin-right: 7px;
+  margin-left: 10px;
 }
 
 /* No gap between the two star buttons; overlap by 1px so shared edge shows one border */
