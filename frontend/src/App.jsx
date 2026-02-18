@@ -347,6 +347,38 @@ function App() {
     return () => { cancelled = true; };
   }, [spotifyToken, spotifyMatches]);
 
+  // When window regains focus, refetch Spotify saved state so we show empty star if they unliked elsewhere
+  useEffect(() => {
+    function onFocus() {
+      if (!spotifyToken || !spotifyMatches?.length) return;
+      const ids = spotifyMatches.map((m) => m.spotify_track?.id).filter(Boolean);
+      if (ids.length === 0) return;
+      const BATCH = 50;
+      const saved = new Set();
+      (async () => {
+        for (let i = 0; i < ids.length; i += BATCH) {
+          const chunk = ids.slice(i, i + BATCH);
+          try {
+            const res = await fetch(
+              `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
+              { headers: { Authorization: `Bearer ${spotifyToken}` } }
+            );
+            if (!res.ok) return;
+            const arr = await res.json();
+            chunk.forEach((id, idx) => {
+              if (arr[idx]) saved.add(id);
+            });
+          } catch {
+            return;
+          }
+        }
+        setSpotifySavedTrackIds(new Set(saved));
+      })();
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [spotifyToken, spotifyMatches]);
+
   function handleSpotifyLogin(e) {
     e?.preventDefault?.();
     
@@ -607,15 +639,19 @@ function App() {
     return `${selectedItem.type}-${selectedItem.id}-${track.title}`;
   }
 
-  /** Display state: 0 = not liked, 1 = like (dark green), 2 = especially like (brighter green). Merges local overrides with Spotify saved. */
+  /** Display state: 0 = not liked, 1 = like (dark green), 2 = especially like (brighter green).
+   * State 2 always persists (ignores Spotify). State 1 follows Spotify; if they unlike on Spotify we show 0. */
   function getDisplayLikeState(track) {
     const key = getTrackKey(track);
     if (!key) return 0;
-    if (likedTracks[key] !== undefined) return likedTracks[key];
+    const local = likedTracks[key];
     const match = spotifyMatches.find((m) => m.discogs_title === track.title);
     const spotifyId = match?.spotify_track?.id;
-    if (spotifyId && spotifySavedTrackIds.has(spotifyId)) return 1;
-    return 0;
+    const spotifySaved = spotifyId && spotifySavedTrackIds.has(spotifyId);
+    if (local === 2) return 2;
+    if (local === 1) return spotifySaved ? 1 : 0;
+    if (local === 0) return 0;
+    return spotifySaved ? 1 : 0;
   }
 
   function toggleLikeTrack(track) {
