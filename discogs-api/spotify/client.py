@@ -41,6 +41,20 @@ def _trailing_part_designation(title):
     return None
 
 
+def _title_base_for_search(title):
+    """Strip trailing part designation (Pt. 1, #1, Part 1, etc.) so search returns all part variants."""
+    if not title:
+        return (title or "").strip()
+    s = (title or "").strip()
+    # Trailing non-parenthetical: " Pt. 1", " #1", " Part 1"
+    s = re.sub(r"\s+pt\.?\s*\d+\s*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r"\s+#\d+\s*$", "", s)
+    s = re.sub(r"\s+part\s+\d+\s*$", "", s, flags=re.IGNORECASE)
+    # Trailing parenthetical like " (Part 1)" or " (Pt. 1)"
+    s = re.sub(r"\s*\(\s*(?:pt\.?s?|part)\s*\d+\s*\)\s*$", "", s, flags=re.IGNORECASE)
+    return s.strip() or (title or "").strip()
+
+
 def _get_access_token():
     """Get Spotify access token using Client Credentials flow (cached for 1 hour)."""
     cache_key = "spotify_access_token"
@@ -95,9 +109,12 @@ def search_track(query, artist=None, limit=5):
     
     # Only strip Discogs disambiguation like " (2)" at the end, NOT part numbers like " (Pts. 1-5)"
     clean_query = re.sub(r"\s*\(\d+\)\s*$", "", query.strip()).strip()
+    # Strip part designations (Pt. 1, #1, Part 1) so search returns all variants
+    # e.g. "Secret Stair Pt. 1" → "Secret Stair" to find both "Pt. 1" and "#1" versions
+    search_query_title = _title_base_for_search(clean_query)
     
     # Build search query: "track:name artist:artist" or just "track:name"
-    search_query = f'track:"{clean_query}"'
+    search_query = f'track:"{search_query_title}"'
     if artist:
         clean_artist = _normalize_artist(artist)
         if clean_artist:
