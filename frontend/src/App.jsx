@@ -864,60 +864,62 @@ function App() {
     <div className="app">
       <div className="app-header">
         <h1>Soultrust MusicDB</h1>
-        {spotifyToken && deviceId ? (
-          <div className="spotify-controls">
-            <span className="spotify-status">Spotify Connected</span>
-            <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
-              {isPlaying ? "⏸" : "▶"}
+        <div className="app-header-right">
+          {spotifyToken && deviceId ? (
+            <div className="spotify-controls">
+              <span className="spotify-status">Spotify Connected</span>
+              <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
+                {isPlaying ? "⏸" : "▶"}
+              </button>
+              <button onClick={handleSpotifyLogout} className="spotify-logout-btn">
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button onClick={handleSpotifyLogin} className="spotify-login-btn">
+              Connect to Spotify
             </button>
-            <button onClick={handleSpotifyLogout} className="spotify-logout-btn">
-              Logout
-            </button>
-          </div>
-        ) : (
-          <button onClick={handleSpotifyLogin} className="spotify-login-btn">
-            Connect to Spotify
+          )}
+          <select
+            className="view-list-select"
+            value={viewListId ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "") {
+                setViewListId(null);
+                setListViewData(null);
+                setSelectedItem(null);
+                setDetailData(null);
+              } else {
+                setViewListId(parseInt(v, 10));
+                setSelectedItem(null);
+                setDetailData(null);
+              }
+            }}
+            title="Select a list to view"
+          >
+            <option value="">— Select a list —</option>
+            {[
+              { label: "Releases", list_type: "release" },
+              { label: "Artists", list_type: "person" },
+            ].map(({ label, list_type }) => {
+              const groupLists = (allListsForView || []).filter((l) => l.list_type === list_type);
+              if (groupLists.length === 0) return null;
+              return (
+                <optgroup key={list_type} label={label}>
+                  {groupLists.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+          </select>
+          <button onClick={logout} className="app-logout-btn" title="Log out of the app">
+            Log out
           </button>
-        )}
-        <select
-          className="view-list-select"
-          value={viewListId ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "") {
-              setViewListId(null);
-              setListViewData(null);
-              setSelectedItem(null);
-              setDetailData(null);
-            } else {
-              setViewListId(parseInt(v, 10));
-              setSelectedItem(null);
-              setDetailData(null);
-            }
-          }}
-          title="Select a list to view"
-        >
-          <option value="">— Select a list —</option>
-          {[
-            { label: "Releases", list_type: "release" },
-            { label: "Artists", list_type: "person" },
-          ].map(({ label, list_type }) => {
-            const groupLists = (allListsForView || []).filter((l) => l.list_type === list_type);
-            if (groupLists.length === 0) return null;
-            return (
-              <optgroup key={list_type} label={label}>
-                {groupLists.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
-        </select>
-        <button onClick={logout} className="app-logout-btn" title="Log out of the app">
-          Log out
-        </button>
+        </div>
       </div>
       <div className="content">
         <div className="sidebar">
@@ -1002,7 +1004,11 @@ function App() {
                       )}
                     </div>
                     <div className="detail-content">
-                      <h2>{detailData.title || selectedItem.title}</h2>
+                      <h2 className="detail-title">
+                        {((detailData.title || selectedItem.title) || "")
+                          .toLowerCase()
+                          .replace(/\b\w/g, (c) => c.toUpperCase())}
+                      </h2>
                       <div className="detail-meta">
                         {detailData.artists && detailData.artists.length > 0 && (
                           <div className="detail-row">
@@ -1171,7 +1177,11 @@ function App() {
                     <h3>Overview</h3>
                     {overviewLoading && <p className="detail-loading">Loading overview…</p>}
                     {overviewError && !overviewLoading && (
-                      <p className="error">{overviewError}</p>
+                      <p className="error">
+                        {overviewError.includes("Wikipedia") && overviewError.toLowerCase().includes("no ")
+                          ? "No overview available for this album."
+                          : overviewError}
+                      </p>
                     )}
                     {overview && !overviewLoading && (
                       <p className="overview-text">{overview}</p>
