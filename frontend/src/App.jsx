@@ -1251,7 +1251,7 @@ function App() {
                             </span>
                             <span className="autoplay-switch-label">Autoplay</span>
                           </label>
-                          <div className="tracklist-filter">
+                          <div className={`tracklist-filter${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}>
                           <span className="tracklist-filter-label">Filter by:</span>
                           <button
                             type="button"
