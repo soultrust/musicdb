@@ -349,7 +349,7 @@ function App() {
     return () => { cancelled = true; };
   }, [spotifyToken, spotifyMatches]);
 
-  // When window regains focus, refetch Spotify saved state so we show empty star if they unliked elsewhere
+  // When window regains focus, refetch Spotify saved state and sync: clear local "liked" (1) to 0 if Spotify says not saved
   useEffect(() => {
     function onFocus() {
       if (!spotifyToken || !spotifyMatches?.length) return;
@@ -357,6 +357,8 @@ function App() {
       if (ids.length === 0) return;
       const BATCH = 50;
       const saved = new Set();
+      const currentDetail = detailData;
+      const currentSelected = selectedItem;
       (async () => {
         for (let i = 0; i < ids.length; i += BATCH) {
           const chunk = ids.slice(i, i + BATCH);
@@ -375,11 +377,30 @@ function App() {
           }
         }
         setSpotifySavedTrackIds(new Set(saved));
+        if (currentDetail?.tracklist?.length) {
+          setLikedTracks((prev) => {
+            let changed = false;
+            const next = { ...prev };
+            for (const track of currentDetail.tracklist) {
+              const key = currentSelected && currentDetail
+                ? `${currentSelected.type}-${currentSelected.id}-${(track.position != null && track.position !== "" ? String(track.position) : "")}-${track.title}`
+                : null;
+              if (!key || prev[key] !== 1) continue;
+              const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+              const sid = match?.spotify_track?.id;
+              if (sid && !saved.has(sid)) {
+                next[key] = 0;
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
+        }
       })();
     }
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [spotifyToken, spotifyMatches]);
+  }, [spotifyToken, spotifyMatches, detailData, selectedItem]);
 
   function handleSpotifyLogin(e) {
     e?.preventDefault?.();
@@ -638,21 +659,23 @@ function App() {
 
   function getTrackKey(track) {
     if (!selectedItem || !detailData) return null;
-    return `${selectedItem.type}-${selectedItem.id}-${track.title}`;
+    const position = track.position != null && track.position !== "" ? String(track.position) : "";
+    return `${selectedItem.type}-${selectedItem.id}-${position}-${track.title}`;
   }
 
   /** Display state: 0 = not liked, 1 = like (dark green), 2 = especially like (brighter green).
-   * State 2 always persists (ignores Spotify). State 1 follows Spotify; if they unlike on Spotify we show 0. */
+   * Local state (0/1/2) always wins when present. With no local state, show 1 if saved on Spotify else 0. */
   function getDisplayLikeState(track) {
     const key = getTrackKey(track);
     if (!key) return 0;
+    const hasLocal = key in likedTracks;
     const local = likedTracks[key];
     const match = spotifyMatches.find((m) => m.discogs_title === track.title);
     const spotifyId = match?.spotify_track?.id;
     const spotifySaved = spotifyId && spotifySavedTrackIds.has(spotifyId);
-    if (local === 2) return 2;
-    if (local === 1) return spotifySaved ? 1 : 0;
-    if (local === 0) return 0;
+    if (hasLocal && local === 2) return 2;
+    if (hasLocal && local === 1) return 1;
+    if (hasLocal && local === 0) return 0;
     return spotifySaved ? 1 : 0;
   }
 
@@ -679,7 +702,23 @@ function App() {
         .catch((err) => console.error("Spotify unlike failed:", err));
     }
 
+    if (nextState === 1 && spotifyTrack?.id && spotifyToken) {
+      fetch(`https://api.spotify.com/v1/me/tracks?ids=${encodeURIComponent(spotifyTrack.id)}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${spotifyToken}` },
+      })
+        .then(() => {
+          setSpotifySavedTrackIds((prev) => new Set(prev).add(spotifyTrack.id));
+        })
+        .catch((err) => console.error("Spotify save track failed:", err));
+    }
+
     setLikedTracks((prev) => ({ ...prev, [key]: nextState }));
+
+    // Clearing filter when going to "unliked" keeps the track visible instead of it disappearing
+    if (nextState === 0 && tracklistFilter) {
+      setTracklistFilter(null);
+    }
   }
 
   useEffect(() => {
@@ -1288,7 +1327,10 @@ function App() {
                               <button
                                 type="button"
                                 className={`track-like-btn track-like-${likeState}`}
-                                onClick={() => toggleLikeTrack(track)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleLikeTrack(track);
+                                }}
                                 title={likeState === 0 ? "Like" : likeState === 1 ? "Liked (click for especially like)" : "Especially like (click to remove)"}
                                 aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Liked" : "Especially like"}
                               >
