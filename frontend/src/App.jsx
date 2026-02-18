@@ -562,8 +562,13 @@ function App() {
           .catch(() => ({ list_ids: [] }))
       : Promise.resolve({ list_ids: [] });
 
+    // This modal is only opened from release/master detail, so we only show and create release (album) lists.
+    // Person lists are only created from a person detail page (separate flow).
+    const listType = "release";
     if (!haveListsCached) {
-      const listsPromise = authFetch(`${API_BASE}/api/search/lists/`).then(async (res) => {
+      const listsPromise = authFetch(
+        `${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`
+      ).then(async (res) => {
         if (!res.ok) {
           const contentType = res.headers.get("content-type") || "";
           let errorText = `HTTP ${res.status}`;
@@ -635,7 +640,7 @@ function App() {
       const res = await authFetch(`${API_BASE}/api/search/lists/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, list_type: "release" }),
       });
       if (!res.ok) {
         const contentType = res.headers.get("content-type") || "";

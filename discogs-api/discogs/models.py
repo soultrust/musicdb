@@ -48,35 +48,47 @@ class AlbumOverview(models.Model):
 
 class List(models.Model):
     """
-    User-created lists for organizing albums.
+    User-created lists. Each list is one type: albums (releases) or persons (artists).
     """
+    LIST_TYPE_RELEASE = "release"
+    LIST_TYPE_PERSON = "person"
+    LIST_TYPE_CHOICES = [
+        (LIST_TYPE_RELEASE, "Albums (releases)"),
+        (LIST_TYPE_PERSON, "Persons (artists)"),
+    ]
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="lists",
+    )
+    list_type = models.CharField(
+        max_length=20,
+        choices=LIST_TYPE_CHOICES,
+        default=LIST_TYPE_RELEASE,
     )
     name = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ("user", "name")
+        unique_together = ("user", "list_type", "name")
         ordering = ["-updated_at"]
 
     def __str__(self):
-        return f"{self.user.email} - {self.name}"
+        return f"{self.user.email} - {self.name} ({self.list_type})"
 
 
 class ListItem(models.Model):
     """
-    Items (albums) in a user's list.
+    Items in a user's list. type: 'release' | 'master' for album lists, 'artist' for person lists.
     """
     list = models.ForeignKey(
         List,
         on_delete=models.CASCADE,
         related_name="items",
     )
-    type = models.CharField(max_length=20)  # 'release' or 'master'
+    type = models.CharField(max_length=20)  # 'release', 'master', or 'artist'
     discogs_id = models.CharField(max_length=32)
     title = models.CharField(max_length=512, blank=True)  # search result title for display
     added_at = models.DateTimeField(auto_now_add=True)

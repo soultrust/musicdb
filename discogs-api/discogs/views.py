@@ -507,13 +507,17 @@ class ListsView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get all lists for the current user."""
+        """Get all lists for the current user, optionally filtered by list_type (release | person)."""
         try:
-            lists = List.objects.filter(user=request.user).order_by("-updated_at")
+            qs = List.objects.filter(user=request.user).order_by("-updated_at")
+            list_type = (request.query_params.get("list_type") or "").strip().lower()
+            if list_type in ("release", "person"):
+                qs = qs.filter(list_type=list_type)
             lists_data = []
-            for lst in lists:
+            for lst in qs:
                 lists_data.append({
                     "id": lst.id,
+                    "list_type": lst.list_type,
                     "name": lst.name,
                     "created_at": lst.created_at.isoformat() if lst.created_at else None,
                     "updated_at": lst.updated_at.isoformat() if lst.updated_at else None,
@@ -530,23 +534,30 @@ class ListsView(APIView):
             )
 
     def post(self, request):
-        """Create a new list."""
+        """Create a new list. Requires list_type: 'release' (albums) or 'person'."""
         try:
-            name = (request.data.get("name") or "").strip()
+            name = str(request.data.get("name") or "").strip()
+            list_type = str(request.data.get("list_type") or List.LIST_TYPE_RELEASE).strip().lower()
             if not name:
                 return Response(
                     {"error": "List name is required"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if List.objects.filter(user=request.user, name=name).exists():
+            if list_type not in (List.LIST_TYPE_RELEASE, List.LIST_TYPE_PERSON):
                 return Response(
-                    {"error": "A list with this name already exists"},
+                    {"error": "list_type must be 'release' or 'person'"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            list_obj = List.objects.create(user=request.user, name=name)
+            if List.objects.filter(user=request.user, list_type=list_type, name=name).exists():
+                return Response(
+                    {"error": "A list with this name already exists for this type"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            list_obj = List.objects.create(user=request.user, list_type=list_type, name=name)
             return Response(
                 {
                     "id": list_obj.id,
+                    "list_type": list_obj.list_type,
                     "name": list_obj.name,
                     "created_at": list_obj.created_at.isoformat() if list_obj.created_at else None,
                     "updated_at": list_obj.updated_at.isoformat() if list_obj.updated_at else None,
@@ -592,11 +603,13 @@ class ListItemsView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Verify all lists belong to the user
-            user_lists = List.objects.filter(user=request.user, id__in=list_ids)
+            # Only allow adding to lists of type 'release' (album lists) when adding a release/master
+            user_lists = List.objects.filter(
+                user=request.user, id__in=list_ids, list_type=List.LIST_TYPE_RELEASE
+            )
             if user_lists.count() != len(list_ids):
                 return Response(
-                    {"error": "One or more lists not found or do not belong to you"},
+                    {"error": "One or more lists not found or are not album lists"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
