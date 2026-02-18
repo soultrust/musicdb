@@ -243,7 +243,7 @@ function App() {
         matchTracksToSpotify(data.tracklist, data.artists);
       }
 
-      // Fetch AI overview if we have title and artist
+      // Fetch album overview (cache or Wikipedia) if we have title and artist
       const album = data.title || "";
       const artist = data.artists?.length ? data.artists.map((a) => a.name).join(", ") : "";
       if (album && artist) {

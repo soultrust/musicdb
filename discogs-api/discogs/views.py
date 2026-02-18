@@ -249,7 +249,7 @@ logger = logging.getLogger(__name__)
 class AlbumOverviewView(APIView):
     """
     Fetches a critical overview of an album.
-    Priority order: cache, Gemini, Wikipedia.
+    Priority order: cache, then Wikipedia. (AI model calls removed.)
     """
     permission_classes = [IsAuthenticated]
 
@@ -277,49 +277,28 @@ class AlbumOverviewView(APIView):
                 "data": serializer.data
             })
 
-        # Step 2: Try Google Gemini API (only if key is configured)
+        # Step 2: Fetch from Wikipedia
         overview_text = None
         source = None
-        gemini_error = None
         wikipedia_error = None
+        try:
+            overview_text = self._fetch_from_wikipedia(artist, album)
+            source = "wikipedia"
+            logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
+        except Exception as e:
+            wikipedia_error = str(e)
+            logger.warning(f"Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
 
-        gemini_key = getattr(settings, "GEMINI_API_KEY", None) or ""
-        if gemini_key.strip():
-            try:
-                overview_text = self._fetch_from_gemini(artist, album)
-                source = "gemini"
-                logger.info(f"Successfully fetched overview from Gemini for '{album}' by {artist}")
-            except Exception as e:
-                gemini_error = str(e)
-                logger.warning(f"Gemini failed for '{album}' by {artist}: {gemini_error}")
-
-        # Step 3: Fall back to Wikipedia if Gemini failed
-        if not overview_text:
-            try:
-                overview_text = self._fetch_from_wikipedia(artist, album)
-                source = "wikipedia"
-                logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
-            except Exception as e:
-                wikipedia_error = str(e)
-                logger.warning(f"Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
-
-        # Step 4: Return error if all sources failed
         if not overview_text:
             err_detail = "Unable to fetch album overview."
-            if gemini_error and wikipedia_error:
-                err_detail += " Gemini and Wikipedia both failed."
-            elif gemini_error:
-                err_detail += f" Gemini: {gemini_error[:200]}."
-            elif wikipedia_error:
+            if wikipedia_error:
                 err_detail += f" Wikipedia: {wikipedia_error[:200]}."
-            elif not gemini_key.strip():
-                err_detail += " GEMINI_API_KEY not configured and Wikipedia had no results."
             return Response(
                 {"error": err_detail},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        # Step 5: Cache the result in PostgreSQL
+        # Step 3: Cache the result in PostgreSQL
         new_overview = AlbumOverview.objects.create(
             artist=artist,
             album=album,
@@ -332,35 +311,6 @@ class AlbumOverviewView(APIView):
             "source": source,
             "data": serializer.data
         })
-
-    def _fetch_from_gemini(self, artist, album):
-        """
-        Queries the Google Gemini API to generate a critical
-        overview of the specified album.
-        """
-        import google.generativeai as genai
-
-        api_key = getattr(settings, "GEMINI_API_KEY", None) or ""
-        if not api_key.strip():
-            raise Exception("GEMINI_API_KEY not configured")
-
-        genai.configure(api_key=api_key.strip())
-
-        # Try gemini-2.0-flash first, fall back to gemini-1.5-flash
-        for model_name in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"):
-            try:
-                model = genai.GenerativeModel(model_name)
-                prompt = f"""You are an experienced music critic. Provide a concise but insightful critical overview of the album '{album}' by {artist}. Include: a brief summary of the album's themes and sound; critical reception and significance; notable tracks; its place in the artist's discography; and a rating out of 10. Keep the overview between 150-300 words."""
-
-                response = model.generate_content(prompt)
-
-                if response and response.text:
-                    return response.text
-            except Exception as e:
-                logger.warning(f"Gemini model {model_name} failed: {e}")
-                continue
-
-        raise Exception("All Gemini models failed")
 
     def _fetch_from_wikipedia(self, artist, album):
         """
