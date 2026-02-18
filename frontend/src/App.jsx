@@ -215,6 +215,7 @@ function App() {
         return;
       }
       setResults(data.results || []);
+      setViewListId(null); /* switch to search results when searching */
       if (data.results?.length) {
         handleItemClick(data.results[0]);
       } else {
@@ -397,7 +398,8 @@ function App() {
               const key = currentSelected && currentDetail
                 ? `${currentSelected.type}-${currentSelected.id}-${(track.position != null && track.position !== "" ? String(track.position) : "")}-${track.title}`
                 : null;
-              if (!key || prev[key] !== 1) continue;
+              /* Only clear when we have a local liked state (1 or 2); unliking on Spotify → empty star */
+              if (!key || (prev[key] !== 1 && prev[key] !== 2)) continue;
               const match = spotifyMatches.find((m) => m.discogs_title === track.title);
               const sid = match?.spotify_track?.id;
               if (sid && !saved.has(sid)) {
@@ -1076,6 +1078,20 @@ function App() {
       </div>
       <div className="content">
         <div className="sidebar">
+          <form onSubmit={handleSubmit} className="search-form">
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search releases, artists, labels…"
+              disabled={loading}
+              autoFocus={viewListId == null}
+            />
+            <button type="submit" disabled={loading}>
+              {loading ? "Searching…" : "Search"}
+            </button>
+          </form>
+          {error && <p className="error">{error}</p>}
           {viewListId != null ? (
             <>
               <div className="list-view-header">
@@ -1101,20 +1117,6 @@ function App() {
             </>
           ) : (
             <>
-              <form onSubmit={handleSubmit} className="search-form">
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search releases, artists, labels…"
-                  disabled={loading}
-                  autoFocus
-                />
-                <button type="submit" disabled={loading}>
-                  {loading ? "Searching…" : "Search"}
-                </button>
-              </form>
-              {error && <p className="error">{error}</p>}
               {loading && <p className="detail-loading">Loading…</p>}
               <ul className="results">
                 {results.map((item, i) => (
@@ -1307,10 +1309,14 @@ function App() {
                           const isActive = isCurrentTrack && !isTrackFinished;
                           const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
                           const likeState = getDisplayLikeState(track);
+                          const matchedDisconnected = spotifyTrack && !spotifyToken;
                           return (
                             <li
                               key={getTrackKey(track) || `track-${i}`}
-                              className={isActive ? "track-playing" : ""}
+                              className={[
+                                isActive ? "track-playing" : "",
+                                matchedDisconnected ? "track-matched-disconnected" : "",
+                              ].filter(Boolean).join(" ")}
                               onClick={(e) => handleTrackRowClick(e, isActive)}
                               title={isActive ? "Click to seek" : undefined}
                             >
@@ -1327,7 +1333,8 @@ function App() {
                                     console.log("Play button clicked for:", spotifyTrack.uri);
                                     playTrack(spotifyTrack.uri);
                                   }}
-                                  title={`Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
+                                  title={matchedDisconnected ? "Connect to Spotify to play" : `Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
+                                  disabled={matchedDisconnected}
                                 >
                                   ▶ Play
                                 </button>
@@ -1341,10 +1348,11 @@ function App() {
                                 className={`track-like-btn track-like-${likeState}`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleLikeTrack(track);
+                                  if (!matchedDisconnected) toggleLikeTrack(track);
                                 }}
-                                title={likeState === 0 ? "Like" : likeState === 1 ? "Liked (click for especially like)" : "Especially like (click to remove)"}
+                                title={matchedDisconnected ? "Connect to Spotify to sync likes" : likeState === 0 ? "Like" : likeState === 1 ? "Liked (click for especially like)" : "Especially like (click to remove)"}
                                 aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Liked" : "Especially like"}
+                                disabled={matchedDisconnected}
                               >
                                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
                                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />

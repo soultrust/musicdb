@@ -707,6 +707,13 @@
   fill: currentColor;
 }
 
+/* Matched tracks when Spotify is disconnected: dimmed disabled state */
+.track-matched-disconnected .play-track-btn,
+.track-matched-disconnected .track-like-btn {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
 .no-match {
   color: #737373;
   font-size: 0.875rem;
