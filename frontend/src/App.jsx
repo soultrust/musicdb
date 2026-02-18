@@ -542,32 +542,14 @@ function App() {
     }
   }, [likedTracks]);
 
-  // Load user's lists when modal opens (both requests in parallel)
+  // Load user's lists when modal opens. Use cached lists if we have them; only fetch which lists contain this album.
   useEffect(() => {
     if (!showListModal || !accessToken) return;
     setListLoading(true);
     setListError(null);
     const t = selectedItem ? (selectedItem.type || "").toLowerCase() : "";
     const needCheck = selectedItem && (t === "release" || t === "master");
-
-    const listsPromise = authFetch(`${API_BASE}/api/search/lists/`).then(async (res) => {
-      if (!res.ok) {
-        const contentType = res.headers.get("content-type") || "";
-        let errorText = `HTTP ${res.status}`;
-        if (contentType.includes("application/json")) {
-          try {
-            const errorData = await res.json();
-            errorText = errorData.error || errorData.detail || errorText;
-          } catch {
-            // ignore
-          }
-        } else {
-          errorText = `Failed to load lists (${res.status})`;
-        }
-        throw new Error(errorText);
-      }
-      return res.json();
-    });
+    const haveListsCached = lists.length > 0;
 
     const checkPromise = needCheck
       ? authFetch(
@@ -580,16 +562,41 @@ function App() {
           .catch(() => ({ list_ids: [] }))
       : Promise.resolve({ list_ids: [] });
 
-    Promise.all([listsPromise, checkPromise])
-      .then(([data, checkData]) => {
-        setLists(data.lists || []);
-        setSelectedListIds(checkData.list_ids || []);
-      })
-      .catch((err) => {
-        setListError(err.message || "Failed to load lists");
-        setLists([]);
-      })
-      .finally(() => setListLoading(false));
+    if (!haveListsCached) {
+      const listsPromise = authFetch(`${API_BASE}/api/search/lists/`).then(async (res) => {
+        if (!res.ok) {
+          const contentType = res.headers.get("content-type") || "";
+          let errorText = `HTTP ${res.status}`;
+          if (contentType.includes("application/json")) {
+            try {
+              const errorData = await res.json();
+              errorText = errorData.error || errorData.detail || errorText;
+            } catch {
+              // ignore
+            }
+          } else {
+            errorText = `Failed to load lists (${res.status})`;
+          }
+          throw new Error(errorText);
+        }
+        return res.json();
+      });
+      Promise.all([listsPromise, checkPromise])
+        .then(([data, checkData]) => {
+          setLists(data.lists || []);
+          setSelectedListIds(checkData.list_ids || []);
+        })
+        .catch((err) => {
+          setListError(err.message || "Failed to load lists");
+          setLists([]);
+        })
+        .finally(() => setListLoading(false));
+    } else {
+      checkPromise
+        .then((checkData) => setSelectedListIds(checkData.list_ids || []))
+        .catch(() => setSelectedListIds([]))
+        .finally(() => setListLoading(false));
+    }
   }, [showListModal, accessToken, selectedItem]);
 
   // Handle opening list modal
