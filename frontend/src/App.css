@@ -201,6 +201,23 @@
   border-bottom: none;
 }
 
+.list-view-header {
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.list-view-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #a3a3a3;
+}
+
+.list-view-empty {
+  color: #737373;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
 .detail {
   flex: 1;
   min-width: 0;
@@ -629,6 +646,26 @@
   color: #e5e5e5;
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.view-list-select {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  border: 1px solid #525252;
+  border-radius: 6px;
+  background: #171717;
+  color: #e5e5e5;
+  cursor: pointer;
+  margin-left: auto;
+  margin-right: 0.5rem;
+  min-width: 140px;
+  max-width: 220px;
+}
+
+.view-list-select:hover,
+.view-list-select:focus {
+  border-color: #737373;
+  outline: none;
 }
 
 .app-logout-btn {

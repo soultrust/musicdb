@@ -57,6 +57,11 @@ function App() {
   const [newListName, setNewListName] = useState("");
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState(null);
+  // View-a-list dropdown: all lists for selector, selected list id and its data
+  const [allListsForView, setAllListsForView] = useState([]);
+  const [viewListId, setViewListId] = useState(null);
+  const [listViewData, setListViewData] = useState(null);
+  const [listViewLoading, setListViewLoading] = useState(false);
 
   function logout() {
     setAccessToken(null);
@@ -141,6 +146,47 @@ function App() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Fetch all lists for the header "View a list" dropdown (no list_type filter)
+  useEffect(() => {
+    if (!accessToken) {
+      setAllListsForView([]);
+      return;
+    }
+    let cancelled = false;
+    authFetch(`${API_BASE}/api/search/lists/`)
+      .then((res) => (res.ok ? res.json() : { lists: [] }))
+      .then((data) => {
+        if (!cancelled) setAllListsForView(data.lists || []);
+      })
+      .catch(() => {
+        if (!cancelled) setAllListsForView([]);
+      });
+    return () => { cancelled = true; };
+  }, [accessToken]);
+
+  // When user selects a list from dropdown, fetch that list's items
+  useEffect(() => {
+    if (!viewListId || !accessToken) {
+      setListViewData(null);
+      return;
+    }
+    setListViewLoading(true);
+    setListViewData(null);
+    let cancelled = false;
+    authFetch(`${API_BASE}/api/search/lists/${viewListId}/`)
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled && data) setListViewData(data);
+      })
+      .finally(() => {
+        if (!cancelled) setListViewLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [viewListId, accessToken]);
 
   // Removed consumed list loading - replaced with lists feature
 
@@ -661,6 +707,11 @@ function App() {
       setLists((prev) => [data, ...prev]);
       setSelectedListIds((prev) => [...prev, data.id]);
       setNewListName("");
+      // Add to header dropdown so the new list appears without refetch
+      setAllListsForView((prev) => [
+        { id: data.id, list_type: data.list_type, name: data.name },
+        ...prev,
+      ]);
     } catch (err) {
       setListError(err.message || "Failed to create list");
     } finally {
@@ -828,38 +879,101 @@ function App() {
             Connect to Spotify
           </button>
         )}
+        <select
+          className="view-list-select"
+          value={viewListId ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === "") {
+              setViewListId(null);
+              setListViewData(null);
+              setSelectedItem(null);
+              setDetailData(null);
+            } else {
+              setViewListId(parseInt(v, 10));
+              setSelectedItem(null);
+              setDetailData(null);
+            }
+          }}
+          title="Select a list to view"
+        >
+          <option value="">— Select a list —</option>
+          {[
+            { label: "Releases", list_type: "release" },
+            { label: "Artists", list_type: "person" },
+          ].map(({ label, list_type }) => {
+            const groupLists = (allListsForView || []).filter((l) => l.list_type === list_type);
+            if (groupLists.length === 0) return null;
+            return (
+              <optgroup key={list_type} label={label}>
+                {groupLists.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </optgroup>
+            );
+          })}
+        </select>
         <button onClick={logout} className="app-logout-btn" title="Log out of the app">
           Log out
         </button>
       </div>
       <div className="content">
         <div className="sidebar">
-          <form onSubmit={handleSubmit} className="search-form">
-              <input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search releases, artists, labels…"
-                disabled={loading}
-                autoFocus
-              />
-              <button type="submit" disabled={loading}>
-                {loading ? "Searching…" : "Search"}
-              </button>
-            </form>
-          {error && <p className="error">{error}</p>}
-          {loading && <p className="detail-loading">Loading…</p>}
-          <ul className="results">
-          {results.map((item, i) => (
-            <li
-              key={item.id != null ? `${item.type}-${item.id}` : i}
-              className={selectedItem?.id === item.id ? "selected" : ""}
-              onClick={() => handleItemClick(item)}
-            >
-              {item.title}
-            </li>
-          ))}
-          </ul>
+          {viewListId != null ? (
+            <>
+              <div className="list-view-header">
+                <span className="list-view-title">
+                  List: {listViewData?.name ?? "…"}
+                </span>
+              </div>
+              {listViewLoading && <p className="detail-loading">Loading list…</p>}
+              <ul className="results">
+                {(listViewData?.items || []).map((item, i) => (
+                  <li
+                    key={item.id != null ? `${item.type}-${item.id}` : i}
+                    className={selectedItem?.id === String(item.id) && selectedItem?.type === item.type ? "selected" : ""}
+                    onClick={() => handleItemClick({ id: item.id, type: item.type, title: item.title })}
+                  >
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+              {!listViewLoading && listViewData && (!listViewData.items || listViewData.items.length === 0) && (
+                <p className="list-view-empty">This list is empty.</p>
+              )}
+            </>
+          ) : (
+            <>
+              <form onSubmit={handleSubmit} className="search-form">
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search releases, artists, labels…"
+                  disabled={loading}
+                  autoFocus
+                />
+                <button type="submit" disabled={loading}>
+                  {loading ? "Searching…" : "Search"}
+                </button>
+              </form>
+              {error && <p className="error">{error}</p>}
+              {loading && <p className="detail-loading">Loading…</p>}
+              <ul className="results">
+                {results.map((item, i) => (
+                  <li
+                    key={item.id != null ? `${item.type}-${item.id}` : i}
+                    className={selectedItem?.id === item.id ? "selected" : ""}
+                    onClick={() => handleItemClick(item)}
+                  >
+                    {item.title}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </div>
         {selectedItem && (
           <div className="detail">

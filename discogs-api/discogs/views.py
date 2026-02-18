@@ -672,3 +672,31 @@ class ListItemsCheckView(APIView):
         ).values_list("list_id", flat=True)
 
         return Response({"list_ids": list(list_ids)})
+
+
+class ListDetailView(APIView):
+    """GET /api/lists/<id>/ — get a single list with its items (for viewing in main area)."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, list_id):
+        """Return list metadata and its items. Only allowed for user's own lists."""
+        list_obj = List.objects.filter(user=request.user, id=list_id).first()
+        if not list_obj:
+            return Response(
+                {"error": "List not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        items = [
+            {
+                "type": item.type,
+                "id": item.discogs_id,
+                "title": item.title or f"{item.type}-{item.discogs_id}",
+            }
+            for item in list_obj.items.all()
+        ]
+        return Response({
+            "id": list_obj.id,
+            "list_type": list_obj.list_type,
+            "name": list_obj.name,
+            "items": items,
+        })

@@ -6,6 +6,7 @@ from .views import (
     ConsumedListView,
     ConsumedTitlesView,
     DetailAPIView,
+    ListDetailView,
     ListItemsCheckView,
     ListItemsView,
     ListsView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("consumed-list/", ConsumedListView.as_view(), name="consumed-list"),
     path("consumed-backfill/", ConsumedBackfillView.as_view(), name="consumed-backfill"),
     path("lists/", ListsView.as_view(), name="lists"),
+    path("lists/<int:list_id>/", ListDetailView.as_view(), name="list-detail"),
     path("lists/items/", ListItemsView.as_view(), name="list-items"),
     path("lists/items/check/", ListItemsCheckView.as_view(), name="list-items-check"),
 ]
