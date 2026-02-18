@@ -78,6 +78,9 @@ class SpotifyCallbackAPIView(View):
     """
     
     def get(self, request):
+        import logging
+        logger = logging.getLogger(__name__)
+        
         code = request.GET.get("code")
         if not code:
             return JsonResponse(
@@ -90,6 +93,7 @@ class SpotifyCallbackAPIView(View):
         redirect_uri = request.GET.get("redirect_uri", "http://127.0.0.1:3000")
         
         if not client_id or not client_secret:
+            logger.error("Spotify credentials not configured")
             return JsonResponse(
                 {"error": "Spotify credentials not configured"},
                 status=503,
@@ -98,27 +102,41 @@ class SpotifyCallbackAPIView(View):
         # Exchange code for token
         credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
         
-        response = requests.post(
-            "https://accounts.spotify.com/api/token",
-            headers={
-                "Authorization": f"Basic {credentials}",
-                "Content-Type": "application/x-www-form-urlencoded",
-            },
-            data={
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": redirect_uri,
-            },
-        )
-        
-        if response.status_code != 200:
+        try:
+            response = requests.post(
+                "https://accounts.spotify.com/api/token",
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": redirect_uri,
+                },
+                timeout=10,
+            )
+            
+            if response.status_code != 200:
+                error_text = response.text
+                logger.error(f"Spotify token exchange failed: {response.status_code}, {error_text}")
+                return JsonResponse(
+                    {"error": f"Token exchange failed: {response.status_code}", "details": error_text},
+                    status=502,
+                )
+            
+            data = response.json()
+            access_token = data.get("access_token")
+            if not access_token:
+                logger.error(f"Spotify: No access_token in response: {data}")
+            
+            return JsonResponse({
+                "access_token": access_token,
+                "expires_in": data.get("expires_in"),
+            })
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Spotify token exchange request failed: {e}")
             return JsonResponse(
-                {"error": f"Token exchange failed: {response.status_code}", "details": response.text},
+                {"error": f"Request failed: {str(e)}"},
                 status=502,
             )
-        
-        data = response.json()
-        return JsonResponse({
-            "access_token": data.get("access_token"),
-            "expires_in": data.get("expires_in"),
-        })

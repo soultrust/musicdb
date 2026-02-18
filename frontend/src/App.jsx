@@ -5,8 +5,8 @@ import "./App.css";
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 console.log('API_BASE being used:', API_BASE);
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
-// Remove trailing slash from redirect URI to match Spotify's exact matching requirement
-const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || "http://127.0.0.1:3000").replace(/\/$/, '');
+// Use current window location to ensure origin matches (localhost vs 127.0.0.1)
+const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const AUTH_REFRESH_KEY = "soultrust_refresh_token";
 
@@ -315,7 +315,6 @@ function App() {
 
       const data = await res.json();
       if (res.ok) {
-        console.log("Spotify matches received:", data.matches);
         setSpotifyMatches(data.matches || []);
       } else {
         console.error("Match tracks API error:", data);
@@ -427,8 +426,10 @@ function App() {
 
     const scopes = "streaming user-read-email user-read-private user-library-read user-library-modify";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
-    console.log('Spotify Redirect URI being used:', SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
+    
+    // Store current origin for popup to use
+    sessionStorage.setItem('spotify_auth_origin', window.location.origin);
     
     // Open in popup so the main page stays visible
     const popup = window.open(authUrl, "spotify-auth", "width=500,height=700,scrollbars=yes");
@@ -461,7 +462,12 @@ function App() {
     // OAuth callback (popup or redirect)
     if (error) {
       if (isPopup && window.opener) {
-        window.opener.postMessage({ type: "spotify-auth-error", error }, window.location.origin);
+        const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
+        window.opener.postMessage({ type: "spotify-auth-error", error }, storedOrigin);
+        if (storedOrigin !== window.location.origin) {
+          window.opener.postMessage({ type: "spotify-auth-error", error }, window.location.origin);
+        }
+        sessionStorage.removeItem('spotify_auth_origin');
         window.close();
       } else {
         setSpotifyToken(null);
@@ -485,19 +491,51 @@ function App() {
         .then(data => {
           if (data.access_token) {
             if (isPopup && window.opener) {
-              window.opener.postMessage({ type: "spotify-token", token: data.access_token }, window.location.origin);
+              // Get stored origin or try to detect it
+              const storedOrigin = sessionStorage.getItem('spotify_auth_origin');
+              const openerOrigin = storedOrigin || window.location.origin;
+              
+              // Try the stored/detected origin first
+              window.opener.postMessage({ type: "spotify-token", token: data.access_token }, openerOrigin);
+              
+              // Also try current origin as fallback (handles localhost vs 127.0.0.1)
+              if (openerOrigin !== window.location.origin) {
+                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, window.location.origin);
+              }
+              
+              // Try wildcard as last resort (less secure but works across origins)
+              try {
+                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, '*');
+              } catch (e) {
+                // Some browsers don't allow wildcard
+              }
+              
               window.close();
             } else {
               setSpotifyToken(data.access_token);
             }
-          } else if (isPopup) {
-            window.opener?.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, window.location.origin);
-            window.close();
+          } else {
+            console.error("Spotify: No access_token in response:", data);
+            if (isPopup && window.opener) {
+              const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
+              window.opener.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, storedOrigin);
+              if (storedOrigin !== window.location.origin) {
+                window.opener.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, window.location.origin);
+              }
+              sessionStorage.removeItem('spotify_auth_origin');
+              window.close();
+            }
           }
         })
         .catch(err => {
+          console.error("Spotify token exchange error:", err);
           if (isPopup && window.opener) {
-            window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, window.location.origin);
+            const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
+            window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, storedOrigin);
+            if (storedOrigin !== window.location.origin) {
+              window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, window.location.origin);
+            }
+            sessionStorage.removeItem('spotify_auth_origin');
             window.close();
           }
         });
@@ -520,11 +558,37 @@ function App() {
   // Listen for token from popup
   useEffect(() => {
     function onMessage(e) {
-      if (e.origin !== window.location.origin) return;
-      if (e.data?.type === "spotify-token") {
+      // Only process messages that look like Spotify auth messages
+      if (!e.data || typeof e.data !== 'object' || !e.data.type) {
+        return; // Ignore non-Spotify messages
+      }
+      
+      // Only process Spotify auth messages
+      if (e.data.type !== "spotify-token" && e.data.type !== "spotify-auth-error") {
+        return;
+      }
+      
+      // Allow messages from same origin or localhost/127.0.0.1 variations
+      const isSameOrigin = e.origin === window.location.origin || 
+                          (e.origin.includes('localhost') && window.location.origin.includes('localhost')) ||
+                          (e.origin.includes('127.0.0.1') && window.location.origin.includes('127.0.0.1')) ||
+                          (e.origin.includes('localhost') && window.location.origin.includes('127.0.0.1')) ||
+                          (e.origin.includes('127.0.0.1') && window.location.origin.includes('localhost'));
+      
+      // Also allow if it's a local development origin (for security, only allow localhost/127.0.0.1)
+      const isLocalDev = (e.origin.includes('localhost') || e.origin.includes('127.0.0.1')) &&
+                        (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1'));
+      
+      if (!isSameOrigin && !isLocalDev) {
+        return;
+      }
+      
+      if (e.data.type === "spotify-token") {
         setSpotifyToken(e.data.token);
-      } else if (e.data?.type === "spotify-auth-error") {
+        sessionStorage.removeItem('spotify_auth_origin'); // Clean up
+      } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
+        sessionStorage.removeItem('spotify_auth_origin'); // Clean up
       }
     }
     window.addEventListener("message", onMessage);
@@ -539,28 +603,44 @@ function App() {
         script.id = "spotify-player-script";
         script.src = "https://sdk.scdn.co/spotify-player.js";
         script.async = true;
-        document.body.appendChild(script);
-
+        
+        script.onerror = (error) => {
+          console.error("Spotify: Failed to load SDK script:", error);
+        };
+        
         script.onload = () => {
           initializePlayer();
         };
+        
+        document.body.appendChild(script);
       } else if (window.Spotify && !playerRef.current) {
         initializePlayer();
       }
     }
 
     function initializePlayer() {
-      if (!window.Spotify || playerRef.current) return;
+      if (!window.Spotify) {
+        console.error("Spotify: Cannot initialize: SDK not loaded");
+        return;
+      }
+      if (playerRef.current) {
+        return;
+      }
 
       const newPlayer = new window.Spotify.Player({
         name: "Discogs Music DB",
-        getOAuthToken: (cb) => cb(spotifyToken),
+        getOAuthToken: (cb) => {
+          cb(spotifyToken);
+        },
         volume: 0.5,
       });
 
       newPlayer.addListener("ready", ({ device_id }) => {
-        console.log("Spotify player ready, device_id:", device_id);
         setDeviceId(device_id);
+      });
+
+      newPlayer.addListener("not_ready", ({ device_id }) => {
+        console.warn("Spotify: Player not ready, device_id:", device_id);
       });
 
       newPlayer.addListener("player_state_changed", (state) => {
@@ -595,6 +675,10 @@ function App() {
         // Don't logout on playback errors, just log
       });
 
+      newPlayer.addListener("initialization_error", ({ message }) => {
+        console.error("Spotify initialization error:", message);
+      });
+
       newPlayer.connect();
       setPlayer(newPlayer);
       playerRef.current = newPlayer;
@@ -615,9 +699,6 @@ function App() {
   }, [isPlaying, currentTrack?.uri]);
 
   async function playTrack(spotifyUri) {
-    console.log("playTrack called with URI:", spotifyUri);
-    console.log("player:", player, "spotifyToken:", spotifyToken ? "exists" : "missing", "deviceId:", deviceId);
-    
     if (!player || !spotifyToken) {
       console.error("Please log in to Spotify first");
       return;
@@ -642,8 +723,6 @@ function App() {
       if (!response.ok) {
         const errorData = await response.text();
         console.error("Spotify play API error:", response.status, errorData);
-      } else {
-        console.log("Play request sent successfully");
       }
     } catch (err) {
       console.error("Failed to play track:", err);
