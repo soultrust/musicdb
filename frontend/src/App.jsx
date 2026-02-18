@@ -43,6 +43,8 @@ function App() {
       return {};
     }
   });
+  /** Set of Spotify track IDs that the user has saved in Spotify (for showing as state 1 until overridden). */
+  const [spotifySavedTrackIds, setSpotifySavedTrackIds] = useState(() => new Set());
   const [autoplay, setAutoplay] = useState(true);
   const autoplayTriggeredRef = useRef(false);
   const lastPlayedTrackRef = useRef(null);
@@ -309,6 +311,42 @@ function App() {
     }
   }
 
+  // When we have matches and user's Spotify token, fetch which tracks are in their library (saved)
+  useEffect(() => {
+    if (!spotifyToken || !spotifyMatches?.length) {
+      setSpotifySavedTrackIds(new Set());
+      return;
+    }
+    const ids = spotifyMatches.map((m) => m.spotify_track?.id).filter(Boolean);
+    if (ids.length === 0) {
+      setSpotifySavedTrackIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    const BATCH = 50;
+    const saved = new Set();
+    (async () => {
+      for (let i = 0; i < ids.length; i += BATCH) {
+        const chunk = ids.slice(i, i + BATCH);
+        try {
+          const res = await fetch(
+            `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
+            { headers: { Authorization: `Bearer ${spotifyToken}` } }
+          );
+          if (!res.ok || cancelled) break;
+          const arr = await res.json();
+          chunk.forEach((id, idx) => {
+            if (arr[idx]) saved.add(id);
+          });
+        } catch {
+          break;
+        }
+      }
+      if (!cancelled) setSpotifySavedTrackIds(new Set(saved));
+    })();
+    return () => { cancelled = true; };
+  }, [spotifyToken, spotifyMatches]);
+
   function handleSpotifyLogin(e) {
     e?.preventDefault?.();
     
@@ -317,7 +355,7 @@ function App() {
       return;
     }
 
-    const scopes = "streaming user-read-email user-read-private";
+    const scopes = "streaming user-read-email user-read-private user-library-read user-library-modify";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
     console.log('Spotify Redirect URI being used:', SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
@@ -569,15 +607,41 @@ function App() {
     return `${selectedItem.type}-${selectedItem.id}-${track.title}`;
   }
 
+  /** Display state: 0 = not liked, 1 = like (dark green), 2 = especially like (brighter green). Merges local overrides with Spotify saved. */
+  function getDisplayLikeState(track) {
+    const key = getTrackKey(track);
+    if (!key) return 0;
+    if (likedTracks[key] !== undefined) return likedTracks[key];
+    const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+    const spotifyId = match?.spotify_track?.id;
+    if (spotifyId && spotifySavedTrackIds.has(spotifyId)) return 1;
+    return 0;
+  }
+
   function toggleLikeTrack(track) {
     const key = getTrackKey(track);
     if (!key) return;
-    setLikedTracks((prev) => {
-      const next = { ...prev };
-      const current = next[key] ?? 0;
-      next[key] = (current + 1) % 3;
-      return next;
-    });
+    const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+    const spotifyTrack = match?.spotify_track;
+    const displayState = getDisplayLikeState(track);
+    const nextState = (displayState + 1) % 3;
+
+    if (nextState === 0 && spotifyTrack?.id && spotifyToken) {
+      fetch(`https://api.spotify.com/v1/me/tracks?ids=${encodeURIComponent(spotifyTrack.id)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${spotifyToken}` },
+      })
+        .then(() => {
+          setSpotifySavedTrackIds((prev) => {
+            const next = new Set(prev);
+            next.delete(spotifyTrack.id);
+            return next;
+          });
+        })
+        .catch((err) => console.error("Spotify unlike failed:", err));
+    }
+
+    setLikedTracks((prev) => ({ ...prev, [key]: nextState }));
   }
 
   useEffect(() => {
@@ -1118,7 +1182,7 @@ function App() {
                           const isTrackFinished = playbackDuration > 0 && playbackPosition >= playbackDuration;
                           const isActive = isCurrentTrack && !isTrackFinished;
                           const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
-                          const likeState = likedTracks[getTrackKey(track)] ?? 0;
+                          const likeState = getDisplayLikeState(track);
                           return (
                             <li
                               key={i}
@@ -1152,8 +1216,8 @@ function App() {
                                 type="button"
                                 className={`track-like-btn track-like-${likeState}`}
                                 onClick={() => toggleLikeTrack(track)}
-                                title={likeState === 0 ? "Like" : likeState === 1 ? "Especially like" : "Remove like"}
-                                aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Especially like track" : "Remove like"}
+                                title={likeState === 0 ? "Like" : likeState === 1 ? "Liked (click for especially like)" : "Especially like (click to remove)"}
+                                aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Liked" : "Especially like"}
                               >
                                 <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
                                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />

@@ -623,14 +623,17 @@
   stroke-width: 1.5;
 }
 
+/* Liked: darker star so it’s clearly “liked” */
+/* State 1: Like — dark green */
 .track-like-1 {
-  color: rgba(29, 185, 84, 0.3);
+  color: #0d6b2c;
 }
 
 .track-like-1 svg path {
   fill: currentColor;
 }
 
+/* State 2: Especially like — brighter green */
 .track-like-2 {
   color: #1db954;
 }
