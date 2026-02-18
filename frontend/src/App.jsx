@@ -192,6 +192,14 @@ function App() {
     return () => { cancelled = true; };
   }, [viewListId, accessToken]);
 
+  // When a list's items load, auto-select the first item so detail shows on the right
+  useEffect(() => {
+    const items = listViewData?.items;
+    if (!viewListId || !items?.length) return;
+    const first = items[0];
+    setSelectedItem({ id: first.id, type: first.type, title: first.title });
+  }, [viewListId, listViewData]);
+
   // Removed consumed list loading - replaced with lists feature
 
   async function handleSubmit(e) {
@@ -207,9 +215,13 @@ function App() {
         return;
       }
       setResults(data.results || []);
-      setSelectedItem(null);
-      setDetailData(null);
-      setSpotifyMatches([]);
+      if (data.results?.length) {
+        handleItemClick(data.results[0]);
+      } else {
+        setSelectedItem(null);
+        setDetailData(null);
+        setSpotifyMatches([]);
+      }
     } catch (err) {
       setError(err.message || "Request failed");
     } finally {
