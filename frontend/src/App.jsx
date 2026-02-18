@@ -542,50 +542,48 @@ function App() {
     }
   }, [likedTracks]);
 
-  // Load user's lists when modal opens
+  // Load user's lists when modal opens (both requests in parallel)
   useEffect(() => {
     if (!showListModal || !accessToken) return;
     setListLoading(true);
     setListError(null);
-    authFetch(`${API_BASE}/api/search/lists/`)
-      .then(async (res) => {
-        if (!res.ok) {
-          const contentType = res.headers.get("content-type") || "";
-          let errorText = `HTTP ${res.status}`;
-          if (contentType.includes("application/json")) {
-            try {
-              const errorData = await res.json();
-              errorText = errorData.error || errorData.detail || errorText;
-            } catch {
-              // If JSON parsing fails, use default
-            }
-          } else {
-            // If it's HTML or other, just use status
-            errorText = `Failed to load lists (${res.status})`;
+    const t = selectedItem ? (selectedItem.type || "").toLowerCase() : "";
+    const needCheck = selectedItem && (t === "release" || t === "master");
+
+    const listsPromise = authFetch(`${API_BASE}/api/search/lists/`).then(async (res) => {
+      if (!res.ok) {
+        const contentType = res.headers.get("content-type") || "";
+        let errorText = `HTTP ${res.status}`;
+        if (contentType.includes("application/json")) {
+          try {
+            const errorData = await res.json();
+            errorText = errorData.error || errorData.detail || errorText;
+          } catch {
+            // ignore
           }
-          throw new Error(errorText);
+        } else {
+          errorText = `Failed to load lists (${res.status})`;
         }
-        return res.json();
-      })
-      .then((data) => {
+        throw new Error(errorText);
+      }
+      return res.json();
+    });
+
+    const checkPromise = needCheck
+      ? authFetch(
+          `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
+        )
+          .then(async (res) => {
+            if (!res.ok) return { list_ids: [] };
+            return res.json();
+          })
+          .catch(() => ({ list_ids: [] }))
+      : Promise.resolve({ list_ids: [] });
+
+    Promise.all([listsPromise, checkPromise])
+      .then(([data, checkData]) => {
         setLists(data.lists || []);
-        // Check which lists already contain this album
-        if (selectedItem) {
-          const t = (selectedItem.type || "").toLowerCase();
-          if (t === "release" || t === "master") {
-            authFetch(
-              `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
-            )
-              .then(async (res) => {
-                if (!res.ok) {
-                  return { list_ids: [] };
-                }
-                return res.json();
-              })
-              .then((checkData) => setSelectedListIds(checkData.list_ids || []))
-              .catch(() => setSelectedListIds([]));
-          }
-        }
+        setSelectedListIds(checkData.list_ids || []);
       })
       .catch((err) => {
         setListError(err.message || "Failed to load lists");
