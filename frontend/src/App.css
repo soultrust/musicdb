@@ -397,11 +397,14 @@
 
 .tracklist-filter-star {
   padding: 0.2rem;
-  border-radius: 4px;
+  border-radius: 0;
+  border: 1px solid transparent;
 }
 
-.tracklist-filter-star:hover {
-  background: #262626;
+/* Override .track-like-btn's border: none so the active state shows */
+.tracklist-filter-star.tracklist-filter-star-active {
+  border: 1px solid #737373;
+  border-radius: 0;
 }
 
 .tracklist-header h3 {
@@ -634,10 +637,6 @@
 .track-like-btn:active {
   outline: none !important;
   box-shadow: none !important;
-}
-
-.track-like-btn:hover {
-  color: #737373;
 }
 
 .track-like-btn svg {

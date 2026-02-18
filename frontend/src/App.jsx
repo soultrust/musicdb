@@ -1255,7 +1255,7 @@ function App() {
                           <span className="tracklist-filter-label">Filter by:</span>
                           <button
                             type="button"
-                            className="tracklist-filter-star track-like-btn track-like-1"
+                            className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
                             onClick={() => setTracklistFilter((f) => (f === "liked" ? null : "liked"))}
                             title={tracklistFilter === "liked" ? "Show all tracks" : "Hide unliked tracks"}
                             aria-label={tracklistFilter === "liked" ? "Show all" : "Filter to liked"}
@@ -1266,7 +1266,7 @@ function App() {
                           </button>
                           <button
                             type="button"
-                            className="tracklist-filter-star track-like-btn track-like-2"
+                            className={`tracklist-filter-star track-like-btn track-like-2${tracklistFilter === "especially" ? " tracklist-filter-star-active" : ""}`}
                             onClick={() => setTracklistFilter((f) => (f === "especially" ? null : "especially"))}
                             title={tracklistFilter === "especially" ? "Show all tracks" : "Hide unliked and liked (show especially liked only)"}
                             aria-label={tracklistFilter === "especially" ? "Show all" : "Filter to especially liked"}
