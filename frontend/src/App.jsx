@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import "./App.css";
 
 // API base URL from environment variable
@@ -28,6 +28,8 @@ function App() {
   const [spotifyMatches, setSpotifyMatches] = useState([]);
   const [spotifyMatching, setSpotifyMatching] = useState(false);
   const [spotifyToken, setSpotifyToken] = useState(null);
+  const [spotifyConnectionStatus, setSpotifyConnectionStatus] = useState("disconnected"); // "disconnected" | "connecting" | "connected"
+  const reconnectTimeoutRef = useRef(null);
   const [player, setPlayer] = useState(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(null);
@@ -72,6 +74,8 @@ function App() {
     setUser(null);
     setAuthError(null);
     localStorage.removeItem(AUTH_REFRESH_KEY);
+    // Also logout from Spotify
+    handleSpotifyLogout();
   }
 
   async function authFetch(url, options = {}) {
@@ -440,18 +444,219 @@ function App() {
   }
 
   function handleSpotifyLogout() {
+    // Clear reconnect timeout if any
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
     setSpotifyToken(null);
     setPlayer(null);
+    setDeviceId(null);
     setIsPlaying(false);
     setCurrentTrack(null);
     setPlaybackPosition(0);
     setPlaybackDuration(0);
+    setSpotifyConnectionStatus("disconnected");
     if (playerRef.current) {
       playerRef.current.disconnect();
       playerRef.current = null;
     }
     window.location.hash = "";
   }
+
+  const attemptSpotifyReconnect = useCallback((attemptNumber = 1) => {
+    // Don't reconnect if user manually logged out (no token)
+    if (!spotifyToken) {
+      return;
+    }
+
+    const maxAttempts = 5;
+    const baseDelay = 2000; // Start with 2 seconds
+    
+    if (attemptNumber > maxAttempts) {
+      console.error("Spotify: Max reconnection attempts reached");
+      setSpotifyConnectionStatus("disconnected");
+      return;
+    }
+
+    setSpotifyConnectionStatus("connecting");
+    const delay = baseDelay * Math.pow(2, attemptNumber - 1); // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+    
+    reconnectTimeoutRef.current = setTimeout(() => {
+      console.log(`Spotify: Attempting to reconnect (attempt ${attemptNumber}/${maxAttempts})...`);
+      // Re-initialize player if SDK is available
+      if (window.Spotify && spotifyToken && !playerRef.current) {
+        // Use the same initializePlayer logic
+        const newPlayer = new window.Spotify.Player({
+          name: "Discogs Music DB",
+          getOAuthToken: (cb) => cb(spotifyToken),
+          volume: 0.5,
+        });
+
+        newPlayer.addListener("ready", ({ device_id }) => {
+          setDeviceId(device_id);
+          setSpotifyConnectionStatus("connected");
+          if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
+          }
+        });
+
+        newPlayer.addListener("not_ready", () => {
+          setSpotifyConnectionStatus("disconnected");
+          attemptSpotifyReconnect(attemptNumber + 1);
+        });
+
+        newPlayer.addListener("authentication_error", ({ message }) => {
+          console.error("Spotify authentication error:", message);
+          if (playerRef.current) {
+            playerRef.current.disconnect();
+            playerRef.current = null;
+          }
+          setPlayer(null);
+          setDeviceId(null);
+          attemptSpotifyReconnect(attemptNumber + 1);
+        });
+
+        newPlayer.addListener("account_error", ({ message }) => {
+          console.error("Spotify account error:", message);
+          if (playerRef.current) {
+            playerRef.current.disconnect();
+            playerRef.current = null;
+          }
+          setPlayer(null);
+          setDeviceId(null);
+          attemptSpotifyReconnect(attemptNumber + 1);
+        });
+
+        newPlayer.addListener("player_state_changed", (state) => {
+          if (state) {
+            lastPlayedTrackRef.current = state.track_window.current_track;
+            setIsPlaying(!state.paused);
+            setCurrentTrack(state.track_window.current_track);
+            setPlaybackPosition(state.position || 0);
+            setPlaybackDuration(state.duration || 0);
+          } else {
+            const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
+            lastPlayedTrackRef.current = null;
+            setCurrentTrack(null);
+            setPlaybackPosition(0);
+            setPlaybackDuration(0);
+            if (finishedUri) setTrackJustEndedUri(finishedUri);
+          }
+        });
+
+        newPlayer.addListener("playback_error", ({ message }) => {
+          console.error("Spotify playback error:", message);
+        });
+
+        newPlayer.addListener("initialization_error", ({ message }) => {
+          console.error("Spotify initialization error:", message);
+          attemptSpotifyReconnect(attemptNumber + 1);
+        });
+
+        newPlayer.connect();
+        setPlayer(newPlayer);
+        playerRef.current = newPlayer;
+      } else if (!spotifyToken) {
+        // No token, can't reconnect
+        setSpotifyConnectionStatus("disconnected");
+      }
+    }, delay);
+  }, [spotifyToken]);
+
+  const initializePlayer = useCallback(() => {
+    if (!window.Spotify) {
+      console.error("Spotify: Cannot initialize: SDK not loaded");
+      return;
+    }
+    if (playerRef.current) {
+      return;
+    }
+
+    const newPlayer = new window.Spotify.Player({
+      name: "Discogs Music DB",
+      getOAuthToken: (cb) => {
+        cb(spotifyToken);
+      },
+      volume: 0.5,
+    });
+
+    newPlayer.addListener("ready", ({ device_id }) => {
+      setDeviceId(device_id);
+      setSpotifyConnectionStatus("connected");
+      // Clear any pending reconnect attempts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+    });
+
+    newPlayer.addListener("not_ready", ({ device_id }) => {
+      console.warn("Spotify: Player not ready, device_id:", device_id);
+      setSpotifyConnectionStatus("disconnected");
+      // Attempt to reconnect
+      attemptSpotifyReconnect(1);
+    });
+
+    newPlayer.addListener("player_state_changed", (state) => {
+      if (state) {
+        lastPlayedTrackRef.current = state.track_window.current_track;
+        setIsPlaying(!state.paused);
+        setCurrentTrack(state.track_window.current_track);
+        setPlaybackPosition(state.position || 0);
+        setPlaybackDuration(state.duration || 0);
+      } else {
+        const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
+        lastPlayedTrackRef.current = null;
+        setCurrentTrack(null);
+        setPlaybackPosition(0);
+        setPlaybackDuration(0);
+        if (finishedUri) setTrackJustEndedUri(finishedUri);
+      }
+    });
+
+    newPlayer.addListener("authentication_error", ({ message }) => {
+      console.error("Spotify authentication error:", message);
+      // Clear player but keep token, attempt to reconnect
+      if (playerRef.current) {
+        playerRef.current.disconnect();
+        playerRef.current = null;
+      }
+      setPlayer(null);
+      setDeviceId(null);
+      setSpotifyConnectionStatus("connecting");
+      attemptSpotifyReconnect(1);
+    });
+
+    newPlayer.addListener("account_error", ({ message }) => {
+      console.error("Spotify account error:", message);
+      // Clear player but keep token, attempt to reconnect
+      if (playerRef.current) {
+        playerRef.current.disconnect();
+        playerRef.current = null;
+      }
+      setPlayer(null);
+      setDeviceId(null);
+      setSpotifyConnectionStatus("connecting");
+      attemptSpotifyReconnect(1);
+    });
+
+    newPlayer.addListener("playback_error", ({ message }) => {
+      console.error("Spotify playback error:", message);
+      // Don't logout on playback errors, just log
+    });
+
+    newPlayer.addListener("initialization_error", ({ message }) => {
+      console.error("Spotify initialization error:", message);
+      setSpotifyConnectionStatus("connecting");
+      attemptSpotifyReconnect(1);
+    });
+
+    newPlayer.connect();
+    setPlayer(newPlayer);
+    playerRef.current = newPlayer;
+  }, [spotifyToken, attemptSpotifyReconnect]);
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -585,10 +790,18 @@ function App() {
       
       if (e.data.type === "spotify-token") {
         setSpotifyToken(e.data.token);
+        setSpotifyConnectionStatus("connecting");
         sessionStorage.removeItem('spotify_auth_origin'); // Clean up
+        // Clear any pending reconnect attempts
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+          reconnectTimeoutRef.current = null;
+        }
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
         sessionStorage.removeItem('spotify_auth_origin'); // Clean up
+        // Don't auto-reconnect on auth errors (user needs to manually authorize)
+        setSpotifyConnectionStatus("disconnected");
       }
     }
     window.addEventListener("message", onMessage);
@@ -597,6 +810,7 @@ function App() {
 
   useEffect(() => {
     if (spotifyToken) {
+      setSpotifyConnectionStatus("connecting");
       // Load Spotify Web Playback SDK dynamically
       if (!window.Spotify && !document.getElementById("spotify-player-script")) {
         const script = document.createElement("script");
@@ -606,6 +820,8 @@ function App() {
         
         script.onerror = (error) => {
           console.error("Spotify: Failed to load SDK script:", error);
+          setSpotifyConnectionStatus("disconnected");
+          attemptSpotifyReconnect(1);
         };
         
         script.onload = () => {
@@ -616,74 +832,18 @@ function App() {
       } else if (window.Spotify && !playerRef.current) {
         initializePlayer();
       }
+    } else {
+      setSpotifyConnectionStatus("disconnected");
     }
 
-    function initializePlayer() {
-      if (!window.Spotify) {
-        console.error("Spotify: Cannot initialize: SDK not loaded");
-        return;
+    // Cleanup on unmount
+    return () => {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
-      if (playerRef.current) {
-        return;
-      }
-
-      const newPlayer = new window.Spotify.Player({
-        name: "Discogs Music DB",
-        getOAuthToken: (cb) => {
-          cb(spotifyToken);
-        },
-        volume: 0.5,
-      });
-
-      newPlayer.addListener("ready", ({ device_id }) => {
-        setDeviceId(device_id);
-      });
-
-      newPlayer.addListener("not_ready", ({ device_id }) => {
-        console.warn("Spotify: Player not ready, device_id:", device_id);
-      });
-
-      newPlayer.addListener("player_state_changed", (state) => {
-        if (state) {
-          lastPlayedTrackRef.current = state.track_window.current_track;
-          setIsPlaying(!state.paused);
-          setCurrentTrack(state.track_window.current_track);
-          setPlaybackPosition(state.position || 0);
-          setPlaybackDuration(state.duration || 0);
-        } else {
-          const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
-          lastPlayedTrackRef.current = null;
-          setCurrentTrack(null);
-          setPlaybackPosition(0);
-          setPlaybackDuration(0);
-          if (finishedUri) setTrackJustEndedUri(finishedUri);
-        }
-      });
-
-      newPlayer.addListener("authentication_error", ({ message }) => {
-        console.error("Spotify authentication error:", message);
-        handleSpotifyLogout();
-      });
-
-      newPlayer.addListener("account_error", ({ message }) => {
-        console.error("Spotify account error:", message);
-        handleSpotifyLogout();
-      });
-
-      newPlayer.addListener("playback_error", ({ message }) => {
-        console.error("Spotify playback error:", message);
-        // Don't logout on playback errors, just log
-      });
-
-      newPlayer.addListener("initialization_error", ({ message }) => {
-        console.error("Spotify initialization error:", message);
-      });
-
-      newPlayer.connect();
-      setPlayer(newPlayer);
-      playerRef.current = newPlayer;
-    }
-  }, [spotifyToken]);
+    };
+  }, [spotifyToken, attemptSpotifyReconnect, initializePlayer]);
 
   // Poll playback position for progress bar when playing
   useEffect(() => {
@@ -1191,15 +1351,18 @@ function App() {
       <div className="app-header">
         <h1>Soultrust MusicDB</h1>
         <div className="app-header-right">
-          {spotifyToken && deviceId ? (
+          {spotifyToken ? (
             <div className="spotify-controls">
-              <span className="spotify-status">Spotify Connected</span>
-              <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
-                {isPlaying ? "⏸" : "▶"}
-              </button>
-              <button onClick={handleSpotifyLogout} className="spotify-logout-btn">
-                Logout
-              </button>
+              <span className={`spotify-status ${spotifyConnectionStatus === "connected" ? "spotify-connected" : spotifyConnectionStatus === "connecting" ? "spotify-connecting" : "spotify-disconnected"}`}>
+                {spotifyConnectionStatus === "connected" && deviceId ? "Spotify Connected" : 
+                 spotifyConnectionStatus === "connecting" ? "Spotify Connecting..." : 
+                 "Spotify Reconnecting..."}
+              </span>
+              {spotifyConnectionStatus === "connected" && deviceId && (
+                <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
+                  {isPlaying ? "⏸" : "▶"}
+                </button>
+              )}
             </div>
           ) : (
             <button onClick={handleSpotifyLogin} className="spotify-login-btn">

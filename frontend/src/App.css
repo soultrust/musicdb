@@ -63,7 +63,44 @@
 
 .spotify-status {
   font-size: 0.875rem;
-  color: #737373;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.spotify-status.spotify-connected {
+  color: #1db954;
+  background: rgba(29, 185, 84, 0.1);
+}
+
+.spotify-status.spotify-connecting {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.spotify-status.spotify-connecting::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.spotify-status.spotify-disconnected {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .play-pause-btn {
