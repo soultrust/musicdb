@@ -1065,7 +1065,7 @@ function App() {
               <button className="modal-close" onClick={handleCloseListModal}>×</button>
             </div>
             <div className="modal-body">
-              {listLoading && lists.length === 0 ? (
+              {listLoading ? (
                 <p className="detail-loading">Loading lists…</p>
               ) : (
                 <>
