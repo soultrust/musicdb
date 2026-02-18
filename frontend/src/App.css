@@ -1,6 +1,7 @@
 .app {
-  max-width: 100%;
-  margin: 0;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
   padding: 1rem 1.5rem;
   height: 100vh;
   display: flex;
@@ -676,7 +677,7 @@
 .track-position {
   color: #737373;
   font-size: 0.875rem;
-  min-width: 40px;
+  min-width: 25px;
   flex-shrink: 0;
 }
 

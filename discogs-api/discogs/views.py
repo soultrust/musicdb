@@ -240,16 +240,17 @@ class DetailAPIView(APIView):
 import re
 import logging
 import requests
-from django.conf import settings
 
-# Configure logging
 logger = logging.getLogger(__name__)
+
+# Gemini API is now accessed via REST API directly, no SDK needed
+GEMINI_AVAILABLE = True  # Always available since we use REST API
 
 
 class AlbumOverviewView(APIView):
     """
     Fetches a critical overview of an album.
-    Priority order: cache, then Wikipedia. (AI model calls removed.)
+    Priority order: cache, then Gemini (if available), then Wikipedia.
     """
     permission_classes = [IsAuthenticated]
 
@@ -271,34 +272,75 @@ class AlbumOverviewView(APIView):
         ).first()
 
         if cached_overview:
+            print(f"[DEBUG] Using cached overview for '{album}' by {artist} (source: {cached_overview.source})")
             serializer = AlbumOverviewSerializer(cached_overview)
             return Response({
                 "source": "cache",
                 "data": serializer.data
             })
+        
+        print(f"[DEBUG] No cache found for '{album}' by {artist}, fetching new overview...")
 
-        # Step 2: Fetch from Wikipedia
+        # Step 2: Try Gemini API first (if available and configured)
+        # TEMPORARILY DISABLED - Uncomment to re-enable Gemini
         overview_text = None
         source = None
+        gemini_error = None
         wikipedia_error = None
-        try:
-            overview_text = self._fetch_from_wikipedia(artist, album)
-            source = "wikipedia"
-            logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
-        except Exception as e:
-            wikipedia_error = str(e)
-            logger.warning(f"Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
+
+        # Temporarily disabled to avoid using up API quota
+        # Set to True to re-enable Gemini
+        USE_GEMINI = False
+        
+        if USE_GEMINI and GEMINI_AVAILABLE and getattr(settings, 'GEMINI_API_KEY', None):
+            print(f"[DEBUG] Attempting Gemini API call for '{album}' by {artist}")
+            try:
+                overview_text = self._fetch_from_gemini(artist, album)
+                source = "gemini"
+                print(f"[DEBUG] ✅ Gemini succeeded for '{album}' by {artist}")
+                logger.info(f"Successfully fetched overview from Gemini for '{album}' by {artist}")
+            except Exception as e:
+                gemini_error = f"{type(e).__name__}: {str(e)}"
+                print(f"[DEBUG] ❌ Gemini failed for '{album}' by {artist}: {gemini_error}")
+                print(f"[DEBUG] ❌ Full exception: {repr(e)}")
+                logger.warning(f"Gemini failed for '{album}' by {artist}: {gemini_error}")
+        else:
+            if not USE_GEMINI:
+                print(f"[DEBUG] Gemini temporarily disabled (USE_GEMINI=False)")
+            elif not GEMINI_AVAILABLE:
+                print(f"[DEBUG] Gemini not available (library not installed)")
+            elif not getattr(settings, 'GEMINI_API_KEY', None):
+                print(f"[DEBUG] Gemini API key not configured")
+
+        # Step 3: Fall back to Wikipedia if Gemini didn't work
+        if not overview_text:
+            print(f"[DEBUG] Falling back to Wikipedia for '{album}' by {artist}")
+            try:
+                overview_text = self._fetch_from_wikipedia(artist, album)
+                source = "wikipedia"
+                print(f"[DEBUG] ✅ Wikipedia succeeded for '{album}' by {artist}")
+                logger.info(f"Successfully fetched overview from Wikipedia for '{album}' by {artist}")
+            except Exception as e:
+                wikipedia_error = f"{type(e).__name__}: {str(e)}"
+                print(f"[DEBUG] ❌ Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
+                print(f"[DEBUG] ❌ Full exception: {repr(e)}")
+                logger.warning(f"Wikipedia failed for '{album}' by {artist}: {wikipedia_error}")
 
         if not overview_text:
             err_detail = "Unable to fetch album overview."
+            if gemini_error:
+                err_detail += f" Gemini: {gemini_error[:200]}."
+                print(f"[DEBUG] ❌ Final error - Gemini failed: {gemini_error}")
             if wikipedia_error:
                 err_detail += f" Wikipedia: {wikipedia_error[:200]}."
+                print(f"[DEBUG] ❌ Final error - Wikipedia failed: {wikipedia_error}")
+            print(f"[DEBUG] ❌ Returning 503 error: {err_detail}")
             return Response(
                 {"error": err_detail},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE
             )
 
-        # Step 3: Cache the result in PostgreSQL
+        # Step 4: Cache the result in PostgreSQL
         new_overview = AlbumOverview.objects.create(
             artist=artist,
             album=album,
@@ -311,6 +353,80 @@ class AlbumOverviewView(APIView):
             "source": source,
             "data": serializer.data
         })
+
+    def _fetch_from_gemini(self, artist, album):
+        """
+        Uses Google's Gemini API to generate a critical overview of an album.
+        Uses REST API directly (gemini-2.0-flash works, gemini-1.5-pro doesn't).
+        Requires GEMINI_API_KEY to be set in settings.
+        """
+        api_key = getattr(settings, 'GEMINI_API_KEY', None)
+        if not api_key:
+            raise Exception("GEMINI_API_KEY not configured")
+        
+        # Use REST API directly - gemini-2.0-flash works (tested via curl)
+        model_name = 'gemini-2.0-flash'
+        api_url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        
+        # Create a prompt for album overview
+        prompt = f"""Write a critical overview of the album "{album}" by {artist}. 
+
+Include:
+- A brief description of the album's style, genre, and key characteristics
+- Notable tracks or highlights
+- Critical reception and reviews
+- Historical context and significance
+- Any awards, chart performance, or cultural impact
+
+Keep it informative, well-structured, and around 300-500 words. Write in a professional, critical music journalism style."""
+
+        print(f"[DEBUG] Using Gemini REST API (model: {model_name})")
+        
+        # Use REST API instead of SDK
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
+        
+        try:
+            print(f"[DEBUG] Making POST request to Gemini REST API...")
+            response = requests.post(
+                api_url,
+                headers={'Content-Type': 'application/json'},
+                json=payload,
+                timeout=30
+            )
+            print(f"[DEBUG] Gemini API response status: {response.status_code}")
+            response.raise_for_status()
+            data = response.json()
+            print(f"[DEBUG] Gemini API response received")
+            
+            # Extract text from response
+            if 'candidates' in data and len(data['candidates']) > 0:
+                candidate = data['candidates'][0]
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    if parts and 'text' in parts[0]:
+                        overview_text = parts[0]['text'].strip()
+                        print(f"[DEBUG] ✅ Successfully extracted text from Gemini response, length: {len(overview_text)}")
+                        if len(overview_text) < 50:
+                            raise Exception("Gemini returned empty or too short response")
+                        return overview_text
+            
+            print(f"[DEBUG] Unexpected response format: {data}")
+            raise Exception(f"Unexpected response format from Gemini API: {data}")
+            
+        except requests.exceptions.RequestException as e:
+            error_msg = f"Gemini REST API request failed: {e}"
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_data = e.response.json()
+                    error_msg += f" Response: {error_data}"
+                except:
+                    error_msg += f" Response status: {e.response.status_code}"
+            print(f"[DEBUG] ❌ {error_msg}")
+            raise Exception(error_msg)
 
     def _fetch_from_wikipedia(self, artist, album):
         """
@@ -332,24 +448,35 @@ class AlbumOverviewView(APIView):
         ]
 
         page_content = None
+        last_error = None
 
         for query in search_queries:
             try:
+                print(f"[DEBUG] Wikipedia: Trying search query: '{query}'")
                 page_content = self._search_wikipedia(base_url, query)
                 if page_content:
+                    print(f"[DEBUG] Wikipedia: Found page content for query '{query}'")
                     break
-            except Exception:
+            except Exception as e:
+                last_error = str(e)
+                print(f"[DEBUG] Wikipedia: Search query '{query}' failed: {last_error}")
                 continue
 
         if not page_content:
-            raise Exception(f"No Wikipedia article found for '{album}' by {artist}")
+            error_msg = f"No Wikipedia article found for '{album}' by {artist}"
+            if last_error:
+                error_msg += f" (last error: {last_error})"
+            raise Exception(error_msg)
 
         # Extract relevant sections
+        print(f"[DEBUG] Wikipedia: Extracting overview from {len(page_content)} characters of content")
         overview = self._extract_album_overview(page_content, artist, album)
 
         if not overview:
+            print(f"[DEBUG] Wikipedia: No overview extracted from content")
             raise Exception("Wikipedia article found but no useful overview content extracted.")
 
+        print(f"[DEBUG] Wikipedia: Successfully extracted {len(overview)} characters of overview")
         return overview
 
     def _search_wikipedia(self, base_url, query):
@@ -366,39 +493,58 @@ class AlbumOverviewView(APIView):
             "format": "json",
         }
 
-        search_response = requests.get(base_url, params=search_params)
-        search_response.raise_for_status()
-        search_data = search_response.json()
+        try:
+            print(f"[DEBUG] Wikipedia: Making search request to {base_url}")
+            search_response = requests.get(base_url, params=search_params, timeout=10)
+            print(f"[DEBUG] Wikipedia: Search response status: {search_response.status_code}")
+            search_response.raise_for_status()
+            search_data = search_response.json()
+            print(f"[DEBUG] Wikipedia: Search response received")
 
-        search_results = search_data.get("query", {}).get("search", [])
+            search_results = search_data.get("query", {}).get("search", [])
+            print(f"[DEBUG] Wikipedia: Found {len(search_results)} search results")
 
-        if not search_results:
-            return None
-
-        # Step 2: Get the full page content for the first result
-        page_title = search_results[0]["title"]
-
-        content_params = {
-            "action": "query",
-            "titles": page_title,
-            "prop": "extracts",
-            "exintro": False,  # Get full content, not just intro
-            "explaintext": True,  # Plain text, no HTML
-            "format": "json",
-        }
-
-        content_response = requests.get(base_url, params=content_params)
-        content_response.raise_for_status()
-        content_data = content_response.json()
-
-        pages = content_data.get("query", {}).get("pages", {})
-
-        for page_id, page_info in pages.items():
-            if page_id == "-1":
+            if not search_results:
+                print(f"[DEBUG] Wikipedia: No search results for query '{query}'")
                 return None
-            return page_info.get("extract", "")
 
-        return None
+            # Step 2: Get the full page content for the first result
+            page_title = search_results[0]["title"]
+            print(f"[DEBUG] Wikipedia: Fetching content for page '{page_title}'")
+
+            content_params = {
+                "action": "query",
+                "titles": page_title,
+                "prop": "extracts",
+                "exintro": False,  # Get full content, not just intro
+                "explaintext": True,  # Plain text, no HTML
+                "format": "json",
+            }
+
+            content_response = requests.get(base_url, params=content_params, timeout=10)
+            print(f"[DEBUG] Wikipedia: Content response status: {content_response.status_code}")
+            content_response.raise_for_status()
+            content_data = content_response.json()
+
+            pages = content_data.get("query", {}).get("pages", {})
+            print(f"[DEBUG] Wikipedia: Found {len(pages)} pages in response")
+
+            for page_id, page_info in pages.items():
+                if page_id == "-1":
+                    print(f"[DEBUG] Wikipedia: Page ID -1 indicates page not found")
+                    return None
+                extract = page_info.get("extract", "")
+                print(f"[DEBUG] Wikipedia: Extracted {len(extract)} characters of content")
+                return extract
+
+            print(f"[DEBUG] Wikipedia: No extract found in pages")
+            return None
+        except requests.exceptions.RequestException as e:
+            print(f"[DEBUG] Wikipedia: Request exception: {type(e).__name__}: {e}")
+            raise Exception(f"Wikipedia API request failed: {e}")
+        except Exception as e:
+            print(f"[DEBUG] Wikipedia: Unexpected exception: {type(e).__name__}: {e}")
+            raise
 
     def _extract_album_overview(self, content, artist, album):
         """
