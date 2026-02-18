@@ -845,20 +845,24 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: 100vh;
   padding: 2rem;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .auth-screen h1 {
   font-family: "Oswald", sans-serif;
   margin-bottom: 0.5rem;
   text-transform: uppercase;
+  text-align: center;
 }
 
 .auth-subtitle {
   color: #a3a3a3;
   margin: 0 0 1.5rem;
   font-size: 0.95rem;
+  text-align: center;
 }
 
 .auth-form {
@@ -867,6 +871,7 @@
   gap: 0.75rem;
   width: 100%;
   max-width: 280px;
+  margin: 0 auto;
 }
 
 .auth-form input {
@@ -911,6 +916,7 @@
   color: #737373;
   cursor: pointer;
   text-decoration: underline;
+  text-align: center;
 }
 
 .auth-toggle:hover {
