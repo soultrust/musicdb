@@ -943,9 +943,12 @@ function App() {
     }
   }
 
-  // Reset autoplay trigger when track changes
+  // Reset autoplay trigger when track changes (with small delay to avoid race with effects)
   useEffect(() => {
-    autoplayTriggeredRef.current = false;
+    const timer = setTimeout(() => {
+      autoplayTriggeredRef.current = false;
+    }, 100);
+    return () => clearTimeout(timer);
   }, [currentTrack?.uri]);
 
   // Autoplay: when track ends (state=null), play next *visible* track (skip hidden by filter)
@@ -955,23 +958,52 @@ function App() {
       setTrackJustEndedUri(null);
       return;
     }
+    if (autoplayTriggeredRef.current) {
+      console.log("Autoplay: already triggered, skipping");
+      setTrackJustEndedUri(null);
+      return;
+    }
 
     const matchIndex = spotifyMatches.findIndex((m) => m.spotify_track?.uri === trackJustEndedUri);
     setTrackJustEndedUri(null);
     if (matchIndex < 0) return;
 
     const fullList = detailData.tracklist;
+    if (matchIndex >= fullList.length || matchIndex >= spotifyMatches.length) {
+      console.warn("Autoplay: matchIndex out of bounds", { matchIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+      return;
+    }
     const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
+    const currentTrack = fullList[currentIndex];
+    console.log("Autoplay: track ended", { currentIndex, currentTrackTitle: currentTrack?.title, trackJustEndedUri, filter: tracklistFilter });
 
+    let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (currentIndex + j) % fullList.length;
+      if (nextFullIndex >= fullList.length || nextFullIndex >= spotifyMatches.length) {
+        console.warn("Autoplay: nextFullIndex out of bounds", { nextFullIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+        continue;
+      }
       const nextTrack = fullList[nextFullIndex];
-      if (!isTrackVisible(nextTrack)) continue;
+      if (!nextTrack) {
+        console.warn("Autoplay: nextTrack missing at index", nextFullIndex);
+        continue;
+      }
+      const isVisible = isTrackVisible(nextTrack);
       const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
-      if (nextMatch?.spotify_track?.uri) {
+      const hasUri = !!nextMatch?.spotify_track?.uri;
+      console.log("Autoplay: checking next", { j, nextFullIndex, nextTrackTitle: nextTrack.title, isVisible, hasUri });
+      if (!isVisible) continue;
+      if (hasUri) {
+        foundNext = true;
+        autoplayTriggeredRef.current = true; /* set BEFORE playTrack to prevent double-trigger */
+        console.log("Autoplay: playing next track", { nextTrackTitle: nextTrack.title, uri: nextMatch.spotify_track.uri });
         playTrack(nextMatch.spotify_track.uri);
         break;
       }
+    }
+    if (!foundNext) {
+      console.warn("Autoplay: no next visible track with Spotify match found");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
   }, [trackJustEndedUri, autoplay, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
@@ -980,22 +1012,53 @@ function App() {
   useEffect(() => {
     if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !currentTrack?.uri || !deviceId || !spotifyToken || visibleTracklist.length === 0) return;
     if (playbackDuration <= 0 || playbackPosition < Math.max(0, playbackDuration - 300)) return;
-    if (autoplayTriggeredRef.current) return;
+    if (autoplayTriggeredRef.current) {
+      console.log("Autoplay fallback: already triggered, skipping");
+      return;
+    }
+    if (trackJustEndedUri) {
+      console.log("Autoplay fallback: trackJustEndedUri is set, main effect will handle it");
+      return;
+    }
 
     const matchIndex = spotifyMatches.findIndex((m) => m.spotify_track?.uri === currentTrack.uri);
     if (matchIndex < 0) return;
     const fullList = detailData.tracklist;
+    if (matchIndex >= fullList.length || matchIndex >= spotifyMatches.length) {
+      console.warn("Autoplay fallback: matchIndex out of bounds", { matchIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+      return;
+    }
     const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
+    const currentTrackObj = fullList[currentIndex];
+    console.log("Autoplay fallback: near end", { currentIndex, currentTrackTitle: currentTrackObj?.title, filter: tracklistFilter });
 
+    let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (currentIndex + j) % fullList.length;
+      if (nextFullIndex >= fullList.length || nextFullIndex >= spotifyMatches.length) {
+        console.warn("Autoplay fallback: nextFullIndex out of bounds", { nextFullIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+        continue;
+      }
       const nextTrack = fullList[nextFullIndex];
-      if (!isTrackVisible(nextTrack)) continue;
+      if (!nextTrack) {
+        console.warn("Autoplay fallback: nextTrack missing at index", nextFullIndex);
+        continue;
+      }
+      const isVisible = isTrackVisible(nextTrack);
       const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
-      if (!nextMatch?.spotify_track?.uri) continue;
-      autoplayTriggeredRef.current = true;
-      playTrack(nextMatch.spotify_track.uri);
-      break;
+      const hasUri = !!nextMatch?.spotify_track?.uri;
+      console.log("Autoplay fallback: checking next", { j, nextFullIndex, nextTrackTitle: nextTrack.title, isVisible, hasUri });
+      if (!isVisible) continue;
+      if (hasUri) {
+        foundNext = true;
+        autoplayTriggeredRef.current = true; /* set BEFORE playTrack to prevent double-trigger */
+        console.log("Autoplay fallback: playing next track", { nextTrackTitle: nextTrack.title, uri: nextMatch.spotify_track.uri });
+        playTrack(nextMatch.spotify_track.uri);
+        break;
+      }
+    }
+    if (!foundNext) {
+      console.warn("Autoplay fallback: no next visible track with Spotify match found");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
   }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
