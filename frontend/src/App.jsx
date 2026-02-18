@@ -192,12 +192,13 @@ function App() {
     return () => { cancelled = true; };
   }, [viewListId, accessToken]);
 
-  // When a list's items load, auto-select the first item so detail shows on the right
+  // When a list's items load, auto-select the first item and load its detail (same as search results)
   useEffect(() => {
     const items = listViewData?.items;
     if (!viewListId || !items?.length) return;
     const first = items[0];
-    setSelectedItem({ id: first.id, type: first.type, title: first.title });
+    handleItemClick({ id: first.id, type: first.type, title: first.title });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when list loads, not when handleItemClick ref changes
   }, [viewListId, listViewData]);
 
   // Removed consumed list loading - replaced with lists feature
