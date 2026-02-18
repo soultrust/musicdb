@@ -1265,8 +1265,19 @@ function App() {
                             </span>
                             <span className="autoplay-switch-label">Autoplay</span>
                           </label>
-                          <div className={`tracklist-filter${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}>
+                          <div className={`tracklist-filter${tracklistFilter === null ? " tracklist-filter-all-active" : ""}${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}>
                           <span className="tracklist-filter-label">Filter by:</span>
+                          <button
+                            type="button"
+                            className={`tracklist-filter-star track-like-btn track-like-0${tracklistFilter === null ? " tracklist-filter-star-active" : ""}`}
+                            onClick={() => setTracklistFilter(null)}
+                            title="Show all tracks"
+                            aria-label="Show all tracks"
+                          >
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          </button>
                           <button
                             type="button"
                             className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
