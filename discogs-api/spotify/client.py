@@ -28,6 +28,19 @@ def _normalize_title_for_match(title):
     return s
 
 
+def _trailing_part_designation(title):
+    """Extract trailing parenthetical that looks like a part (e.g. 'Pts. 1-5', 'Part 2'). Return None if none."""
+    if not title:
+        return None
+    match = re.search(r"\s*\(([^)]+)\)\s*$", (title or "").strip())
+    if not match:
+        return None
+    content = match.group(1).strip()
+    if re.search(r"\b(?:pt\.?s?|part)\s*\d", content, re.IGNORECASE) or re.search(r"\d+\s*[-–]\s*\d+", content):
+        return _normalize_title_for_match(content) or content.lower()
+    return None
+
+
 def _get_access_token():
     """Get Spotify access token using Client Credentials flow (cached for 1 hour)."""
     cache_key = "spotify_access_token"
@@ -80,9 +93,8 @@ def search_track(query, artist=None, limit=5):
     """
     access_token = _get_access_token()
     
-    # Clean up track title - remove common suffixes, canonicalize "Part 1"/"#1" etc for search
-    clean_query = re.sub(r'\s*\([^)]*\)\s*$', '', query).strip()
-    clean_query = _normalize_title_for_match(clean_query) or clean_query
+    # Only strip Discogs disambiguation like " (2)" at the end, NOT part numbers like " (Pts. 1-5)"
+    clean_query = re.sub(r"\s*\(\d+\)\s*$", "", query.strip()).strip()
     
     # Build search query: "track:name artist:artist" or just "track:name"
     search_query = f'track:"{clean_query}"'
@@ -138,15 +150,20 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
         
         discogs_title_norm = _normalize_title_for_match(discogs_title)
         spotify_title_norm = _normalize_title_for_match(track.get("name", ""))
+        discogs_part = _trailing_part_designation(discogs_title)
+        spotify_part = _trailing_part_designation(track.get("name", ""))
         # Exact title match gets high score
         if discogs_title_lower == spotify_title:
             score += 100
         # Normalized title match (e.g. "Part 1" vs "#1") - same song, different spelling
         elif discogs_title_norm and discogs_title_norm == spotify_title_norm:
             score += 95
-        # Title contains or is contained (partial match)
+        # Title contains or is contained (partial match) — but not when part designations differ (e.g. Pts. 1-5 vs Pts. 6-9)
         elif discogs_title_lower in spotify_title or spotify_title in discogs_title_lower:
-            score += 50
+            if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
+                pass
+            else:
+                score += 50
         
         # Artist matching - check if any Discogs artist matches any Spotify artist
         artist_matches = sum(1 for da in discogs_artists_lower for sa in spotify_artists if da == sa)

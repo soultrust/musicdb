@@ -377,6 +377,33 @@
   margin-bottom: 1rem;
 }
 
+.tracklist-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.tracklist-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tracklist-filter-label {
+  font-size: 0.875rem;
+  color: #a3a3a3;
+  margin-right: 0.25rem;
+}
+
+.tracklist-filter-star {
+  padding: 0.2rem;
+  border-radius: 4px;
+}
+
+.tracklist-filter-star:hover {
+  background: #262626;
+}
+
 .tracklist-header h3 {
   margin: 0;
 }

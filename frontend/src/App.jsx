@@ -46,6 +46,8 @@ function App() {
   /** Set of Spotify track IDs that the user has saved in Spotify (for showing as state 1 until overridden). */
   const [spotifySavedTrackIds, setSpotifySavedTrackIds] = useState(() => new Set());
   const [autoplay, setAutoplay] = useState(true);
+  /** Tracklist filter: null = all, "liked" = hide unliked, "especially" = hide unliked + liked */
+  const [tracklistFilter, setTracklistFilter] = useState(null);
   const autoplayTriggeredRef = useRef(false);
   const lastPlayedTrackRef = useRef(null);
   const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
@@ -1196,22 +1198,57 @@ function App() {
                             <span className="matching-indicator">(Matching to Spotify…)</span>
                           )}
                         </h3>
-                        <label className="autoplay-switch">
-                          <input
-                            type="checkbox"
-                            checked={autoplay}
-                            onChange={(e) => setAutoplay(e.target.checked)}
-                            role="switch"
-                            aria-label="Autoplay next track"
-                          />
-                          <span className="autoplay-switch-track">
-                            <span className="autoplay-switch-thumb" />
-                          </span>
-                          <span className="autoplay-switch-label">Autoplay</span>
-                        </label>
+                        <div className="tracklist-header-right">
+                          <label className="autoplay-switch">
+                            <input
+                              type="checkbox"
+                              checked={autoplay}
+                              onChange={(e) => setAutoplay(e.target.checked)}
+                              role="switch"
+                              aria-label="Autoplay next track"
+                            />
+                            <span className="autoplay-switch-track">
+                              <span className="autoplay-switch-thumb" />
+                            </span>
+                            <span className="autoplay-switch-label">Autoplay</span>
+                          </label>
+                          <div className="tracklist-filter">
+                          <span className="tracklist-filter-label">Filter by:</span>
+                          <button
+                            type="button"
+                            className="tracklist-filter-star track-like-btn track-like-1"
+                            onClick={() => setTracklistFilter((f) => (f === "liked" ? null : "liked"))}
+                            title={tracklistFilter === "liked" ? "Show all tracks" : "Hide unliked tracks"}
+                            aria-label={tracklistFilter === "liked" ? "Show all" : "Filter to liked"}
+                          >
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="tracklist-filter-star track-like-btn track-like-2"
+                            onClick={() => setTracklistFilter((f) => (f === "especially" ? null : "especially"))}
+                            title={tracklistFilter === "especially" ? "Show all tracks" : "Hide unliked and liked (show especially liked only)"}
+                            aria-label={tracklistFilter === "especially" ? "Show all" : "Filter to especially liked"}
+                          >
+                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        </div>
                       </div>
                       <ol className="tracklist">
-                        {detailData.tracklist.map((track, i) => {
+                        {detailData.tracklist
+                          .filter((track) => {
+                            if (!tracklistFilter) return true;
+                            const state = getDisplayLikeState(track);
+                            if (tracklistFilter === "liked") return state >= 1;
+                            if (tracklistFilter === "especially") return state === 2;
+                            return true;
+                          })
+                          .map((track, i) => {
                           const match = spotifyMatches.find((m) => m.discogs_title === track.title);
                           const spotifyTrack = match?.spotify_track;
                           const isCurrentTrack = spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
@@ -1221,7 +1258,7 @@ function App() {
                           const likeState = getDisplayLikeState(track);
                           return (
                             <li
-                              key={i}
+                              key={getTrackKey(track) || `track-${i}`}
                               className={isActive ? "track-playing" : ""}
                               onClick={(e) => handleTrackRowClick(e, isActive)}
                               title={isActive ? "Click to seek" : undefined}
