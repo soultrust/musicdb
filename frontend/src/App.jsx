@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import "./App.css";
 
 // API base URL from environment variable
@@ -735,6 +735,27 @@ function App() {
     }
   }
 
+  /** Visible tracklist for current filter (used for autoplay order and UI). */
+  const visibleTracklist = useMemo(() => {
+    const list = detailData?.tracklist ?? [];
+    if (!tracklistFilter) return list;
+    return list.filter((track) => {
+      const state = getDisplayLikeState(track);
+      if (tracklistFilter === "liked") return state >= 1;
+      if (tracklistFilter === "especially") return state === 2;
+      return true;
+    });
+  }, [detailData?.tracklist, tracklistFilter, likedTracks, spotifySavedTrackIds, spotifyMatches, selectedItem]);
+
+  /** Same visibility rule as visibleTracklist; use in autoplay so we skip hidden tracks correctly per track. */
+  function isTrackVisible(track) {
+    if (!tracklistFilter) return true;
+    const state = getDisplayLikeState(track);
+    if (tracklistFilter === "liked") return state >= 1;
+    if (tracklistFilter === "especially") return state === 2;
+    return true;
+  }
+
   useEffect(() => {
     try {
       localStorage.setItem(LIKED_TRACKS_KEY, JSON.stringify(likedTracks));
@@ -927,50 +948,57 @@ function App() {
     autoplayTriggeredRef.current = false;
   }, [currentTrack?.uri]);
 
-  // Autoplay: when track ends (state=null), play next track in list
+  // Autoplay: when track ends (state=null), play next *visible* track (skip hidden by filter)
   useEffect(() => {
     if (!trackJustEndedUri) return;
-    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !deviceId || !spotifyToken) {
+    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !deviceId || !spotifyToken || visibleTracklist.length === 0) {
       setTrackJustEndedUri(null);
       return;
     }
 
-    const match = spotifyMatches.find((m) => m.spotify_track?.uri === trackJustEndedUri);
+    const matchIndex = spotifyMatches.findIndex((m) => m.spotify_track?.uri === trackJustEndedUri);
     setTrackJustEndedUri(null);
-    if (!match) return;
+    if (matchIndex < 0) return;
 
-    const currentIndex = detailData.tracklist.findIndex((t) => t.title === match.discogs_title);
-    if (currentIndex < 0) return;
+    const fullList = detailData.tracklist;
+    const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
 
-    const nextIndex = (currentIndex + 1) % detailData.tracklist.length;
-    const nextTrack = detailData.tracklist[nextIndex];
-    const nextMatch = spotifyMatches.find((m) => m.discogs_title === nextTrack.title);
-    if (!nextMatch?.spotify_track?.uri) return;
-
-    playTrack(nextMatch.spotify_track.uri);
+    for (let j = 1; j <= fullList.length; j++) {
+      const nextFullIndex = (currentIndex + j) % fullList.length;
+      const nextTrack = fullList[nextFullIndex];
+      if (!isTrackVisible(nextTrack)) continue;
+      const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
+      if (nextMatch?.spotify_track?.uri) {
+        playTrack(nextMatch.spotify_track.uri);
+        break;
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
-  }, [trackJustEndedUri, autoplay, detailData, spotifyMatches, deviceId, spotifyToken]);
+  }, [trackJustEndedUri, autoplay, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
 
-  // Autoplay fallback: when position reaches end (in case state=null doesn't fire)
+  // Autoplay fallback: when position reaches end (in case state=null doesn't fire); only play next *visible* track
   useEffect(() => {
-    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !currentTrack?.uri || !deviceId || !spotifyToken) return;
+    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !currentTrack?.uri || !deviceId || !spotifyToken || visibleTracklist.length === 0) return;
     if (playbackDuration <= 0 || playbackPosition < Math.max(0, playbackDuration - 300)) return;
     if (autoplayTriggeredRef.current) return;
 
-    const match = spotifyMatches.find((m) => m.spotify_track?.uri === currentTrack.uri);
-    if (!match) return;
-    const currentIndex = detailData.tracklist.findIndex((t) => t.title === match.discogs_title);
-    if (currentIndex < 0) return;
+    const matchIndex = spotifyMatches.findIndex((m) => m.spotify_track?.uri === currentTrack.uri);
+    if (matchIndex < 0) return;
+    const fullList = detailData.tracklist;
+    const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
 
-    const nextIndex = (currentIndex + 1) % detailData.tracklist.length;
-    const nextTrack = detailData.tracklist[nextIndex];
-    const nextMatch = spotifyMatches.find((m) => m.discogs_title === nextTrack.title);
-    if (!nextMatch?.spotify_track?.uri) return;
-
-    autoplayTriggeredRef.current = true;
-    playTrack(nextMatch.spotify_track.uri);
+    for (let j = 1; j <= fullList.length; j++) {
+      const nextFullIndex = (currentIndex + j) % fullList.length;
+      const nextTrack = fullList[nextFullIndex];
+      if (!isTrackVisible(nextTrack)) continue;
+      const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
+      if (!nextMatch?.spotify_track?.uri) continue;
+      autoplayTriggeredRef.current = true;
+      playTrack(nextMatch.spotify_track.uri);
+      break;
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
-  }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken]);
+  }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
 
   if (!accessToken) {
     return (
