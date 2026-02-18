@@ -19,6 +19,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-right: 7px;
 }
 
 .app h1 {
@@ -403,7 +404,9 @@
 .tracklist-filter-star {
   padding: 0.2rem;
   border-radius: 0;
-  transition: border-color 0.2s ease, border-radius 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    border-radius 0.2s ease;
 }
 
 /* Override .track-like-btn border: none so border is visible on filter stars */
@@ -456,6 +459,8 @@
   gap: 0.5rem;
   cursor: pointer;
   user-select: none;
+  margin-bottom: 2px;
+  margin-right: 10px;
 }
 
 .autoplay-switch input {
