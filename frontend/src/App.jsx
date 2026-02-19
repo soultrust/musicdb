@@ -257,7 +257,12 @@ function App() {
 
   // Fetch playlist tracks when a playlist is selected
   useEffect(() => {
-    if (!selectedPlaylistId || !spotifyToken || !accessToken || viewListId !== "spotify-playlists") {
+    if (
+      !selectedPlaylistId ||
+      !spotifyToken ||
+      !accessToken ||
+      viewListId !== "spotify-playlists"
+    ) {
       setPlaylistTracksData(null);
       return;
     }
@@ -1549,7 +1554,7 @@ function App() {
     return (
       <div className="app">
         <div className="auth-screen">
-          <h1>Soultrust MusicDB</h1>
+          <h1>MusicDB</h1>
           <p className="auth-subtitle">Sign in to search and manage your music lists.</p>
           <form onSubmit={handleAuthSubmit} className="auth-form">
             <input
@@ -1591,7 +1596,9 @@ function App() {
   return (
     <div className="app">
       <div className="app-header">
-        <h1>Soultrust MusicDB</h1>
+        <h1>
+          MusicDB <span className="app-header-subtitle">Discogs Interface</span>
+        </h1>
         <div className="app-header-right">
           {spotifyToken ? (
             <div className="spotify-controls">
@@ -1649,9 +1656,7 @@ function App() {
             title="Select a list to view"
           >
             <option value="">— Select a list —</option>
-            {spotifyToken && (
-              <option value="spotify-playlists">Shared Playlists</option>
-            )}
+            {spotifyToken && <option value="spotify-playlists">Shared Playlists</option>}
             {[
               { label: "Releases", list_type: "release" },
               { label: "Artists", list_type: "person" },
@@ -1708,17 +1713,13 @@ function App() {
                     }}
                   >
                     {playlist.name}
-                    {playlist.owner && (
-                      <span className="playlist-owner"> by {playlist.owner}</span>
-                    )}
+                    {playlist.owner && <span className="playlist-owner"> by {playlist.owner}</span>}
                   </li>
                 ))}
               </ul>
-              {!spotifyPlaylistsLoading &&
-                spotifyToken &&
-                spotifyPlaylists.length === 0 && (
-                  <p className="list-view-empty">No playlists found.</p>
-                )}
+              {!spotifyPlaylistsLoading && spotifyToken && spotifyPlaylists.length === 0 && (
+                <p className="list-view-empty">No playlists found.</p>
+              )}
             </>
           ) : viewListId != null ? (
             <>
@@ -1851,330 +1852,332 @@ function App() {
               </div>
             )}
           </div>
-        ) : selectedItem && (
-          <div className="detail">
-            {detailLoading && <p className="detail-loading">Loading details…</p>}
-            {detailError && <p className="error">{detailError}</p>}
-            {detailData && (
-              <div className="detail-columns">
-                <div className="detail-main">
-                  <div className="detail-header">
-                    <div className="detail-thumb-container">
-                      {detailData.thumb || detailData.images?.[0]?.uri ? (
-                        <img
-                          src={detailData.thumb || detailData.images?.[0]?.uri}
-                          alt={detailData.title || selectedItem.title}
-                          className="detail-thumb"
-                          onError={(e) => {
-                            console.error(
-                              "Image failed to load:",
-                              detailData.thumb || detailData.images?.[0]?.uri,
-                            );
-                            e.target.style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="detail-thumb-placeholder">No Image</div>
-                      )}
+        ) : (
+          selectedItem && (
+            <div className="detail">
+              {detailLoading && <p className="detail-loading">Loading details…</p>}
+              {detailError && <p className="error">{detailError}</p>}
+              {detailData && (
+                <div className="detail-columns">
+                  <div className="detail-main">
+                    <div className="detail-header">
+                      <div className="detail-thumb-container">
+                        {detailData.thumb || detailData.images?.[0]?.uri ? (
+                          <img
+                            src={detailData.thumb || detailData.images?.[0]?.uri}
+                            alt={detailData.title || selectedItem.title}
+                            className="detail-thumb"
+                            onError={(e) => {
+                              console.error(
+                                "Image failed to load:",
+                                detailData.thumb || detailData.images?.[0]?.uri,
+                              );
+                              e.target.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="detail-thumb-placeholder">No Image</div>
+                        )}
 
-                      {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
-                        <button onClick={handleAddToList} className="add-to-list-btn">
-                          Manage Lists
-                        </button>
-                      )}
-                    </div>
-                    <div className="detail-content">
-                      <h2 className="detail-title">
-                        {(detailData.title || selectedItem.title || "")
-                          .toLowerCase()
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </h2>
-                      <div className="detail-meta">
-                        {detailData.artists && detailData.artists.length > 0 && (
-                          <div className="detail-row">
-                            <span className="label">Artist:</span>
-                            <span className="value">
-                              {detailData.artists.map((a) => a.name).join(", ")}
-                            </span>
-                          </div>
-                        )}
-                        {detailData.year && (
-                          <div className="detail-row">
-                            <span className="label">Year:</span>
-                            <span className="value">{detailData.year}</span>
-                          </div>
-                        )}
-                        {detailData.formats && detailData.formats.length > 0 && (
-                          <div className="detail-row">
-                            <span className="label">Format:</span>
-                            <span className="value">
-                              {detailData.formats
-                                .map((f) => f.name + (f.qty ? ` (${f.qty})` : ""))
-                                .join(", ")}
-                            </span>
-                          </div>
-                        )}
-                        {detailData.country && (
-                          <div className="detail-row">
-                            <span className="label">Country:</span>
-                            <span className="value">{detailData.country}</span>
-                          </div>
-                        )}
-                        {detailData.genres && detailData.genres.length > 0 && (
-                          <div className="detail-row">
-                            <span className="label">Genre:</span>
-                            <span className="value">{detailData.genres.join(", ")}</span>
-                          </div>
-                        )}
-                        {detailData.styles && detailData.styles.length > 0 && (
-                          <div className="detail-row">
-                            <span className="label">Style:</span>
-                            <span className="value">{detailData.styles.join(", ")}</span>
-                          </div>
-                        )}
-                        {detailData.labels && detailData.labels.length > 0 && (
-                          <div className="detail-row">
-                            <span className="label">Label:</span>
-                            <span className="value">
-                              {detailData.labels
-                                .map((l) => l.name + (l.catno ? ` (${l.catno})` : ""))
-                                .join(", ")}
-                            </span>
-                          </div>
+                        {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                          <button onClick={handleAddToList} className="add-to-list-btn">
+                            Manage Lists
+                          </button>
                         )}
                       </div>
-                    </div>
-                  </div>
-                  {detailData.tracklist && detailData.tracklist.length > 0 && (
-                    <div className="detail-tracklist">
-                      <div className="tracklist-header">
-                        <h3>
-                          Tracklist{" "}
-                          {spotifyMatching && (
-                            <span className="matching-indicator">(Matching to Spotify…)</span>
+                      <div className="detail-content">
+                        <h2 className="detail-title">
+                          {(detailData.title || selectedItem.title || "")
+                            .toLowerCase()
+                            .replace(/\b\w/g, (c) => c.toUpperCase())}
+                        </h2>
+                        <div className="detail-meta">
+                          {detailData.artists && detailData.artists.length > 0 && (
+                            <div className="detail-row">
+                              <span className="label">Artist:</span>
+                              <span className="value">
+                                {detailData.artists.map((a) => a.name).join(", ")}
+                              </span>
+                            </div>
                           )}
-                        </h3>
-                        <div className="tracklist-header-right">
-                          <label className="autoplay-switch">
-                            <input
-                              type="checkbox"
-                              checked={autoplay}
-                              onChange={(e) => setAutoplay(e.target.checked)}
-                              role="switch"
-                              aria-label="Autoplay next track"
-                            />
-                            <span className="autoplay-switch-track">
-                              <span className="autoplay-switch-thumb" />
-                            </span>
-                            <span className="autoplay-switch-label">Autoplay</span>
-                          </label>
-                          <div
-                            className={`tracklist-filter${tracklistFilter === null ? " tracklist-filter-all-active" : ""}${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}
-                          >
-                            <span className="tracklist-filter-label">Filter by:</span>
-                            <button
-                              type="button"
-                              className={`tracklist-filter-star track-like-btn track-like-0${tracklistFilter === null ? " tracklist-filter-star-active" : ""}`}
-                              onClick={() => setTracklistFilter(null)}
-                              title="Show all tracks"
-                              aria-label="Show all tracks"
-                            >
-                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
-                              onClick={() =>
-                                setTracklistFilter((f) => (f === "liked" ? null : "liked"))
-                              }
-                              title={
-                                tracklistFilter === "liked"
-                                  ? "Show all tracks"
-                                  : "Hide unliked tracks"
-                              }
-                              aria-label={
-                                tracklistFilter === "liked" ? "Show all" : "Filter to liked"
-                              }
-                            >
-                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              className={`tracklist-filter-star track-like-btn track-like-2${tracklistFilter === "especially" ? " tracklist-filter-star-active" : ""}`}
-                              onClick={() =>
-                                setTracklistFilter((f) =>
-                                  f === "especially" ? null : "especially",
-                                )
-                              }
-                              title={
-                                tracklistFilter === "especially"
-                                  ? "Show all tracks"
-                                  : "Hide unliked and liked (show especially liked only)"
-                              }
-                              aria-label={
-                                tracklistFilter === "especially"
-                                  ? "Show all"
-                                  : "Filter to especially liked"
-                              }
-                            >
-                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                              </svg>
-                            </button>
-                          </div>
+                          {detailData.year && (
+                            <div className="detail-row">
+                              <span className="label">Year:</span>
+                              <span className="value">{detailData.year}</span>
+                            </div>
+                          )}
+                          {detailData.formats && detailData.formats.length > 0 && (
+                            <div className="detail-row">
+                              <span className="label">Format:</span>
+                              <span className="value">
+                                {detailData.formats
+                                  .map((f) => f.name + (f.qty ? ` (${f.qty})` : ""))
+                                  .join(", ")}
+                              </span>
+                            </div>
+                          )}
+                          {detailData.country && (
+                            <div className="detail-row">
+                              <span className="label">Country:</span>
+                              <span className="value">{detailData.country}</span>
+                            </div>
+                          )}
+                          {detailData.genres && detailData.genres.length > 0 && (
+                            <div className="detail-row">
+                              <span className="label">Genre:</span>
+                              <span className="value">{detailData.genres.join(", ")}</span>
+                            </div>
+                          )}
+                          {detailData.styles && detailData.styles.length > 0 && (
+                            <div className="detail-row">
+                              <span className="label">Style:</span>
+                              <span className="value">{detailData.styles.join(", ")}</span>
+                            </div>
+                          )}
+                          {detailData.labels && detailData.labels.length > 0 && (
+                            <div className="detail-row">
+                              <span className="label">Label:</span>
+                              <span className="value">
+                                {detailData.labels
+                                  .map((l) => l.name + (l.catno ? ` (${l.catno})` : ""))
+                                  .join(", ")}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <ol className="tracklist">
-                        {detailData.tracklist
-                          .filter((track) => {
-                            if (!tracklistFilter) return true;
-                            const state = getDisplayLikeState(track);
-                            if (tracklistFilter === "liked") return state >= 1;
-                            if (tracklistFilter === "especially") return state === 2;
-                            return true;
-                          })
-                          .map((track, i) => {
-                            const match = spotifyMatches.find(
-                              (m) => m.discogs_title === track.title,
-                            );
-                            const spotifyTrack = match?.spotify_track;
-                            const isCurrentTrack =
-                              spotifyTrack?.uri &&
-                              currentTrack?.uri &&
-                              spotifyTrack.uri === currentTrack.uri;
-                            const isTrackFinished =
-                              playbackDuration > 0 && playbackPosition >= playbackDuration;
-                            const isActive = isCurrentTrack && !isTrackFinished;
-                            const progress =
-                              playbackDuration > 0
-                                ? (playbackPosition / playbackDuration) * 100
-                                : 0;
-                            const likeState = getDisplayLikeState(track);
-                            const matchedDisconnected = spotifyTrack && !spotifyToken;
-                            return (
-                              <li
-                                key={getTrackKey(track) || `track-${i}`}
-                                className={[
-                                  isActive ? "track-playing" : "",
-                                  matchedDisconnected ? "track-matched-disconnected" : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join(" ")}
-                                onClick={(e) => handleTrackRowClick(e, isActive)}
-                                title={isActive ? "Click to seek" : undefined}
+                    </div>
+                    {detailData.tracklist && detailData.tracklist.length > 0 && (
+                      <div className="detail-tracklist">
+                        <div className="tracklist-header">
+                          <h3>
+                            Tracklist{" "}
+                            {spotifyMatching && (
+                              <span className="matching-indicator">(Matching to Spotify…)</span>
+                            )}
+                          </h3>
+                          <div className="tracklist-header-right">
+                            <label className="autoplay-switch">
+                              <input
+                                type="checkbox"
+                                checked={autoplay}
+                                onChange={(e) => setAutoplay(e.target.checked)}
+                                role="switch"
+                                aria-label="Autoplay next track"
+                              />
+                              <span className="autoplay-switch-track">
+                                <span className="autoplay-switch-thumb" />
+                              </span>
+                              <span className="autoplay-switch-label">Autoplay</span>
+                            </label>
+                            <div
+                              className={`tracklist-filter${tracklistFilter === null ? " tracklist-filter-all-active" : ""}${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}
+                            >
+                              <span className="tracklist-filter-label">Filter by:</span>
+                              <button
+                                type="button"
+                                className={`tracklist-filter-star track-like-btn track-like-0${tracklistFilter === null ? " tracklist-filter-star-active" : ""}`}
+                                onClick={() => setTracklistFilter(null)}
+                                title="Show all tracks"
+                                aria-label="Show all tracks"
                               >
-                                <div
-                                  className="track-progress-bar"
-                                  style={{ width: isActive ? `${progress}%` : "0" }}
-                                />
-                                <span className="track-position">
-                                  {track.position || `${i + 1}.`}
-                                </span>
-                                <span className="track-title">{track.title}</span>
-                                {track.duration && (
-                                  <span className="track-duration">{track.duration}</span>
-                                )}
-                                {spotifyTrack ? (
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
+                                onClick={() =>
+                                  setTracklistFilter((f) => (f === "liked" ? null : "liked"))
+                                }
+                                title={
+                                  tracklistFilter === "liked"
+                                    ? "Show all tracks"
+                                    : "Hide unliked tracks"
+                                }
+                                aria-label={
+                                  tracklistFilter === "liked" ? "Show all" : "Filter to liked"
+                                }
+                              >
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                className={`tracklist-filter-star track-like-btn track-like-2${tracklistFilter === "especially" ? " tracklist-filter-star-active" : ""}`}
+                                onClick={() =>
+                                  setTracklistFilter((f) =>
+                                    f === "especially" ? null : "especially",
+                                  )
+                                }
+                                title={
+                                  tracklistFilter === "especially"
+                                    ? "Show all tracks"
+                                    : "Hide unliked and liked (show especially liked only)"
+                                }
+                                aria-label={
+                                  tracklistFilter === "especially"
+                                    ? "Show all"
+                                    : "Filter to especially liked"
+                                }
+                              >
+                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                        <ol className="tracklist">
+                          {detailData.tracklist
+                            .filter((track) => {
+                              if (!tracklistFilter) return true;
+                              const state = getDisplayLikeState(track);
+                              if (tracklistFilter === "liked") return state >= 1;
+                              if (tracklistFilter === "especially") return state === 2;
+                              return true;
+                            })
+                            .map((track, i) => {
+                              const match = spotifyMatches.find(
+                                (m) => m.discogs_title === track.title,
+                              );
+                              const spotifyTrack = match?.spotify_track;
+                              const isCurrentTrack =
+                                spotifyTrack?.uri &&
+                                currentTrack?.uri &&
+                                spotifyTrack.uri === currentTrack.uri;
+                              const isTrackFinished =
+                                playbackDuration > 0 && playbackPosition >= playbackDuration;
+                              const isActive = isCurrentTrack && !isTrackFinished;
+                              const progress =
+                                playbackDuration > 0
+                                  ? (playbackPosition / playbackDuration) * 100
+                                  : 0;
+                              const likeState = getDisplayLikeState(track);
+                              const matchedDisconnected = spotifyTrack && !spotifyToken;
+                              return (
+                                <li
+                                  key={getTrackKey(track) || `track-${i}`}
+                                  className={[
+                                    isActive ? "track-playing" : "",
+                                    matchedDisconnected ? "track-matched-disconnected" : "",
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" ")}
+                                  onClick={(e) => handleTrackRowClick(e, isActive)}
+                                  title={isActive ? "Click to seek" : undefined}
+                                >
+                                  <div
+                                    className="track-progress-bar"
+                                    style={{ width: isActive ? `${progress}%` : "0" }}
+                                  />
+                                  <span className="track-position">
+                                    {track.position || `${i + 1}.`}
+                                  </span>
+                                  <span className="track-title">{track.title}</span>
+                                  {track.duration && (
+                                    <span className="track-duration">{track.duration}</span>
+                                  )}
+                                  {spotifyTrack ? (
+                                    <button
+                                      className="play-track-btn"
+                                      onClick={() => {
+                                        console.log("Play button clicked for:", spotifyTrack.uri);
+                                        playTrack(spotifyTrack.uri);
+                                      }}
+                                      title={
+                                        matchedDisconnected
+                                          ? "Connect to Spotify to play"
+                                          : `Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`
+                                      }
+                                      disabled={matchedDisconnected}
+                                    >
+                                      ▶ Play
+                                    </button>
+                                  ) : match !== undefined ? (
+                                    <span className="no-match">No match</span>
+                                  ) : (
+                                    <span className="no-match">Matching…</span>
+                                  )}
                                   <button
-                                    className="play-track-btn"
-                                    onClick={() => {
-                                      console.log("Play button clicked for:", spotifyTrack.uri);
-                                      playTrack(spotifyTrack.uri);
+                                    type="button"
+                                    className={`track-like-btn track-like-${likeState}`}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (!matchedDisconnected) toggleLikeTrack(track);
                                     }}
                                     title={
                                       matchedDisconnected
-                                        ? "Connect to Spotify to play"
-                                        : `Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`
+                                        ? "Connect to Spotify to sync likes"
+                                        : likeState === 0
+                                          ? "Like"
+                                          : likeState === 1
+                                            ? "Liked (click for especially like)"
+                                            : "Especially like (click to remove)"
+                                    }
+                                    aria-label={
+                                      likeState === 0
+                                        ? "Like track"
+                                        : likeState === 1
+                                          ? "Liked"
+                                          : "Especially like"
                                     }
                                     disabled={matchedDisconnected}
                                   >
-                                    ▶ Play
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                    </svg>
                                   </button>
-                                ) : match !== undefined ? (
-                                  <span className="no-match">No match</span>
-                                ) : (
-                                  <span className="no-match">Matching…</span>
-                                )}
-                                <button
-                                  type="button"
-                                  className={`track-like-btn track-like-${likeState}`}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (!matchedDisconnected) toggleLikeTrack(track);
-                                  }}
-                                  title={
-                                    matchedDisconnected
-                                      ? "Connect to Spotify to sync likes"
-                                      : likeState === 0
-                                        ? "Like"
-                                        : likeState === 1
-                                          ? "Liked (click for especially like)"
-                                          : "Especially like (click to remove)"
-                                  }
-                                  aria-label={
-                                    likeState === 0
-                                      ? "Like track"
-                                      : likeState === 1
-                                        ? "Liked"
-                                        : "Especially like"
-                                  }
-                                  disabled={matchedDisconnected}
-                                >
-                                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                  </svg>
-                                </button>
-                              </li>
-                            );
-                          })}
-                      </ol>
-                    </div>
-                  )}
-                  {detailData.profile && (
-                    <div className="detail-profile">
-                      <h3>Profile</h3>
-                      <p>{detailData.profile}</p>
+                                </li>
+                              );
+                            })}
+                        </ol>
+                      </div>
+                    )}
+                    {detailData.profile && (
+                      <div className="detail-profile">
+                        <h3>Profile</h3>
+                        <p>{detailData.profile}</p>
+                      </div>
+                    )}
+                  </div>
+                  {(overviewLoading || overview || overviewError) && (
+                    <div className="detail-overview">
+                      <h3>Overview</h3>
+                      {(detailData.uri ||
+                        selectedItem?.type === "release" ||
+                        selectedItem?.type === "master") && (
+                        <div className="detail-row detail-row-links">
+                          {detailData.uri && (
+                            <a
+                              href={detailData.uri}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="detail-link"
+                            >
+                              View on Discogs →
+                            </a>
+                          )}
+                        </div>
+                      )}
+                      {overviewLoading && <p className="detail-loading">Loading overview…</p>}
+                      {overviewError && !overviewLoading && (
+                        <p className="error">
+                          {overviewError.includes("Wikipedia") &&
+                          overviewError.toLowerCase().includes("no ")
+                            ? "No overview available for this album."
+                            : overviewError}
+                        </p>
+                      )}
+                      {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
                     </div>
                   )}
                 </div>
-                {(overviewLoading || overview || overviewError) && (
-                  <div className="detail-overview">
-                    <h3>Overview</h3>
-                    {(detailData.uri ||
-                      selectedItem?.type === "release" ||
-                      selectedItem?.type === "master") && (
-                      <div className="detail-row detail-row-links">
-                        {detailData.uri && (
-                          <a
-                            href={detailData.uri}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="detail-link"
-                          >
-                            View on Discogs →
-                          </a>
-                        )}
-                      </div>
-                    )}
-                    {overviewLoading && <p className="detail-loading">Loading overview…</p>}
-                    {overviewError && !overviewLoading && (
-                      <p className="error">
-                        {overviewError.includes("Wikipedia") &&
-                        overviewError.toLowerCase().includes("no ")
-                          ? "No overview available for this album."
-                          : overviewError}
-                      </p>
-                    )}
-                    {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )
         )}
       </div>
       {showListModal && (

@@ -17,6 +17,10 @@
   border-bottom: 2px solid rgb(255 255 255 / 0.7);
 }
 
+.app-header-subtitle {
+  color: #737373;
+}
+
 .app-header-right {
   display: flex;
   align-items: center;
