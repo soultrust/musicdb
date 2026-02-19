@@ -338,7 +338,6 @@
 
 .detail-thumb-container {
   flex-shrink: 0;
-  margin-bottom: 2rem;
 }
 
 .detail-thumb {
@@ -347,6 +346,7 @@
   object-fit: cover;
   border-radius: 8px;
   display: block;
+  margin-bottom: 2rem;
 }
 
 .detail-thumb-placeholder {
