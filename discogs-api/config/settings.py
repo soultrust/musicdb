@@ -8,11 +8,11 @@ from dotenv import load_dotenv
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables from .env file
-load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 SECRET_KEY = os.getenv('SECRET_KEY') 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+
 
 # Initialize environ
 env = environ.Env(
@@ -23,6 +23,7 @@ env = environ.Env(
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
 )
+# Load environment variables from .env file
 environ.Env.read_env(BASE_DIR / '.env')
 
 # Now use env variables instead of hardcoded values
