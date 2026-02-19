@@ -219,6 +219,10 @@
   max-height: calc(100vh - 154px);
 }
 
+.results::-webkit-scrollbar {
+  display: none;
+}
+
 .results li {
   padding: 0.75rem;
   border-bottom: 1px solid #262626;
@@ -278,7 +282,6 @@
 .detail {
   flex: 1;
   min-width: 0;
-  overflow-y: auto;
 }
 
 .detail-columns {
@@ -295,6 +298,10 @@
   overflow-y: auto;
 }
 
+.detail-main::-webkit-scrollbar {
+  display: none;
+}
+
 .detail-overview {
   flex: 0 0 320px;
   padding: 1rem 1.4rem;
@@ -302,6 +309,10 @@
   border-radius: 8px;
   border: 1px solid #262626;
   align-self: stretch;
+}
+
+.detail-overview::-webkit-scrollbar {
+  display: none;
 }
 
 .detail-overview h3 {
