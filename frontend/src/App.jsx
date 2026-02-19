@@ -1664,6 +1664,12 @@ function App() {
                       ) : (
                         <div className="detail-thumb-placeholder">No Image</div>
                       )}
+
+                      {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                        <button onClick={handleAddToList} className="add-to-list-btn">
+                          Manage Lists
+                        </button>
+                      )}
                     </div>
                     <div className="detail-content">
                       <h2 className="detail-title">
@@ -1728,12 +1734,6 @@ function App() {
                           selectedItem?.type === "release" ||
                           selectedItem?.type === "master") && (
                           <div className="detail-row detail-row-links">
-                            {(selectedItem?.type === "release" ||
-                              selectedItem?.type === "master") && (
-                              <button onClick={handleAddToList} className="add-to-list-btn">
-                                Add to List
-                              </button>
-                            )}
                             {detailData.uri && (
                               <a
                                 href={detailData.uri}
@@ -1969,7 +1969,7 @@ function App() {
         <div className="modal-overlay" onClick={handleCloseListModal}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Add to List</h2>
+              <h2>Manage Lists</h2>
               <button className="modal-close" onClick={handleCloseListModal}>
                 ×
               </button>
