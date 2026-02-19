@@ -279,6 +279,13 @@
   margin-top: 0.5rem;
 }
 
+.playlist-owner {
+  color: #737373;
+  font-size: 0.85em;
+  font-weight: normal;
+  margin-left: 0.5rem;
+}
+
 .detail {
   flex: 1;
   min-width: 0;

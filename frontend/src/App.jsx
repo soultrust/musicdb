@@ -72,6 +72,12 @@ function App() {
   const [viewListId, setViewListId] = useState(null);
   const [listViewData, setListViewData] = useState(null);
   const [listViewLoading, setListViewLoading] = useState(false);
+  // Spotify playlists view
+  const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
+  const [spotifyPlaylistsLoading, setSpotifyPlaylistsLoading] = useState(false);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+  const [playlistTracksData, setPlaylistTracksData] = useState(null);
+  const [playlistTracksLoading, setPlaylistTracksLoading] = useState(false);
 
   function logout() {
     setAccessToken(null);
@@ -191,6 +197,10 @@ function App() {
       setListViewData(null);
       return;
     }
+    // Skip if it's the special "spotify-playlists" value
+    if (viewListId === "spotify-playlists") {
+      return;
+    }
     setListViewLoading(true);
     setListViewData(null);
     let cancelled = false;
@@ -209,6 +219,74 @@ function App() {
       cancelled = true;
     };
   }, [viewListId, accessToken]);
+
+  // Fetch Spotify playlists when "Shared Playlists" is selected
+  useEffect(() => {
+    if (viewListId !== "spotify-playlists" || !spotifyToken || !accessToken) {
+      setSpotifyPlaylists([]);
+      setSelectedPlaylistId(null);
+      setPlaylistTracksData(null);
+      return;
+    }
+    setSpotifyPlaylistsLoading(true);
+    let cancelled = false;
+    authFetch(`${API_BASE}/api/spotify/playlists/`, {
+      headers: {
+        Authorization: `Bearer ${spotifyToken}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled && data) {
+          setSpotifyPlaylists(data.playlists || []);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch Spotify playlists:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setSpotifyPlaylistsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewListId, spotifyToken, accessToken]);
+
+  // Fetch playlist tracks when a playlist is selected
+  useEffect(() => {
+    if (!selectedPlaylistId || !spotifyToken || !accessToken || viewListId !== "spotify-playlists") {
+      setPlaylistTracksData(null);
+      return;
+    }
+    setPlaylistTracksLoading(true);
+    let cancelled = false;
+    authFetch(`${API_BASE}/api/spotify/playlists/${selectedPlaylistId}/tracks/`, {
+      headers: {
+        Authorization: `Bearer ${spotifyToken}`,
+      },
+    })
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then((data) => {
+        if (!cancelled && data) {
+          setPlaylistTracksData(data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch playlist tracks:", err);
+      })
+      .finally(() => {
+        if (!cancelled) setPlaylistTracksLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlaylistId, spotifyToken, accessToken, viewListId]);
 
   // When a list's items load, auto-select the first item and load its detail (same as search results)
   useEffect(() => {
@@ -450,7 +528,7 @@ function App() {
     }
 
     const scopes =
-      "streaming user-read-email user-read-private user-library-read user-library-modify";
+      "streaming user-read-email user-read-private user-library-read user-library-modify playlist-read-private playlist-read-collaborative playlist-read-public";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
 
@@ -1549,15 +1627,29 @@ function App() {
                 setListViewData(null);
                 setSelectedItem(null);
                 setDetailData(null);
+                setSelectedPlaylistId(null);
+                setPlaylistTracksData(null);
+              } else if (v === "spotify-playlists") {
+                setViewListId("spotify-playlists");
+                setListViewData(null);
+                setSelectedItem(null);
+                setDetailData(null);
+                setSelectedPlaylistId(null);
+                setPlaylistTracksData(null);
               } else {
                 setViewListId(parseInt(v, 10));
                 setSelectedItem(null);
                 setDetailData(null);
+                setSelectedPlaylistId(null);
+                setPlaylistTracksData(null);
               }
             }}
             title="Select a list to view"
           >
             <option value="">— Select a list —</option>
+            {spotifyToken && (
+              <option value="spotify-playlists">Shared Playlists</option>
+            )}
             {[
               { label: "Releases", list_type: "release" },
               { label: "Artists", list_type: "person" },
@@ -1593,7 +1685,40 @@ function App() {
             />
           </form>
           {error && <p className="error">{error}</p>}
-          {viewListId != null ? (
+          {viewListId === "spotify-playlists" ? (
+            <>
+              <div className="list-view-header">
+                <span className="list-view-title">Shared Playlists</span>
+              </div>
+              {spotifyPlaylistsLoading && <p className="detail-loading">Loading playlists…</p>}
+              {!spotifyToken && (
+                <p className="list-view-empty">Connect to Spotify to view playlists.</p>
+              )}
+              <ul className="results">
+                {spotifyPlaylists.map((playlist) => (
+                  <li
+                    key={playlist.id}
+                    className={selectedPlaylistId === playlist.id ? "selected" : ""}
+                    onClick={() => {
+                      setSelectedPlaylistId(playlist.id);
+                      setSelectedItem(null);
+                      setDetailData(null);
+                    }}
+                  >
+                    {playlist.name}
+                    {playlist.owner && (
+                      <span className="playlist-owner"> by {playlist.owner}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {!spotifyPlaylistsLoading &&
+                spotifyToken &&
+                spotifyPlaylists.length === 0 && (
+                  <p className="list-view-empty">No playlists found.</p>
+                )}
+            </>
+          ) : viewListId != null ? (
             <>
               <div className="list-view-header">
                 <span className="list-view-title">List: {listViewData?.name ?? "…"}</span>
@@ -1639,7 +1764,92 @@ function App() {
             </>
           )}
         </div>
-        {selectedItem && (
+        {selectedPlaylistId && playlistTracksData ? (
+          <div className="detail">
+            {playlistTracksLoading && <p className="detail-loading">Loading playlist…</p>}
+            {playlistTracksData && (
+              <div className="detail-columns">
+                <div className="detail-main">
+                  <div className="detail-header">
+                    <div className="detail-thumb-container">
+                      {playlistTracksData.images && playlistTracksData.images.length > 0 ? (
+                        <img
+                          src={playlistTracksData.images[0].url}
+                          alt={playlistTracksData.name}
+                          className="detail-thumb"
+                          onError={(e) => {
+                            e.target.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="detail-thumb-placeholder">No Image</div>
+                      )}
+                    </div>
+                    <div className="detail-content">
+                      <h2 className="detail-title">{playlistTracksData.name}</h2>
+                      <div className="detail-meta">
+                        {playlistTracksData.owner && (
+                          <div className="detail-row">
+                            <span className="label">Owner:</span>
+                            <span className="value">{playlistTracksData.owner}</span>
+                          </div>
+                        )}
+                        {playlistTracksData.description && (
+                          <div className="detail-row">
+                            <span className="label">Description:</span>
+                            <span className="value">{playlistTracksData.description}</span>
+                          </div>
+                        )}
+                        {playlistTracksData.tracks && (
+                          <div className="detail-row">
+                            <span className="label">Tracks:</span>
+                            <span className="value">{playlistTracksData.tracks.length}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {playlistTracksData.tracks && playlistTracksData.tracks.length > 0 && (
+                    <div className="detail-tracklist">
+                      <div className="tracklist-header">
+                        <h3>Playlist Tracks</h3>
+                      </div>
+                      <ol className="tracklist">
+                        {playlistTracksData.tracks.map((track, i) => {
+                          const trackUri = track.uri;
+                          const canPlay = trackUri && deviceId && spotifyToken;
+                          return (
+                            <li key={track.id || i} className="tracklist-item">
+                              <div className="tracklist-item-content">
+                                <span className="track-position">{i + 1}</span>
+                                <div className="track-info">
+                                  <span className="track-title">{track.name}</span>
+                                  <span className="track-artist">
+                                    {track.artists.map((a) => a.name).join(", ")}
+                                    {track.album && ` • ${track.album}`}
+                                  </span>
+                                </div>
+                                {canPlay && (
+                                  <button
+                                    onClick={() => playTrack(trackUri)}
+                                    className="track-play-btn"
+                                    title={`Play ${track.name}`}
+                                  >
+                                    ▶
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : selectedItem && (
           <div className="detail">
             {detailLoading && <p className="detail-loading">Loading details…</p>}
             {detailError && <p className="error">{detailError}</p>}

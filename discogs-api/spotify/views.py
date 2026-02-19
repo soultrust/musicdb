@@ -140,3 +140,144 @@ class SpotifyCallbackAPIView(View):
                 {"error": f"Request failed: {str(e)}"},
                 status=502,
             )
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SpotifyPlaylistsView(APIView):
+    """
+    GET /api/spotify/playlists/ — get user's Spotify playlists (including shared/collaborative).
+    Requires Spotify access token in Authorization header.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Fetch user's playlists from Spotify API."""
+        spotify_token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+        if not spotify_token:
+            return Response(
+                {"error": "Missing Spotify access token in Authorization header"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # Fetch playlists from Spotify API
+            playlists = []
+            url = "https://api.spotify.com/v1/me/playlists"
+            
+            while url:
+                response = requests.get(
+                    url,
+                    headers={"Authorization": f"Bearer {spotify_token}"},
+                    timeout=10,
+                )
+                
+                if response.status_code != 200:
+                    return Response(
+                        {"error": f"Spotify API error: {response.status_code}", "details": response.text},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+                
+                data = response.json()
+                for playlist in data.get("items", []):
+                    playlists.append({
+                        "id": playlist.get("id"),
+                        "name": playlist.get("name"),
+                        "owner": playlist.get("owner", {}).get("display_name") or playlist.get("owner", {}).get("id"),
+                        "collaborative": playlist.get("collaborative", False),
+                        "public": playlist.get("public", False),
+                        "tracks_count": playlist.get("tracks", {}).get("total", 0),
+                        "images": playlist.get("images", []),
+                    })
+                
+                url = data.get("next")  # Pagination
+            
+            return Response({"playlists": playlists})
+            
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": f"Failed to fetch playlists: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+
+@method_decorator(csrf_exempt, name='dispatch')
+class SpotifyPlaylistTracksView(APIView):
+    """
+    GET /api/spotify/playlists/<playlist_id>/tracks/ — get tracks for a Spotify playlist.
+    Requires Spotify access token in Authorization header.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, playlist_id):
+        """Fetch tracks for a specific playlist from Spotify API."""
+        spotify_token = request.headers.get("Authorization", "").replace("Bearer ", "").strip()
+        if not spotify_token:
+            return Response(
+                {"error": "Missing Spotify access token in Authorization header"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # First get playlist info
+            playlist_response = requests.get(
+                f"https://api.spotify.com/v1/playlists/{playlist_id}",
+                headers={"Authorization": f"Bearer {spotify_token}"},
+                timeout=10,
+            )
+            
+            if playlist_response.status_code != 200:
+                return Response(
+                    {"error": f"Spotify API error: {playlist_response.status_code}", "details": playlist_response.text},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            
+            playlist_data = playlist_response.json()
+            
+            # Fetch tracks
+            tracks = []
+            url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+            
+            while url:
+                response = requests.get(
+                    url,
+                    headers={"Authorization": f"Bearer {spotify_token}"},
+                    params={"fields": "items(track(id,name,artists,album,uri,duration_ms,preview_url))"},
+                    timeout=10,
+                )
+                
+                if response.status_code != 200:
+                    return Response(
+                        {"error": f"Spotify API error: {response.status_code}", "details": response.text},
+                        status=status.HTTP_502_BAD_GATEWAY,
+                    )
+                
+                data = response.json()
+                for item in data.get("items", []):
+                    track = item.get("track")
+                    if track and track.get("id"):  # Skip null tracks (removed tracks)
+                        tracks.append({
+                            "id": track.get("id"),
+                            "name": track.get("name"),
+                            "artists": [{"name": artist.get("name")} for artist in track.get("artists", [])],
+                            "album": track.get("album", {}).get("name"),
+                            "uri": track.get("uri"),
+                            "duration_ms": track.get("duration_ms"),
+                            "preview_url": track.get("preview_url"),
+                        })
+                
+                url = data.get("next")  # Pagination
+            
+            return Response({
+                "id": playlist_data.get("id"),
+                "name": playlist_data.get("name"),
+                "owner": playlist_data.get("owner", {}).get("display_name") or playlist_data.get("owner", {}).get("id"),
+                "description": playlist_data.get("description"),
+                "images": playlist_data.get("images", []),
+                "tracks": tracks,
+            })
+            
+        except requests.exceptions.RequestException as e:
+            return Response(
+                {"error": f"Failed to fetch playlist tracks: {str(e)}"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
