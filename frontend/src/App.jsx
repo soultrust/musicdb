@@ -1730,22 +1730,6 @@ function App() {
                             </span>
                           </div>
                         )}
-                        {(detailData.uri ||
-                          selectedItem?.type === "release" ||
-                          selectedItem?.type === "master") && (
-                          <div className="detail-row detail-row-links">
-                            {detailData.uri && (
-                              <a
-                                href={detailData.uri}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="detail-link"
-                              >
-                                View on Discogs →
-                              </a>
-                            )}
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -1948,6 +1932,22 @@ function App() {
                 {(overviewLoading || overview || overviewError) && (
                   <div className="detail-overview">
                     <h3>Overview</h3>
+                    {(detailData.uri ||
+                      selectedItem?.type === "release" ||
+                      selectedItem?.type === "master") && (
+                      <div className="detail-row detail-row-links">
+                        {detailData.uri && (
+                          <a
+                            href={detailData.uri}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="detail-link"
+                          >
+                            View on Discogs →
+                          </a>
+                        )}
+                      </div>
+                    )}
                     {overviewLoading && <p className="detail-loading">Loading overview…</p>}
                     {overviewError && !overviewLoading && (
                       <p className="error">
