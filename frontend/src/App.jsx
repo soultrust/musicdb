@@ -1555,6 +1555,7 @@ function App() {
       <div className="app">
         <div className="auth-screen">
           <h1>MusicDB</h1>
+          {detailError && <p className="error">{detailError}</p>}
           <p className="auth-subtitle">Sign in to search and manage your music lists.</p>
           <form onSubmit={handleAuthSubmit} className="auth-form">
             <input
@@ -1856,7 +1857,6 @@ function App() {
           selectedItem && (
             <div className="detail">
               {detailLoading && <p className="detail-loading">Loading details…</p>}
-              {detailError && <p className="error">{detailError}</p>}
               {detailData && (
                 <div className="detail-columns">
                   <div className="detail-main">
