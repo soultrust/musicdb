@@ -3,10 +3,12 @@ import "./App.css";
 
 // API base URL from environment variable
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
-console.log('API_BASE being used:', API_BASE);
+console.log("API_BASE being used:", API_BASE);
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 // Use current window location to ensure origin matches (localhost vs 127.0.0.1)
-const SPOTIFY_REDIRECT_URI = (import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin).replace(/\/$/, '');
+const SPOTIFY_REDIRECT_URI = (
+  import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin
+).replace(/\/$/, "");
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const AUTH_REFRESH_KEY = "soultrust_refresh_token";
 
@@ -63,6 +65,8 @@ function App() {
   const [newListName, setNewListName] = useState("");
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState(null);
+  /** Ref to ignore stale "which lists contain this item" responses when modal is reopened for a different item */
+  const listModalItemRef = useRef({ id: null, type: null });
   // View-a-list dropdown: all lists for selector, selected list id and its data
   const [allListsForView, setAllListsForView] = useState([]);
   const [viewListId, setViewListId] = useState(null);
@@ -93,7 +97,10 @@ function App() {
         const refreshData = await refreshRes.json();
         if (refreshData.access) {
           setAccessToken(refreshData.access);
-          const retryHeaders = { ...options.headers, Authorization: `Bearer ${refreshData.access}` };
+          const retryHeaders = {
+            ...options.headers,
+            Authorization: `Bearer ${refreshData.access}`,
+          };
           res = await fetch(url, { ...options, headers: retryHeaders });
         }
       }
@@ -113,7 +120,8 @@ function App() {
     }
     setAuthLoading(true);
     try {
-      const endpoint = authMode === "register" ? `${API_BASE}/api/auth/register/` : `${API_BASE}/api/auth/login/`;
+      const endpoint =
+        authMode === "register" ? `${API_BASE}/api/auth/register/` : `${API_BASE}/api/auth/login/`;
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -152,7 +160,9 @@ function App() {
       const data = await res.json();
       if (data.access) setAccessToken(data.access);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch all lists for the header "View a list" dropdown (no list_type filter)
@@ -170,7 +180,9 @@ function App() {
       .catch(() => {
         if (!cancelled) setAllListsForView([]);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [accessToken]);
 
   // When user selects a list from dropdown, fetch that list's items
@@ -193,7 +205,9 @@ function App() {
       .finally(() => {
         if (!cancelled) setListViewLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [viewListId, accessToken]);
 
   // When a list's items load, auto-select the first item and load its detail (same as search results)
@@ -213,7 +227,9 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const searchRes = await authFetch(`${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`);
+      const searchRes = await authFetch(
+        `${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`,
+      );
       const data = await searchRes.json();
       if (!searchRes.ok) {
         setError(data.error || `Request failed: ${searchRes.status}`);
@@ -273,7 +289,7 @@ function App() {
         setOverviewError(null);
         try {
           const ovRes = await authFetch(
-            `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`
+            `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`,
           );
           const text = await ovRes.text();
           if (text.trim().startsWith("<")) {
@@ -350,7 +366,7 @@ function App() {
         try {
           const res = await fetch(
             `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
-            { headers: { Authorization: `Bearer ${spotifyToken}` } }
+            { headers: { Authorization: `Bearer ${spotifyToken}` } },
           );
           if (!res.ok || cancelled) break;
           const arr = await res.json();
@@ -363,7 +379,9 @@ function App() {
       }
       if (!cancelled) setSpotifySavedTrackIds(new Set(saved));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [spotifyToken, spotifyMatches]);
 
   // When window regains focus, refetch Spotify saved state and sync: clear local "liked" (1) to 0 if Spotify says not saved
@@ -382,7 +400,7 @@ function App() {
           try {
             const res = await fetch(
               `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
-              { headers: { Authorization: `Bearer ${spotifyToken}` } }
+              { headers: { Authorization: `Bearer ${spotifyToken}` } },
             );
             if (!res.ok) return;
             const arr = await res.json();
@@ -399,9 +417,10 @@ function App() {
             let changed = false;
             const next = { ...prev };
             for (const track of currentDetail.tracklist) {
-              const key = currentSelected && currentDetail
-                ? `${currentSelected.type}-${currentSelected.id}-${(track.position != null && track.position !== "" ? String(track.position) : "")}-${track.title}`
-                : null;
+              const key =
+                currentSelected && currentDetail
+                  ? `${currentSelected.type}-${currentSelected.id}-${track.position != null && track.position !== "" ? String(track.position) : ""}-${track.title}`
+                  : null;
               /* Only clear when we have a local liked state (1 or 2); unliking on Spotify → empty star */
               if (!key || (prev[key] !== 1 && prev[key] !== 2)) continue;
               const match = spotifyMatches.find((m) => m.discogs_title === track.title);
@@ -422,19 +441,22 @@ function App() {
 
   function handleSpotifyLogin(e) {
     e?.preventDefault?.();
-    
+
     if (!SPOTIFY_CLIENT_ID) {
-      console.error("Spotify Client ID not configured. Please set VITE_SPOTIFY_CLIENT_ID in frontend/.env");
+      console.error(
+        "Spotify Client ID not configured. Please set VITE_SPOTIFY_CLIENT_ID in frontend/.env",
+      );
       return;
     }
 
-    const scopes = "streaming user-read-email user-read-private user-library-read user-library-modify";
+    const scopes =
+      "streaming user-read-email user-read-private user-library-read user-library-modify";
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
-    
+
     // Store current origin for popup to use
-    sessionStorage.setItem('spotify_auth_origin', window.location.origin);
-    
+    sessionStorage.setItem("spotify_auth_origin", window.location.origin);
+
     // Open in popup so the main page stays visible
     const popup = window.open(authUrl, "spotify-auth", "width=500,height=700,scrollbars=yes");
     if (!popup) {
@@ -464,106 +486,111 @@ function App() {
     window.location.hash = "";
   }
 
-  const attemptSpotifyReconnect = useCallback((attemptNumber = 1) => {
-    // Don't reconnect if user manually logged out (no token)
-    if (!spotifyToken) {
-      return;
-    }
-
-    const maxAttempts = 5;
-    const baseDelay = 2000; // Start with 2 seconds
-    
-    if (attemptNumber > maxAttempts) {
-      console.error("Spotify: Max reconnection attempts reached");
-      setSpotifyConnectionStatus("disconnected");
-      return;
-    }
-
-    setSpotifyConnectionStatus("connecting");
-    const delay = baseDelay * Math.pow(2, attemptNumber - 1); // Exponential backoff: 2s, 4s, 8s, 16s, 32s
-    
-    reconnectTimeoutRef.current = setTimeout(() => {
-      console.log(`Spotify: Attempting to reconnect (attempt ${attemptNumber}/${maxAttempts})...`);
-      // Re-initialize player if SDK is available
-      if (window.Spotify && spotifyToken && !playerRef.current) {
-        // Use the same initializePlayer logic
-        const newPlayer = new window.Spotify.Player({
-          name: "Discogs Music DB",
-          getOAuthToken: (cb) => cb(spotifyToken),
-          volume: 0.5,
-        });
-
-        newPlayer.addListener("ready", ({ device_id }) => {
-          setDeviceId(device_id);
-          setSpotifyConnectionStatus("connected");
-          if (reconnectTimeoutRef.current) {
-            clearTimeout(reconnectTimeoutRef.current);
-            reconnectTimeoutRef.current = null;
-          }
-        });
-
-        newPlayer.addListener("not_ready", () => {
-          setSpotifyConnectionStatus("disconnected");
-          attemptSpotifyReconnect(attemptNumber + 1);
-        });
-
-        newPlayer.addListener("authentication_error", ({ message }) => {
-          console.error("Spotify authentication error:", message);
-          if (playerRef.current) {
-            playerRef.current.disconnect();
-            playerRef.current = null;
-          }
-          setPlayer(null);
-          setDeviceId(null);
-          attemptSpotifyReconnect(attemptNumber + 1);
-        });
-
-        newPlayer.addListener("account_error", ({ message }) => {
-          console.error("Spotify account error:", message);
-          if (playerRef.current) {
-            playerRef.current.disconnect();
-            playerRef.current = null;
-          }
-          setPlayer(null);
-          setDeviceId(null);
-          attemptSpotifyReconnect(attemptNumber + 1);
-        });
-
-        newPlayer.addListener("player_state_changed", (state) => {
-          if (state) {
-            lastPlayedTrackRef.current = state.track_window.current_track;
-            setIsPlaying(!state.paused);
-            setCurrentTrack(state.track_window.current_track);
-            setPlaybackPosition(state.position || 0);
-            setPlaybackDuration(state.duration || 0);
-          } else {
-            const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
-            lastPlayedTrackRef.current = null;
-            setCurrentTrack(null);
-            setPlaybackPosition(0);
-            setPlaybackDuration(0);
-            if (finishedUri) setTrackJustEndedUri(finishedUri);
-          }
-        });
-
-        newPlayer.addListener("playback_error", ({ message }) => {
-          console.error("Spotify playback error:", message);
-        });
-
-        newPlayer.addListener("initialization_error", ({ message }) => {
-          console.error("Spotify initialization error:", message);
-          attemptSpotifyReconnect(attemptNumber + 1);
-        });
-
-        newPlayer.connect();
-        setPlayer(newPlayer);
-        playerRef.current = newPlayer;
-      } else if (!spotifyToken) {
-        // No token, can't reconnect
-        setSpotifyConnectionStatus("disconnected");
+  const attemptSpotifyReconnect = useCallback(
+    (attemptNumber = 1) => {
+      // Don't reconnect if user manually logged out (no token)
+      if (!spotifyToken) {
+        return;
       }
-    }, delay);
-  }, [spotifyToken]);
+
+      const maxAttempts = 5;
+      const baseDelay = 2000; // Start with 2 seconds
+
+      if (attemptNumber > maxAttempts) {
+        console.error("Spotify: Max reconnection attempts reached");
+        setSpotifyConnectionStatus("disconnected");
+        return;
+      }
+
+      setSpotifyConnectionStatus("connecting");
+      const delay = baseDelay * Math.pow(2, attemptNumber - 1); // Exponential backoff: 2s, 4s, 8s, 16s, 32s
+
+      reconnectTimeoutRef.current = setTimeout(() => {
+        console.log(
+          `Spotify: Attempting to reconnect (attempt ${attemptNumber}/${maxAttempts})...`,
+        );
+        // Re-initialize player if SDK is available
+        if (window.Spotify && spotifyToken && !playerRef.current) {
+          // Use the same initializePlayer logic
+          const newPlayer = new window.Spotify.Player({
+            name: "Discogs Music DB",
+            getOAuthToken: (cb) => cb(spotifyToken),
+            volume: 0.5,
+          });
+
+          newPlayer.addListener("ready", ({ device_id }) => {
+            setDeviceId(device_id);
+            setSpotifyConnectionStatus("connected");
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+              reconnectTimeoutRef.current = null;
+            }
+          });
+
+          newPlayer.addListener("not_ready", () => {
+            setSpotifyConnectionStatus("disconnected");
+            attemptSpotifyReconnect(attemptNumber + 1);
+          });
+
+          newPlayer.addListener("authentication_error", ({ message }) => {
+            console.error("Spotify authentication error:", message);
+            if (playerRef.current) {
+              playerRef.current.disconnect();
+              playerRef.current = null;
+            }
+            setPlayer(null);
+            setDeviceId(null);
+            attemptSpotifyReconnect(attemptNumber + 1);
+          });
+
+          newPlayer.addListener("account_error", ({ message }) => {
+            console.error("Spotify account error:", message);
+            if (playerRef.current) {
+              playerRef.current.disconnect();
+              playerRef.current = null;
+            }
+            setPlayer(null);
+            setDeviceId(null);
+            attemptSpotifyReconnect(attemptNumber + 1);
+          });
+
+          newPlayer.addListener("player_state_changed", (state) => {
+            if (state) {
+              lastPlayedTrackRef.current = state.track_window.current_track;
+              setIsPlaying(!state.paused);
+              setCurrentTrack(state.track_window.current_track);
+              setPlaybackPosition(state.position || 0);
+              setPlaybackDuration(state.duration || 0);
+            } else {
+              const finishedUri = lastPlayedTrackRef.current?.uri ?? null;
+              lastPlayedTrackRef.current = null;
+              setCurrentTrack(null);
+              setPlaybackPosition(0);
+              setPlaybackDuration(0);
+              if (finishedUri) setTrackJustEndedUri(finishedUri);
+            }
+          });
+
+          newPlayer.addListener("playback_error", ({ message }) => {
+            console.error("Spotify playback error:", message);
+          });
+
+          newPlayer.addListener("initialization_error", ({ message }) => {
+            console.error("Spotify initialization error:", message);
+            attemptSpotifyReconnect(attemptNumber + 1);
+          });
+
+          newPlayer.connect();
+          setPlayer(newPlayer);
+          playerRef.current = newPlayer;
+        } else if (!spotifyToken) {
+          // No token, can't reconnect
+          setSpotifyConnectionStatus("disconnected");
+        }
+      }, delay);
+    },
+    [spotifyToken],
+  );
 
   const initializePlayer = useCallback(() => {
     if (!window.Spotify) {
@@ -667,12 +694,13 @@ function App() {
     // OAuth callback (popup or redirect)
     if (error) {
       if (isPopup && window.opener) {
-        const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
+        const storedOrigin =
+          sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
         window.opener.postMessage({ type: "spotify-auth-error", error }, storedOrigin);
         if (storedOrigin !== window.location.origin) {
           window.opener.postMessage({ type: "spotify-auth-error", error }, window.location.origin);
         }
-        sessionStorage.removeItem('spotify_auth_origin');
+        sessionStorage.removeItem("spotify_auth_origin");
         window.close();
       } else {
         setSpotifyToken(null);
@@ -683,38 +711,48 @@ function App() {
 
     if (code) {
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      fetch(`${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`)
-        .then(async res => {
+
+      fetch(
+        `${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`,
+      )
+        .then(async (res) => {
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
             const text = await res.text();
-            throw new Error(`Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}`);
+            throw new Error(
+              `Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}`,
+            );
           }
           return res.json();
         })
-        .then(data => {
+        .then((data) => {
           if (data.access_token) {
             if (isPopup && window.opener) {
               // Get stored origin or try to detect it
-              const storedOrigin = sessionStorage.getItem('spotify_auth_origin');
+              const storedOrigin = sessionStorage.getItem("spotify_auth_origin");
               const openerOrigin = storedOrigin || window.location.origin;
-              
+
               // Try the stored/detected origin first
-              window.opener.postMessage({ type: "spotify-token", token: data.access_token }, openerOrigin);
-              
+              window.opener.postMessage(
+                { type: "spotify-token", token: data.access_token },
+                openerOrigin,
+              );
+
               // Also try current origin as fallback (handles localhost vs 127.0.0.1)
               if (openerOrigin !== window.location.origin) {
-                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, window.location.origin);
+                window.opener.postMessage(
+                  { type: "spotify-token", token: data.access_token },
+                  window.location.origin,
+                );
               }
-              
+
               // Try wildcard as last resort (less secure but works across origins)
               try {
-                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, '*');
+                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, "*");
               } catch (e) {
                 // Some browsers don't allow wildcard
               }
-              
+
               window.close();
             } else {
               setSpotifyToken(data.access_token);
@@ -722,25 +760,39 @@ function App() {
           } else {
             console.error("Spotify: No access_token in response:", data);
             if (isPopup && window.opener) {
-              const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
-              window.opener.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, storedOrigin);
+              const storedOrigin =
+                sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
+              window.opener.postMessage(
+                { type: "spotify-auth-error", error: data.error || "Failed to get token" },
+                storedOrigin,
+              );
               if (storedOrigin !== window.location.origin) {
-                window.opener.postMessage({ type: "spotify-auth-error", error: data.error || "Failed to get token" }, window.location.origin);
+                window.opener.postMessage(
+                  { type: "spotify-auth-error", error: data.error || "Failed to get token" },
+                  window.location.origin,
+                );
               }
-              sessionStorage.removeItem('spotify_auth_origin');
+              sessionStorage.removeItem("spotify_auth_origin");
               window.close();
             }
           }
         })
-        .catch(err => {
+        .catch((err) => {
           console.error("Spotify token exchange error:", err);
           if (isPopup && window.opener) {
-            const storedOrigin = sessionStorage.getItem('spotify_auth_origin') || window.location.origin;
-            window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, storedOrigin);
+            const storedOrigin =
+              sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
+            window.opener.postMessage(
+              { type: "spotify-auth-error", error: err.message },
+              storedOrigin,
+            );
             if (storedOrigin !== window.location.origin) {
-              window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, window.location.origin);
+              window.opener.postMessage(
+                { type: "spotify-auth-error", error: err.message },
+                window.location.origin,
+              );
             }
-            sessionStorage.removeItem('spotify_auth_origin');
+            sessionStorage.removeItem("spotify_auth_origin");
             window.close();
           }
         });
@@ -764,34 +816,37 @@ function App() {
   useEffect(() => {
     function onMessage(e) {
       // Only process messages that look like Spotify auth messages
-      if (!e.data || typeof e.data !== 'object' || !e.data.type) {
+      if (!e.data || typeof e.data !== "object" || !e.data.type) {
         return; // Ignore non-Spotify messages
       }
-      
+
       // Only process Spotify auth messages
       if (e.data.type !== "spotify-token" && e.data.type !== "spotify-auth-error") {
         return;
       }
-      
+
       // Allow messages from same origin or localhost/127.0.0.1 variations
-      const isSameOrigin = e.origin === window.location.origin || 
-                          (e.origin.includes('localhost') && window.location.origin.includes('localhost')) ||
-                          (e.origin.includes('127.0.0.1') && window.location.origin.includes('127.0.0.1')) ||
-                          (e.origin.includes('localhost') && window.location.origin.includes('127.0.0.1')) ||
-                          (e.origin.includes('127.0.0.1') && window.location.origin.includes('localhost'));
-      
+      const isSameOrigin =
+        e.origin === window.location.origin ||
+        (e.origin.includes("localhost") && window.location.origin.includes("localhost")) ||
+        (e.origin.includes("127.0.0.1") && window.location.origin.includes("127.0.0.1")) ||
+        (e.origin.includes("localhost") && window.location.origin.includes("127.0.0.1")) ||
+        (e.origin.includes("127.0.0.1") && window.location.origin.includes("localhost"));
+
       // Also allow if it's a local development origin (for security, only allow localhost/127.0.0.1)
-      const isLocalDev = (e.origin.includes('localhost') || e.origin.includes('127.0.0.1')) &&
-                        (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1'));
-      
+      const isLocalDev =
+        (e.origin.includes("localhost") || e.origin.includes("127.0.0.1")) &&
+        (window.location.origin.includes("localhost") ||
+          window.location.origin.includes("127.0.0.1"));
+
       if (!isSameOrigin && !isLocalDev) {
         return;
       }
-      
+
       if (e.data.type === "spotify-token") {
         setSpotifyToken(e.data.token);
         setSpotifyConnectionStatus("connecting");
-        sessionStorage.removeItem('spotify_auth_origin'); // Clean up
+        sessionStorage.removeItem("spotify_auth_origin"); // Clean up
         // Clear any pending reconnect attempts
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
@@ -799,7 +854,7 @@ function App() {
         }
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
-        sessionStorage.removeItem('spotify_auth_origin'); // Clean up
+        sessionStorage.removeItem("spotify_auth_origin"); // Clean up
         // Don't auto-reconnect on auth errors (user needs to manually authorize)
         setSpotifyConnectionStatus("disconnected");
       }
@@ -817,17 +872,17 @@ function App() {
         script.id = "spotify-player-script";
         script.src = "https://sdk.scdn.co/spotify-player.js";
         script.async = true;
-        
+
         script.onerror = (error) => {
           console.error("Spotify: Failed to load SDK script:", error);
           setSpotifyConnectionStatus("disconnected");
           attemptSpotifyReconnect(1);
         };
-        
+
         script.onload = () => {
           initializePlayer();
         };
-        
+
         document.body.appendChild(script);
       } else if (window.Spotify && !playerRef.current) {
         initializePlayer();
@@ -871,15 +926,18 @@ function App() {
 
     try {
       console.log("Calling Spotify API to play track...");
-      const response = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-        method: "PUT",
-        headers: {
-          "Authorization": `Bearer ${spotifyToken}`,
-          "Content-Type": "application/json",
+      const response = await fetch(
+        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${spotifyToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ uris: [spotifyUri] }),
         },
-        body: JSON.stringify({ uris: [spotifyUri] }),
-      });
-      
+      );
+
       if (!response.ok) {
         const errorData = await response.text();
         console.error("Spotify play API error:", response.status, errorData);
@@ -985,7 +1043,14 @@ function App() {
       if (tracklistFilter === "especially") return state === 2;
       return true;
     });
-  }, [detailData?.tracklist, tracklistFilter, likedTracks, spotifySavedTrackIds, spotifyMatches, selectedItem]);
+  }, [
+    detailData?.tracklist,
+    tracklistFilter,
+    likedTracks,
+    spotifySavedTrackIds,
+    spotifyMatches,
+    selectedItem,
+  ]);
 
   /** Same visibility rule as visibleTracklist; use in autoplay so we skip hidden tracks correctly per track. */
   function isTrackVisible(track) {
@@ -1009,13 +1074,17 @@ function App() {
     if (!showListModal || !accessToken) return;
     setListLoading(true);
     setListError(null);
+    const itemId = selectedItem?.id ?? null;
+    const itemType = (selectedItem?.type ?? "").toLowerCase() || null;
+    listModalItemRef.current = { id: itemId, type: itemType };
+
     const t = selectedItem ? (selectedItem.type || "").toLowerCase() : "";
     const needCheck = selectedItem && (t === "release" || t === "master");
     const haveListsCached = lists.length > 0;
 
     const checkPromise = needCheck
       ? authFetch(
-          `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`
+          `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
         )
           .then(async (res) => {
             if (!res.ok) return { list_ids: [] };
@@ -1024,12 +1093,15 @@ function App() {
           .catch(() => ({ list_ids: [] }))
       : Promise.resolve({ list_ids: [] });
 
+    const isStillCurrent = () =>
+      listModalItemRef.current?.id === itemId && listModalItemRef.current?.type === itemType;
+
     // This modal is only opened from release/master detail, so we only show and create release (album) lists.
     // Person lists are only created from a person detail page (separate flow).
     const listType = "release";
     if (!haveListsCached) {
       const listsPromise = authFetch(
-        `${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`
+        `${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`,
       ).then(async (res) => {
         if (!res.ok) {
           const contentType = res.headers.get("content-type") || "";
@@ -1050,19 +1122,29 @@ function App() {
       });
       Promise.all([listsPromise, checkPromise])
         .then(([data, checkData]) => {
+          if (!isStillCurrent()) return;
           setLists(data.lists || []);
           setSelectedListIds(checkData.list_ids || []);
         })
         .catch((err) => {
+          if (!isStillCurrent()) return;
           setListError(err.message || "Failed to load lists");
           setLists([]);
         })
-        .finally(() => setListLoading(false));
+        .finally(() => {
+          if (isStillCurrent()) setListLoading(false);
+        });
     } else {
       checkPromise
-        .then((checkData) => setSelectedListIds(checkData.list_ids || []))
-        .catch(() => setSelectedListIds([]))
-        .finally(() => setListLoading(false));
+        .then((checkData) => {
+          if (isStillCurrent()) setSelectedListIds(checkData.list_ids || []);
+        })
+        .catch(() => {
+          if (isStillCurrent()) setSelectedListIds([]);
+        })
+        .finally(() => {
+          if (isStillCurrent()) setListLoading(false);
+        });
     }
   }, [showListModal, accessToken, selectedItem]);
 
@@ -1074,6 +1156,7 @@ function App() {
     setShowListModal(true);
     setNewListName("");
     setListError(null);
+    setSelectedListIds([]); // Reset until check API returns; avoids showing previous item's selection
   }
 
   // Handle closing modal
@@ -1087,7 +1170,7 @@ function App() {
   // Toggle list selection
   function toggleListSelection(listId) {
     setSelectedListIds((prev) =>
-      prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId]
+      prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId],
     );
   }
 
@@ -1194,7 +1277,14 @@ function App() {
   // Autoplay: when track ends (state=null), play next *visible* track (skip hidden by filter)
   useEffect(() => {
     if (!trackJustEndedUri) return;
-    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !deviceId || !spotifyToken || visibleTracklist.length === 0) {
+    if (
+      !autoplay ||
+      !detailData?.tracklist?.length ||
+      !spotifyMatches.length ||
+      !deviceId ||
+      !spotifyToken ||
+      visibleTracklist.length === 0
+    ) {
       setTrackJustEndedUri(null);
       return;
     }
@@ -1210,18 +1300,32 @@ function App() {
 
     const fullList = detailData.tracklist;
     if (matchIndex >= fullList.length || matchIndex >= spotifyMatches.length) {
-      console.warn("Autoplay: matchIndex out of bounds", { matchIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+      console.warn("Autoplay: matchIndex out of bounds", {
+        matchIndex,
+        fullListLength: fullList.length,
+        matchesLength: spotifyMatches.length,
+      });
       return;
     }
-    const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
+    const currentIndex =
+      matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
     const currentTrack = fullList[currentIndex];
-    console.log("Autoplay: track ended", { currentIndex, currentTrackTitle: currentTrack?.title, trackJustEndedUri, filter: tracklistFilter });
+    console.log("Autoplay: track ended", {
+      currentIndex,
+      currentTrackTitle: currentTrack?.title,
+      trackJustEndedUri,
+      filter: tracklistFilter,
+    });
 
     let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (currentIndex + j) % fullList.length;
       if (nextFullIndex >= fullList.length || nextFullIndex >= spotifyMatches.length) {
-        console.warn("Autoplay: nextFullIndex out of bounds", { nextFullIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+        console.warn("Autoplay: nextFullIndex out of bounds", {
+          nextFullIndex,
+          fullListLength: fullList.length,
+          matchesLength: spotifyMatches.length,
+        });
         continue;
       }
       const nextTrack = fullList[nextFullIndex];
@@ -1232,12 +1336,21 @@ function App() {
       const isVisible = isTrackVisible(nextTrack);
       const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
       const hasUri = !!nextMatch?.spotify_track?.uri;
-      console.log("Autoplay: checking next", { j, nextFullIndex, nextTrackTitle: nextTrack.title, isVisible, hasUri });
+      console.log("Autoplay: checking next", {
+        j,
+        nextFullIndex,
+        nextTrackTitle: nextTrack.title,
+        isVisible,
+        hasUri,
+      });
       if (!isVisible) continue;
       if (hasUri) {
         foundNext = true;
         autoplayTriggeredRef.current = true; /* set BEFORE playTrack to prevent double-trigger */
-        console.log("Autoplay: playing next track", { nextTrackTitle: nextTrack.title, uri: nextMatch.spotify_track.uri });
+        console.log("Autoplay: playing next track", {
+          nextTrackTitle: nextTrack.title,
+          uri: nextMatch.spotify_track.uri,
+        });
         playTrack(nextMatch.spotify_track.uri);
         break;
       }
@@ -1245,12 +1358,29 @@ function App() {
     if (!foundNext) {
       console.warn("Autoplay: no next visible track with Spotify match found");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
-  }, [trackJustEndedUri, autoplay, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
+  }, [
+    trackJustEndedUri,
+    autoplay,
+    detailData,
+    spotifyMatches,
+    deviceId,
+    spotifyToken,
+    visibleTracklist,
+  ]);
 
   // Autoplay fallback: when position reaches end (in case state=null doesn't fire); only play next *visible* track
   useEffect(() => {
-    if (!autoplay || !detailData?.tracklist?.length || !spotifyMatches.length || !currentTrack?.uri || !deviceId || !spotifyToken || visibleTracklist.length === 0) return;
+    if (
+      !autoplay ||
+      !detailData?.tracklist?.length ||
+      !spotifyMatches.length ||
+      !currentTrack?.uri ||
+      !deviceId ||
+      !spotifyToken ||
+      visibleTracklist.length === 0
+    )
+      return;
     if (playbackDuration <= 0 || playbackPosition < Math.max(0, playbackDuration - 300)) return;
     if (autoplayTriggeredRef.current) {
       console.log("Autoplay fallback: already triggered, skipping");
@@ -1265,18 +1395,31 @@ function App() {
     if (matchIndex < 0) return;
     const fullList = detailData.tracklist;
     if (matchIndex >= fullList.length || matchIndex >= spotifyMatches.length) {
-      console.warn("Autoplay fallback: matchIndex out of bounds", { matchIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+      console.warn("Autoplay fallback: matchIndex out of bounds", {
+        matchIndex,
+        fullListLength: fullList.length,
+        matchesLength: spotifyMatches.length,
+      });
       return;
     }
-    const currentIndex = matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
+    const currentIndex =
+      matchIndex; /* matches are in tracklist order; use index so duplicate titles don't break */
     const currentTrackObj = fullList[currentIndex];
-    console.log("Autoplay fallback: near end", { currentIndex, currentTrackTitle: currentTrackObj?.title, filter: tracklistFilter });
+    console.log("Autoplay fallback: near end", {
+      currentIndex,
+      currentTrackTitle: currentTrackObj?.title,
+      filter: tracklistFilter,
+    });
 
     let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (currentIndex + j) % fullList.length;
       if (nextFullIndex >= fullList.length || nextFullIndex >= spotifyMatches.length) {
-        console.warn("Autoplay fallback: nextFullIndex out of bounds", { nextFullIndex, fullListLength: fullList.length, matchesLength: spotifyMatches.length });
+        console.warn("Autoplay fallback: nextFullIndex out of bounds", {
+          nextFullIndex,
+          fullListLength: fullList.length,
+          matchesLength: spotifyMatches.length,
+        });
         continue;
       }
       const nextTrack = fullList[nextFullIndex];
@@ -1287,12 +1430,21 @@ function App() {
       const isVisible = isTrackVisible(nextTrack);
       const nextMatch = spotifyMatches[nextFullIndex]; /* same order as tracklist */
       const hasUri = !!nextMatch?.spotify_track?.uri;
-      console.log("Autoplay fallback: checking next", { j, nextFullIndex, nextTrackTitle: nextTrack.title, isVisible, hasUri });
+      console.log("Autoplay fallback: checking next", {
+        j,
+        nextFullIndex,
+        nextTrackTitle: nextTrack.title,
+        isVisible,
+        hasUri,
+      });
       if (!isVisible) continue;
       if (hasUri) {
         foundNext = true;
         autoplayTriggeredRef.current = true; /* set BEFORE playTrack to prevent double-trigger */
-        console.log("Autoplay fallback: playing next track", { nextTrackTitle: nextTrack.title, uri: nextMatch.spotify_track.uri });
+        console.log("Autoplay fallback: playing next track", {
+          nextTrackTitle: nextTrack.title,
+          uri: nextMatch.spotify_track.uri,
+        });
         playTrack(nextMatch.spotify_track.uri);
         break;
       }
@@ -1300,8 +1452,18 @@ function App() {
     if (!foundNext) {
       console.warn("Autoplay fallback: no next visible track with Spotify match found");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
-  }, [autoplay, currentTrack?.uri, playbackPosition, playbackDuration, detailData, spotifyMatches, deviceId, spotifyToken, visibleTracklist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- playTrack omitted
+  }, [
+    autoplay,
+    currentTrack?.uri,
+    playbackPosition,
+    playbackDuration,
+    detailData,
+    spotifyMatches,
+    deviceId,
+    spotifyToken,
+    visibleTracklist,
+  ]);
 
   if (!accessToken) {
     return (
@@ -1353,13 +1515,21 @@ function App() {
         <div className="app-header-right">
           {spotifyToken ? (
             <div className="spotify-controls">
-              <span className={`spotify-status ${spotifyConnectionStatus === "connected" ? "spotify-connected" : spotifyConnectionStatus === "connecting" ? "spotify-connecting" : "spotify-disconnected"}`}>
-                {spotifyConnectionStatus === "connected" && deviceId ? "Spotify Connected" : 
-                 spotifyConnectionStatus === "connecting" ? "Spotify Connecting..." : 
-                 "Spotify Reconnecting..."}
+              <span
+                className={`spotify-status ${spotifyConnectionStatus === "connected" ? "spotify-connected" : spotifyConnectionStatus === "connecting" ? "spotify-connecting" : "spotify-disconnected"}`}
+              >
+                {spotifyConnectionStatus === "connected" && deviceId
+                  ? "Spotify Connected"
+                  : spotifyConnectionStatus === "connecting"
+                    ? "Spotify Connecting..."
+                    : "Spotify Reconnecting..."}
               </span>
               {spotifyConnectionStatus === "connected" && deviceId && (
-                <button onClick={togglePlayback} className="play-pause-btn" disabled={!currentTrack}>
+                <button
+                  onClick={togglePlayback}
+                  className="play-pause-btn"
+                  disabled={!currentTrack}
+                >
                   {isPlaying ? "⏸" : "▶"}
                 </button>
               )}
@@ -1421,33 +1591,36 @@ function App() {
               disabled={loading}
               autoFocus={viewListId == null}
             />
-            <button type="submit" disabled={loading}>
-              {loading ? "Searching…" : "Search"}
-            </button>
           </form>
           {error && <p className="error">{error}</p>}
           {viewListId != null ? (
             <>
               <div className="list-view-header">
-                <span className="list-view-title">
-                  List: {listViewData?.name ?? "…"}
-                </span>
+                <span className="list-view-title">List: {listViewData?.name ?? "…"}</span>
               </div>
               {listViewLoading && <p className="detail-loading">Loading list…</p>}
               <ul className="results">
                 {(listViewData?.items || []).map((item, i) => (
                   <li
                     key={item.id != null ? `${item.type}-${item.id}` : i}
-                    className={selectedItem?.id === String(item.id) && selectedItem?.type === item.type ? "selected" : ""}
-                    onClick={() => handleItemClick({ id: item.id, type: item.type, title: item.title })}
+                    className={
+                      selectedItem?.id === String(item.id) && selectedItem?.type === item.type
+                        ? "selected"
+                        : ""
+                    }
+                    onClick={() =>
+                      handleItemClick({ id: item.id, type: item.type, title: item.title })
+                    }
                   >
                     {item.title}
                   </li>
                 ))}
               </ul>
-              {!listViewLoading && listViewData && (!listViewData.items || listViewData.items.length === 0) && (
-                <p className="list-view-empty">This list is empty.</p>
-              )}
+              {!listViewLoading &&
+                listViewData &&
+                (!listViewData.items || listViewData.items.length === 0) && (
+                  <p className="list-view-empty">This list is empty.</p>
+                )}
             </>
           ) : (
             <>
@@ -1494,7 +1667,7 @@ function App() {
                     </div>
                     <div className="detail-content">
                       <h2 className="detail-title">
-                        {((detailData.title || selectedItem.title) || "")
+                        {(detailData.title || selectedItem.title || "")
                           .toLowerCase()
                           .replace(/\b\w/g, (c) => c.toUpperCase())}
                       </h2>
@@ -1551,13 +1724,13 @@ function App() {
                             </span>
                           </div>
                         )}
-                        {(detailData.uri || selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                        {(detailData.uri ||
+                          selectedItem?.type === "release" ||
+                          selectedItem?.type === "master") && (
                           <div className="detail-row detail-row-links">
-                            {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
-                              <button
-                                onClick={handleAddToList}
-                                className="add-to-list-btn"
-                              >
+                            {(selectedItem?.type === "release" ||
+                              selectedItem?.type === "master") && (
+                              <button onClick={handleAddToList} className="add-to-list-btn">
                                 Add to List
                               </button>
                             )}
@@ -1599,42 +1772,64 @@ function App() {
                             </span>
                             <span className="autoplay-switch-label">Autoplay</span>
                           </label>
-                          <div className={`tracklist-filter${tracklistFilter === null ? " tracklist-filter-all-active" : ""}${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}>
-                          <span className="tracklist-filter-label">Filter by:</span>
-                          <button
-                            type="button"
-                            className={`tracklist-filter-star track-like-btn track-like-0${tracklistFilter === null ? " tracklist-filter-star-active" : ""}`}
-                            onClick={() => setTracklistFilter(null)}
-                            title="Show all tracks"
-                            aria-label="Show all tracks"
+                          <div
+                            className={`tracklist-filter${tracklistFilter === null ? " tracklist-filter-all-active" : ""}${tracklistFilter === "liked" ? " tracklist-filter-both-active" : ""}`}
                           >
-                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
-                            onClick={() => setTracklistFilter((f) => (f === "liked" ? null : "liked"))}
-                            title={tracklistFilter === "liked" ? "Show all tracks" : "Hide unliked tracks"}
-                            aria-label={tracklistFilter === "liked" ? "Show all" : "Filter to liked"}
-                          >
-                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            className={`tracklist-filter-star track-like-btn track-like-2${tracklistFilter === "especially" ? " tracklist-filter-star-active" : ""}`}
-                            onClick={() => setTracklistFilter((f) => (f === "especially" ? null : "especially"))}
-                            title={tracklistFilter === "especially" ? "Show all tracks" : "Hide unliked and liked (show especially liked only)"}
-                            aria-label={tracklistFilter === "especially" ? "Show all" : "Filter to especially liked"}
-                          >
-                            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                            </svg>
-                          </button>
-                        </div>
+                            <span className="tracklist-filter-label">Filter by:</span>
+                            <button
+                              type="button"
+                              className={`tracklist-filter-star track-like-btn track-like-0${tracklistFilter === null ? " tracklist-filter-star-active" : ""}`}
+                              onClick={() => setTracklistFilter(null)}
+                              title="Show all tracks"
+                              aria-label="Show all tracks"
+                            >
+                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={`tracklist-filter-star track-like-btn track-like-1${tracklistFilter === "liked" ? " tracklist-filter-star-active" : ""}`}
+                              onClick={() =>
+                                setTracklistFilter((f) => (f === "liked" ? null : "liked"))
+                              }
+                              title={
+                                tracklistFilter === "liked"
+                                  ? "Show all tracks"
+                                  : "Hide unliked tracks"
+                              }
+                              aria-label={
+                                tracklistFilter === "liked" ? "Show all" : "Filter to liked"
+                              }
+                            >
+                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
+                              className={`tracklist-filter-star track-like-btn track-like-2${tracklistFilter === "especially" ? " tracklist-filter-star-active" : ""}`}
+                              onClick={() =>
+                                setTracklistFilter((f) =>
+                                  f === "especially" ? null : "especially",
+                                )
+                              }
+                              title={
+                                tracklistFilter === "especially"
+                                  ? "Show all tracks"
+                                  : "Hide unliked and liked (show especially liked only)"
+                              }
+                              aria-label={
+                                tracklistFilter === "especially"
+                                  ? "Show all"
+                                  : "Filter to especially liked"
+                              }
+                            >
+                              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <ol className="tracklist">
@@ -1647,65 +1842,99 @@ function App() {
                             return true;
                           })
                           .map((track, i) => {
-                          const match = spotifyMatches.find((m) => m.discogs_title === track.title);
-                          const spotifyTrack = match?.spotify_track;
-                          const isCurrentTrack = spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
-                          const isTrackFinished = playbackDuration > 0 && playbackPosition >= playbackDuration;
-                          const isActive = isCurrentTrack && !isTrackFinished;
-                          const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
-                          const likeState = getDisplayLikeState(track);
-                          const matchedDisconnected = spotifyTrack && !spotifyToken;
-                          return (
-                            <li
-                              key={getTrackKey(track) || `track-${i}`}
-                              className={[
-                                isActive ? "track-playing" : "",
-                                matchedDisconnected ? "track-matched-disconnected" : "",
-                              ].filter(Boolean).join(" ")}
-                              onClick={(e) => handleTrackRowClick(e, isActive)}
-                              title={isActive ? "Click to seek" : undefined}
-                            >
-                              <div className="track-progress-bar" style={{ width: isActive ? `${progress}%` : "0" }} />
-                              <span className="track-position">{track.position || `${i + 1}.`}</span>
-                              <span className="track-title">{track.title}</span>
-                              {track.duration && (
-                                <span className="track-duration">{track.duration}</span>
-                              )}
-                              {spotifyTrack ? (
+                            const match = spotifyMatches.find(
+                              (m) => m.discogs_title === track.title,
+                            );
+                            const spotifyTrack = match?.spotify_track;
+                            const isCurrentTrack =
+                              spotifyTrack?.uri &&
+                              currentTrack?.uri &&
+                              spotifyTrack.uri === currentTrack.uri;
+                            const isTrackFinished =
+                              playbackDuration > 0 && playbackPosition >= playbackDuration;
+                            const isActive = isCurrentTrack && !isTrackFinished;
+                            const progress =
+                              playbackDuration > 0
+                                ? (playbackPosition / playbackDuration) * 100
+                                : 0;
+                            const likeState = getDisplayLikeState(track);
+                            const matchedDisconnected = spotifyTrack && !spotifyToken;
+                            return (
+                              <li
+                                key={getTrackKey(track) || `track-${i}`}
+                                className={[
+                                  isActive ? "track-playing" : "",
+                                  matchedDisconnected ? "track-matched-disconnected" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                                onClick={(e) => handleTrackRowClick(e, isActive)}
+                                title={isActive ? "Click to seek" : undefined}
+                              >
+                                <div
+                                  className="track-progress-bar"
+                                  style={{ width: isActive ? `${progress}%` : "0" }}
+                                />
+                                <span className="track-position">
+                                  {track.position || `${i + 1}.`}
+                                </span>
+                                <span className="track-title">{track.title}</span>
+                                {track.duration && (
+                                  <span className="track-duration">{track.duration}</span>
+                                )}
+                                {spotifyTrack ? (
+                                  <button
+                                    className="play-track-btn"
+                                    onClick={() => {
+                                      console.log("Play button clicked for:", spotifyTrack.uri);
+                                      playTrack(spotifyTrack.uri);
+                                    }}
+                                    title={
+                                      matchedDisconnected
+                                        ? "Connect to Spotify to play"
+                                        : `Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`
+                                    }
+                                    disabled={matchedDisconnected}
+                                  >
+                                    ▶ Play
+                                  </button>
+                                ) : match !== undefined ? (
+                                  <span className="no-match">No match</span>
+                                ) : (
+                                  <span className="no-match">Matching…</span>
+                                )}
                                 <button
-                                  className="play-track-btn"
-                                  onClick={() => {
-                                    console.log("Play button clicked for:", spotifyTrack.uri);
-                                    playTrack(spotifyTrack.uri);
+                                  type="button"
+                                  className={`track-like-btn track-like-${likeState}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (!matchedDisconnected) toggleLikeTrack(track);
                                   }}
-                                  title={matchedDisconnected ? "Connect to Spotify to play" : `Play ${spotifyTrack.name} by ${spotifyTrack.artists.map((a) => a.name).join(", ")}`}
+                                  title={
+                                    matchedDisconnected
+                                      ? "Connect to Spotify to sync likes"
+                                      : likeState === 0
+                                        ? "Like"
+                                        : likeState === 1
+                                          ? "Liked (click for especially like)"
+                                          : "Especially like (click to remove)"
+                                  }
+                                  aria-label={
+                                    likeState === 0
+                                      ? "Like track"
+                                      : likeState === 1
+                                        ? "Liked"
+                                        : "Especially like"
+                                  }
                                   disabled={matchedDisconnected}
                                 >
-                                  ▶ Play
+                                  <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                  </svg>
                                 </button>
-                              ) : match !== undefined ? (
-                                <span className="no-match">No match</span>
-                              ) : (
-                                <span className="no-match">Matching…</span>
-                              )}
-                              <button
-                                type="button"
-                                className={`track-like-btn track-like-${likeState}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (!matchedDisconnected) toggleLikeTrack(track);
-                                }}
-                                title={matchedDisconnected ? "Connect to Spotify to sync likes" : likeState === 0 ? "Like" : likeState === 1 ? "Liked (click for especially like)" : "Especially like (click to remove)"}
-                                aria-label={likeState === 0 ? "Like track" : likeState === 1 ? "Liked" : "Especially like"}
-                                disabled={matchedDisconnected}
-                              >
-                                <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
-                                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                </svg>
-                              </button>
-                            </li>
-                          );
-                        })}
+                              </li>
+                            );
+                          })}
                       </ol>
                     </div>
                   )}
@@ -1722,14 +1951,13 @@ function App() {
                     {overviewLoading && <p className="detail-loading">Loading overview…</p>}
                     {overviewError && !overviewLoading && (
                       <p className="error">
-                        {overviewError.includes("Wikipedia") && overviewError.toLowerCase().includes("no ")
+                        {overviewError.includes("Wikipedia") &&
+                        overviewError.toLowerCase().includes("no ")
                           ? "No overview available for this album."
                           : overviewError}
                       </p>
                     )}
-                    {overview && !overviewLoading && (
-                      <p className="overview-text">{overview}</p>
-                    )}
+                    {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
                   </div>
                 )}
               </div>
@@ -1742,7 +1970,9 @@ function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Add to List</h2>
-              <button className="modal-close" onClick={handleCloseListModal}>×</button>
+              <button className="modal-close" onClick={handleCloseListModal}>
+                ×
+              </button>
             </div>
             <div className="modal-body">
               {listLoading ? (
@@ -1789,7 +2019,9 @@ function App() {
                       disabled={listLoading || selectedListIds.length === 0}
                       className="add-to-lists-btn"
                     >
-                      {listLoading ? "Adding…" : `Add to ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`}
+                      {listLoading
+                        ? "Adding…"
+                        : `Add to ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`}
                     </button>
                     <button onClick={handleCloseListModal} className="modal-cancel-btn">
                       Cancel

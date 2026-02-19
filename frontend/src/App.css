@@ -2,8 +2,7 @@
   max-width: 1200px;
   width: 100%;
   margin: 0 auto;
-  padding: 1rem 1.5rem;
-  height: 100vh;
+  padding: 1rem 1.5rem 0;
   display: flex;
   flex-direction: column;
 }
@@ -206,8 +205,6 @@
   display: flex;
   gap: 1rem;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
   height: 0; /* Force flex child to respect parent height */
   padding-top: 1rem;
 }
@@ -219,6 +216,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  max-height: calc(100vh - 154px);
 }
 
 .results li {
@@ -293,6 +291,8 @@
 .detail-main {
   flex: 1;
   min-width: 0;
+  height: calc(100vh - 120px);
+  overflow-y: auto;
 }
 
 .detail-overview {
