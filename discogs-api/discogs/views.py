@@ -672,11 +672,11 @@ class ListsView(APIView):
 
 
 class ListItemsView(APIView):
-    """POST /api/lists/items/ — add an album to one or more lists."""
+    """POST /api/lists/items/ — add/remove an album to/from lists."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        """Add an album to selected lists."""
+        """Add an album to selected lists and remove from unselected lists."""
         try:
             resource_type = str(request.data.get("type") or "").strip().lower()
             resource_id = str(request.data.get("id") or "").strip()
@@ -693,46 +693,104 @@ class ListItemsView(APIView):
                     {"error": "type must be 'release' or 'master'"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if not isinstance(list_ids, list) or not list_ids:
+            if not isinstance(list_ids, list):
                 return Response(
-                    {"error": "list_ids must be a non-empty list"},
+                    {"error": "list_ids must be a list"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Only allow adding to lists of type 'release' (album lists) when adding a release/master
-            user_lists = List.objects.filter(
-                user=request.user, id__in=list_ids, list_type=List.LIST_TYPE_RELEASE
+            # Convert list_ids to set for easier comparison
+            selected_list_ids_set = set(list_ids)
+
+            # Get all user's release lists (to validate selected ones)
+            user_release_lists = List.objects.filter(
+                user=request.user, list_type=List.LIST_TYPE_RELEASE
             )
-            if user_lists.count() != len(list_ids):
-                return Response(
-                    {"error": "One or more lists not found or are not album lists"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            
+            # Validate that all selected list_ids exist and are release lists
+            if selected_list_ids_set:
+                valid_list_ids = set(user_release_lists.values_list("id", flat=True))
+                invalid_ids = selected_list_ids_set - valid_list_ids
+                if invalid_ids:
+                    return Response(
+                        {"error": f"One or more lists not found or are not album lists: {invalid_ids}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
             # Fetch title from Discogs if not provided
             if not title:
                 title = _fetch_display_title_from_discogs(resource_type, resource_id)
 
-            # Add item to each selected list
+            # Find all lists that currently contain this item
+            current_list_items = ListItem.objects.filter(
+                list__user=request.user,
+                list__list_type=List.LIST_TYPE_RELEASE,
+                type=resource_type,
+                discogs_id=str(resource_id),
+            ).select_related("list")
+
+            current_list_ids_set = {item.list_id for item in current_list_items}
+
+            # Lists to add to (selected but not currently in)
+            lists_to_add = selected_list_ids_set - current_list_ids_set
+            # Lists to remove from (currently in but not selected)
+            lists_to_remove = current_list_ids_set - selected_list_ids_set
+
             added_to = []
-            for list_obj in user_lists:
-                item, created = ListItem.objects.get_or_create(
-                    list=list_obj,
+            removed_from = []
+
+            # Add item to lists that are selected but don't currently contain it
+            if lists_to_add:
+                lists_to_add_objs = user_release_lists.filter(id__in=lists_to_add)
+                for list_obj in lists_to_add_objs:
+                    item, created = ListItem.objects.get_or_create(
+                        list=list_obj,
+                        type=resource_type,
+                        discogs_id=str(resource_id),
+                        defaults={"title": title},
+                    )
+                    if created:
+                        added_to.append(list_obj.id)
+                    # Update title if it was empty
+                    elif not item.title and title:
+                        item.title = title
+                        item.save()
+
+            # Remove item from lists that are not selected but currently contain it
+            if lists_to_remove:
+                items_to_delete = current_list_items.filter(list_id__in=lists_to_remove)
+                removed_from = list(items_to_delete.values_list("list_id", flat=True))
+                items_to_delete.delete()
+
+            # Update titles for items that remain in selected lists (in case title was updated)
+            if selected_list_ids_set:
+                items_to_update = ListItem.objects.filter(
+                    list__user=request.user,
+                    list_id__in=selected_list_ids_set,
                     type=resource_type,
                     discogs_id=str(resource_id),
-                    defaults={"title": title},
                 )
-                if created:
-                    added_to.append(list_obj.id)
-                # Update title if it was empty
-                elif not item.title and title:
-                    item.title = title
-                    item.save()
+                for item in items_to_update:
+                    if not item.title and title:
+                        item.title = title
+                        item.save()
 
-            return Response({"added_to": added_to, "message": f"Added to {len(added_to)} list(s)"})
+            message_parts = []
+            if added_to:
+                message_parts.append(f"Added to {len(added_to)} list(s)")
+            if removed_from:
+                message_parts.append(f"Removed from {len(removed_from)} list(s)")
+            if not message_parts:
+                message_parts.append("No changes made")
+
+            return Response({
+                "added_to": added_to,
+                "removed_from": removed_from,
+                "message": "; ".join(message_parts),
+            })
         except Exception as e:
             import traceback
-            error_msg = {"error": f"Failed to add to lists: {str(e)}"}
+            error_msg = {"error": f"Failed to update lists: {str(e)}"}
             if settings.DEBUG:
                 error_msg["traceback"] = traceback.format_exc()
             return Response(

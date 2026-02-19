@@ -1218,9 +1218,9 @@ function App() {
     }
   }
 
-  // Add album to selected lists
+  // Add/remove album to/from selected lists
   async function handleAddToLists() {
-    if (!selectedItem || selectedListIds.length === 0) return;
+    if (!selectedItem) return;
     const t = (selectedItem.type || "").toLowerCase();
     if (t !== "release" && t !== "master") return;
 
@@ -1239,7 +1239,7 @@ function App() {
         body: JSON.stringify({
           type: t,
           id: selectedItem.id,
-          list_ids: selectedListIds,
+          list_ids: selectedListIds, // Can be empty to remove from all lists
           title: titleToSave,
         }),
       });
@@ -1254,13 +1254,13 @@ function App() {
             // If JSON parsing fails, use default
           }
         } else {
-          errorMessage = `Failed to add to lists (${res.status})`;
+          errorMessage = `Failed to update lists (${res.status})`;
         }
         throw new Error(errorMessage);
       }
       handleCloseListModal();
     } catch (err) {
-      setListError(err.message || "Failed to add to lists");
+      setListError(err.message || "Failed to update lists");
     } finally {
       setListLoading(false);
     }
@@ -2016,12 +2016,14 @@ function App() {
                   <div className="modal-actions">
                     <button
                       onClick={handleAddToLists}
-                      disabled={listLoading || selectedListIds.length === 0}
+                      disabled={listLoading}
                       className="add-to-lists-btn"
                     >
                       {listLoading
-                        ? "Adding…"
-                        : `Add to ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`}
+                        ? "Updating…"
+                        : selectedListIds.length === 0
+                          ? "Remove from all lists"
+                          : `Update ${selectedListIds.length} list${selectedListIds.length !== 1 ? "s" : ""}`}
                     </button>
                     <button onClick={handleCloseListModal} className="modal-cancel-btn">
                       Cancel
