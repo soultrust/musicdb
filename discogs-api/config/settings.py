@@ -2,17 +2,12 @@
 import os
 import environ
 from pathlib import Path
-from dotenv import load_dotenv 
-
 
 # Build paths
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 SECRET_KEY = os.getenv('SECRET_KEY') 
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
-
-
 
 # Initialize environ
 env = environ.Env(
@@ -31,8 +26,17 @@ environ.Env.read_env(BASE_DIR / '.env')
 SECRET_KEY = env('SECRET_KEY', default='dummy-key-for-build-only-replace-in-production')
 DEBUG = env('DEBUG')
 
-# Allow Render domain and localhost for development
-ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=['localhost', '127.0.0.1'])
+# Allow Railway domain and localhost for development
+# Railway provides RAILWAY_PUBLIC_DOMAIN environment variable
+default_allowed_hosts = ['localhost', '127.0.0.1']
+railway_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+if railway_domain:
+    default_allowed_hosts.append(railway_domain)
+    # Also add without port if domain includes port
+    if ':' in railway_domain:
+        default_allowed_hosts.append(railway_domain.split(':')[0])
+
+ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=default_allowed_hosts)
 
 # Add our new packages to INSTALLED_APPS
 INSTALLED_APPS = [
@@ -69,18 +73,41 @@ MIDDLEWARE = [
 ]
 
 # CORS settings - allow frontend origins
+default_cors_origins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:5173',
+]
+
+# Add Railway frontend URL if provided via environment variable
+frontend_url = os.getenv('FRONTEND_URL') or os.getenv('VITE_API_BASE_URL')
+if frontend_url:
+    # Extract origin from URL (remove path, query, etc.)
+    from urllib.parse import urlparse
+    parsed = urlparse(frontend_url)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    if origin not in default_cors_origins:
+        default_cors_origins.append(origin)
+
+# Also check if Railway provides a frontend domain
+railway_frontend_domain = os.getenv('RAILWAY_STATIC_URL')
+if railway_frontend_domain:
+    # Ensure it has a scheme
+    if not railway_frontend_domain.startswith('http'):
+        railway_frontend_domain = f"https://{railway_frontend_domain}"
+    if railway_frontend_domain not in default_cors_origins:
+        default_cors_origins.append(railway_frontend_domain)
+
 CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
-    default=[
-        'http://localhost:5173',
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-    ]
+    default=default_cors_origins
 )
 
 # In production, set CORS_ALLOW_ALL_ORIGINS=False and configure CORS_ALLOWED_ORIGINS
-CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=True)
+# Default to False in production (when DEBUG=False or on Railway), True in development
+is_railway = bool(os.getenv('RAILWAY_ENVIRONMENT') or os.getenv('RAILWAY_PUBLIC_DOMAIN'))
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=DEBUG and not is_railway)
 
 # REST Framework settings
 REST_FRAMEWORK = {
