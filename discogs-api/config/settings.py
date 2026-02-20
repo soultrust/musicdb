@@ -80,24 +80,31 @@ default_cors_origins = [
     'http://127.0.0.1:5173',
 ]
 
-# Add Railway frontend URL if provided via environment variable
-frontend_url = os.getenv('FRONTEND_URL') or os.getenv('VITE_API_BASE_URL')
-if frontend_url:
-    # Extract origin from URL (remove path, query, etc.)
-    from urllib.parse import urlparse
-    parsed = urlparse(frontend_url)
-    origin = f"{parsed.scheme}://{parsed.netloc}"
-    if origin not in default_cors_origins:
-        default_cors_origins.append(origin)
+# Add frontend URL(s) from environment variables
+# FRONTEND_URL should be set to your frontend's public URL (custom domain or Railway URL)
+from urllib.parse import urlparse
 
-# Also check if Railway provides a frontend domain
-railway_frontend_domain = os.getenv('RAILWAY_STATIC_URL')
-if railway_frontend_domain:
-    # Ensure it has a scheme
-    if not railway_frontend_domain.startswith('http'):
-        railway_frontend_domain = f"https://{railway_frontend_domain}"
-    if railway_frontend_domain not in default_cors_origins:
-        default_cors_origins.append(railway_frontend_domain)
+def add_origin_to_list(url, origin_list):
+    """Helper to extract origin from URL and add to list if not already present."""
+    if not url:
+        return
+    parsed = urlparse(url)
+    origin = f"{parsed.scheme}://{parsed.netloc}"
+    if origin not in origin_list:
+        origin_list.append(origin)
+
+# Add custom frontend URL (should be your custom domain if you have one)
+frontend_url = os.getenv('FRONTEND_URL')
+if frontend_url:
+    add_origin_to_list(frontend_url, default_cors_origins)
+
+# Also add Railway's public domain if different from FRONTEND_URL
+# This handles cases where custom domain points to Railway URL
+railway_public_domain = os.getenv('RAILWAY_PUBLIC_DOMAIN')
+if railway_public_domain:
+    # Railway public domain might not include scheme
+    railway_origin = railway_public_domain if railway_public_domain.startswith('http') else f"https://{railway_public_domain}"
+    add_origin_to_list(railway_origin, default_cors_origins)
 
 CORS_ALLOWED_ORIGINS = env.list(
     'CORS_ALLOWED_ORIGINS',
