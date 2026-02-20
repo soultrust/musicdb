@@ -540,7 +540,7 @@ function App() {
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
 
     // #region agent log
-    fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:543',message:'Spotify login initiated',data:{redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,apiBase:API_BASE},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    console.log('[DEBUG] Spotify login initiated', {redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,apiBase:API_BASE});
     // #endregion
 
     // Store current origin for popup to use
@@ -802,7 +802,7 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // #region agent log
-      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:799',message:'Spotify callback received code',data:{code:code.substring(0,20)+'...',redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,isPopup,hasOpener:!!window.opener},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      console.log('[DEBUG] Spotify callback received code', {code:code.substring(0,20)+'...',redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,isPopup,hasOpener:!!window.opener});
       // #endregion
 
       fetch(
@@ -810,14 +810,14 @@ function App() {
       )
         .then(async (res) => {
           // #region agent log
-          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:805',message:'Backend callback response received',data:{status:res.status,statusText:res.statusText,contentType:res.headers.get('content-type')},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          console.log('[DEBUG] Backend callback response received', {status:res.status,statusText:res.statusText,contentType:res.headers.get('content-type')});
           // #endregion
 
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
             const text = await res.text();
             // #region agent log
-            fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:808',message:'Backend returned non-JSON response',data:{contentType,responseText:text.substring(0,200)},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            console.error('[DEBUG] Backend returned non-JSON response', {contentType,responseText:text.substring(0,200)});
             // #endregion
             throw new Error(
               `Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}`,
@@ -827,7 +827,7 @@ function App() {
         })
         .then((data) => {
           // #region agent log
-          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:814',message:'Backend callback data parsed',data:{hasAccessToken:!!data.access_token,hasError:!!data.error,error:data.error},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          console.log('[DEBUG] Backend callback data parsed', {hasAccessToken:!!data.access_token,hasError:!!data.error,error:data.error});
           // #endregion
 
           if (data.access_token) {
@@ -837,7 +837,7 @@ function App() {
               const openerOrigin = storedOrigin || window.location.origin;
 
               // #region agent log
-              fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:820',message:'Sending postMessage with token',data:{storedOrigin,openerOrigin,currentOrigin:window.location.origin,originsMatch:openerOrigin===window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+              console.log('[DEBUG] Sending postMessage with token', {storedOrigin,openerOrigin,currentOrigin:window.location.origin,originsMatch:openerOrigin===window.location.origin});
               // #endregion
 
               // Try the stored/detected origin first
@@ -868,7 +868,7 @@ function App() {
           } else {
             console.error("Spotify: No access_token in response:", data);
             // #region agent log
-            fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:847',message:'No access_token in response',data:{error:data.error,fullData:data},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            console.error('[DEBUG] No access_token in response', {error:data.error,fullData:data});
             // #endregion
             if (isPopup && window.opener) {
               const storedOrigin =
@@ -891,7 +891,7 @@ function App() {
         .catch((err) => {
           console.error("Spotify token exchange error:", err);
           // #region agent log
-          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:866',message:'Token exchange fetch error',data:{error:err.message,stack:err.stack},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          console.error('[DEBUG] Token exchange fetch error', {error:err.message,stack:err.stack});
           // #endregion
           if (isPopup && window.opener) {
             const storedOrigin =
@@ -940,7 +940,7 @@ function App() {
       }
 
       // #region agent log
-      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:914',message:'PostMessage received',data:{type:e.data.type,messageOrigin:e.origin,currentOrigin:window.location.origin,originsMatch:e.origin===window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      console.log('[DEBUG] PostMessage received', {type:e.data.type,messageOrigin:e.origin,currentOrigin:window.location.origin,originsMatch:e.origin===window.location.origin});
       // #endregion
 
       // Allow messages from same origin or localhost/127.0.0.1 variations
@@ -958,19 +958,19 @@ function App() {
           window.location.origin.includes("127.0.0.1"));
 
       // #region agent log
-      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:927',message:'PostMessage origin check',data:{isSameOrigin,isLocalDev,willAccept:isSameOrigin||isLocalDev},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      console.log('[DEBUG] PostMessage origin check', {isSameOrigin,isLocalDev,willAccept:isSameOrigin||isLocalDev});
       // #endregion
 
       if (!isSameOrigin && !isLocalDev) {
         // #region agent log
-        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:929',message:'PostMessage rejected due to origin mismatch',data:{messageOrigin:e.origin,currentOrigin:window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        console.warn('[DEBUG] PostMessage rejected due to origin mismatch', {messageOrigin:e.origin,currentOrigin:window.location.origin});
         // #endregion
         return;
       }
 
       if (e.data.type === "spotify-token") {
         // #region agent log
-        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:932',message:'PostMessage accepted, setting token',data:{hasToken:!!e.data.token},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        console.log('[DEBUG] PostMessage accepted, setting token', {hasToken:!!e.data.token});
         // #endregion
         setSpotifyToken(e.data.token);
         setSpotifyConnectionStatus("connecting");
@@ -983,7 +983,7 @@ function App() {
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
         // #region agent log
-        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:941',message:'PostMessage auth error received',data:{error:e.data.error},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        console.error('[DEBUG] PostMessage auth error received', {error:e.data.error});
         // #endregion
         sessionStorage.removeItem("spotify_auth_origin"); // Clean up
         // Don't auto-reconnect on auth errors (user needs to manually authorize)
