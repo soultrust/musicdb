@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 console.log("API_BASE being used:", API_BASE);
 const SPOTIFY_CLIENT_ID = import.meta.env.VITE_SPOTIFY_CLIENT_ID || "";
 // Use current window location to ensure origin matches (localhost vs 127.0.0.1)
+// In production, always use current origin so popup and main window match
 const SPOTIFY_REDIRECT_URI = (
   import.meta.env.VITE_SPOTIFY_REDIRECT_URI || window.location.origin
 ).replace(/\/$/, "");
@@ -957,11 +958,18 @@ function App() {
         (window.location.origin.includes("localhost") ||
           window.location.origin.includes("127.0.0.1"));
 
+      // Allow messages between Railway URL and custom domain (same app, different domains)
+      // Check if both are Railway-related domains pointing to the same app
+      const isRailwayDomainPair = 
+        (e.origin.includes("railway.app") && window.location.origin.includes("soultrust.com")) ||
+        (e.origin.includes("soultrust.com") && window.location.origin.includes("railway.app")) ||
+        (e.origin.includes("railway.app") && window.location.origin.includes("railway.app"));
+
       // #region agent log
-      console.log('[DEBUG] PostMessage origin check', {isSameOrigin,isLocalDev,willAccept:isSameOrigin||isLocalDev});
+      console.log('[DEBUG] PostMessage origin check', {isSameOrigin,isLocalDev,isRailwayDomainPair,willAccept:isSameOrigin||isLocalDev||isRailwayDomainPair});
       // #endregion
 
-      if (!isSameOrigin && !isLocalDev) {
+      if (!isSameOrigin && !isLocalDev && !isRailwayDomainPair) {
         // #region agent log
         console.warn('[DEBUG] PostMessage rejected due to origin mismatch', {messageOrigin:e.origin,currentOrigin:window.location.origin});
         // #endregion
