@@ -539,6 +539,10 @@ function App() {
     const redirectUriEncoded = encodeURIComponent(SPOTIFY_REDIRECT_URI);
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
 
+    // #region agent log
+    fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:543',message:'Spotify login initiated',data:{redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,apiBase:API_BASE},timestamp:Date.now(),runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+
     // Store current origin for popup to use
     sessionStorage.setItem("spotify_auth_origin", window.location.origin);
 
@@ -797,13 +801,24 @@ function App() {
     if (code) {
       window.history.replaceState({}, document.title, window.location.pathname);
 
+      // #region agent log
+      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:799',message:'Spotify callback received code',data:{code:code.substring(0,20)+'...',redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,isPopup,hasOpener:!!window.opener},timestamp:Date.now(),runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
+
       fetch(
         `${API_BASE}/api/spotify/callback/?code=${encodeURIComponent(code)}&redirect_uri=${encodeURIComponent(SPOTIFY_REDIRECT_URI)}`,
       )
         .then(async (res) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:805',message:'Backend callback response received',data:{status:res.status,statusText:res.statusText,contentType:res.headers.get('content-type')},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
             const text = await res.text();
+            // #region agent log
+            fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:808',message:'Backend returned non-JSON response',data:{contentType,responseText:text.substring(0,200)},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             throw new Error(
               `Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}`,
             );
@@ -811,11 +826,19 @@ function App() {
           return res.json();
         })
         .then((data) => {
+          // #region agent log
+          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:814',message:'Backend callback data parsed',data:{hasAccessToken:!!data.access_token,hasError:!!data.error,error:data.error},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
+
           if (data.access_token) {
             if (isPopup && window.opener) {
               // Get stored origin or try to detect it
               const storedOrigin = sessionStorage.getItem("spotify_auth_origin");
               const openerOrigin = storedOrigin || window.location.origin;
+
+              // #region agent log
+              fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:820',message:'Sending postMessage with token',data:{storedOrigin,openerOrigin,currentOrigin:window.location.origin,originsMatch:openerOrigin===window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+              // #endregion
 
               // Try the stored/detected origin first
               window.opener.postMessage(
@@ -844,6 +867,9 @@ function App() {
             }
           } else {
             console.error("Spotify: No access_token in response:", data);
+            // #region agent log
+            fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:847',message:'No access_token in response',data:{error:data.error,fullData:data},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
             if (isPopup && window.opener) {
               const storedOrigin =
                 sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
@@ -864,6 +890,9 @@ function App() {
         })
         .catch((err) => {
           console.error("Spotify token exchange error:", err);
+          // #region agent log
+          fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:866',message:'Token exchange fetch error',data:{error:err.message,stack:err.stack},timestamp:Date.now(),runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+          // #endregion
           if (isPopup && window.opener) {
             const storedOrigin =
               sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
@@ -910,6 +939,10 @@ function App() {
         return;
       }
 
+      // #region agent log
+      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:914',message:'PostMessage received',data:{type:e.data.type,messageOrigin:e.origin,currentOrigin:window.location.origin,originsMatch:e.origin===window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+
       // Allow messages from same origin or localhost/127.0.0.1 variations
       const isSameOrigin =
         e.origin === window.location.origin ||
@@ -924,11 +957,21 @@ function App() {
         (window.location.origin.includes("localhost") ||
           window.location.origin.includes("127.0.0.1"));
 
+      // #region agent log
+      fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:927',message:'PostMessage origin check',data:{isSameOrigin,isLocalDev,willAccept:isSameOrigin||isLocalDev},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+
       if (!isSameOrigin && !isLocalDev) {
+        // #region agent log
+        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:929',message:'PostMessage rejected due to origin mismatch',data:{messageOrigin:e.origin,currentOrigin:window.location.origin},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         return;
       }
 
       if (e.data.type === "spotify-token") {
+        // #region agent log
+        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:932',message:'PostMessage accepted, setting token',data:{hasToken:!!e.data.token},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         setSpotifyToken(e.data.token);
         setSpotifyConnectionStatus("connecting");
         sessionStorage.removeItem("spotify_auth_origin"); // Clean up
@@ -939,6 +982,9 @@ function App() {
         }
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
+        // #region agent log
+        fetch('http://127.0.0.1:7645/ingest/2b520e64-523e-404b-b255-7c960528eabd',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'48f4bd'},body:JSON.stringify({sessionId:'48f4bd',location:'App.jsx:941',message:'PostMessage auth error received',data:{error:e.data.error},timestamp:Date.now(),runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
         sessionStorage.removeItem("spotify_auth_origin"); // Clean up
         // Don't auto-reconnect on auth errors (user needs to manually authorize)
         setSpotifyConnectionStatus("disconnected");
