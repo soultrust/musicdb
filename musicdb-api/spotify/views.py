@@ -47,7 +47,7 @@ class MatchTracksAPIView(APIView):
                 
                 try:
                     # Search Spotify for this track - get multiple results to find best match
-                    spotify_results = search_track(query=title, artist=artist, limit=5)
+                    spotify_results = search_track(query=title, artist=artist, limit=10)
                     # Use best match algorithm instead of just taking first result
                     spotify_track = find_best_match(title, artists, spotify_results)
                     

@@ -283,3 +283,23 @@ class FindBestMatchTests(TestCase):
         match = find_best_match(discogs_title, discogs_artists, spotify_results)
         self.assertIsNotNone(match)
         self.assertEqual(match["id"], "spotify:shine-1-5")
+
+    def test_parts_vi_ix_matches_pts_6_9(self):
+        """'Parts VI-IX' (catalog) should match '(Pts. 6-9)' (Spotify) when in results."""
+        discogs_title = "Shine On You Crazy Diamond, Parts VI-IX"
+        discogs_artists = ["Pink Floyd"]
+        spotify_results = [
+            {
+                "name": "Shine On You Crazy Diamond, (Pts. 1-5)",
+                "artists": [{"name": "Pink Floyd"}],
+                "id": "spotify:shine-1-5",
+            },
+            {
+                "name": "Shine On You Crazy Diamond, (Pts. 6-9)",
+                "artists": [{"name": "Pink Floyd"}],
+                "id": "spotify:shine-6-9",
+            },
+        ]
+        match = find_best_match(discogs_title, discogs_artists, spotify_results)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["id"], "spotify:shine-6-9")
