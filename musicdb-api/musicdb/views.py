@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import AlbumOverview, ConsumedAlbum, List, ListItem
 from .serializers import AlbumOverviewSerializer
-from .client import get_release, get_master, get_artist, get_label
+from .client import get_release, get_master
 from . import musicbrainz_client as mb
 
 
@@ -54,7 +54,33 @@ class SearchAPIView(APIView):
         page = max(1, int(request.GET.get("page", 1)))
         per_page = 20
         offset = (page - 1) * per_page
-        response, results = mb.search(q, search_type=search_type, limit=per_page, offset=offset)
+        year = request.GET.get("year", "").strip() or None
+        year_from = request.GET.get("year_from", "").strip() or None
+        year_to = request.GET.get("year_to", "").strip() or None
+        if year:
+            try:
+                year = int(year)
+            except ValueError:
+                year = None
+        if year_from:
+            try:
+                year_from = int(year_from)
+            except ValueError:
+                year_from = None
+        if year_to:
+            try:
+                year_to = int(year_to)
+            except ValueError:
+                year_to = None
+        response, results = mb.search(
+            q,
+            search_type=search_type,
+            limit=per_page,
+            offset=offset,
+            year=year,
+            year_from=year_from,
+            year_to=year_to,
+        )
         if response.status_code != 200:
             return Response(
                 {"error": f"MusicBrainz API returned {response.status_code}"},
@@ -240,7 +266,7 @@ def _normalize_mb_recording(data):
 
 
 class DetailAPIView(APIView):
-    """GET /api/search/detail/?type=artist|album|song&id=<mbid> — MusicBrainz lookup, returns normalized JSON."""
+    """GET /api/search/detail/?type=artist|album|song&id=<mbid> — MusicBrainz lookup only."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

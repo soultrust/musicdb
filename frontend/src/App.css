@@ -206,6 +206,53 @@
   cursor: not-allowed;
 }
 
+.search-year-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0.25rem;
+}
+
+.search-year-label {
+  font-size: 0.8rem;
+  color: #a3a3a3;
+}
+
+.search-year-input {
+  width: 100%;
+  max-width: 5rem;
+  box-sizing: border-box;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.95rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #e5e5e5;
+}
+
+.search-year-input:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
+.search-year-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.search-year-range .search-year-input {
+  flex: 1;
+  max-width: none;
+}
+
+.search-year-range-sep {
+  color: #737373;
+  font-weight: 600;
+}
+
 .error {
   color: #f87171;
 }

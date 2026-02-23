@@ -19,6 +19,9 @@ function App() {
   const [authError, setAuthError] = useState(null);
   const [query, setQuery] = useState("");
   const [searchType, setSearchType] = useState("album"); // "artist" | "album" | "song"
+  const [filterYear, setFilterYear] = useState("");
+  const [filterYearFrom, setFilterYearFrom] = useState("");
+  const [filterYearTo, setFilterYearTo] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -315,14 +318,30 @@ function App() {
 
   // Removed consumed list loading - replaced with lists feature
 
+  function allowDigitsOnly(setter, maxLength = 4) {
+    return (e) => {
+      const v = e.target.value.replace(/\D/g, "").slice(0, maxLength);
+      setter(v);
+    };
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!query.trim()) return;
     setLoading(true);
     setError(null);
     try {
+      const params = new URLSearchParams({
+        q: query.trim(),
+        type: searchType,
+      });
+      if (searchType === "album") {
+        if (filterYear.trim()) params.set("year", filterYear.trim());
+        if (filterYearFrom.trim()) params.set("year_from", filterYearFrom.trim());
+        if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
+      }
       const searchRes = await authFetch(
-        `${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}&type=${encodeURIComponent(searchType)}`,
+        `${API_BASE}/api/search/?${params.toString()}`,
       );
       const data = await searchRes.json();
       if (!searchRes.ok) {
@@ -1817,6 +1836,48 @@ function App() {
               disabled={loading}
               autoFocus={viewListId == null}
             />
+            {searchType === "album" && (
+              <div className="search-year-filter" aria-label="Filter by release year">
+                <label className="search-year-label">Release year</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={filterYear}
+                  onChange={allowDigitsOnly(setFilterYear)}
+                  placeholder="Year"
+                  className="search-year-input"
+                  aria-label="Single year"
+                />
+                <label className="search-year-label">Year range</label>
+                <div className="search-year-range">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={filterYearFrom}
+                    onChange={allowDigitsOnly(setFilterYearFrom)}
+                    placeholder="From"
+                    className="search-year-input"
+                    aria-label="From year"
+                  />
+                  <span className="search-year-range-sep">–</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={4}
+                    value={filterYearTo}
+                    onChange={allowDigitsOnly(setFilterYearTo)}
+                    placeholder="To"
+                    className="search-year-input"
+                    aria-label="To year"
+                  />
+                </div>
+              </div>
+            )}
           </form>
           {error && <p className="error">{error}</p>}
           {viewListId === "spotify-playlists" ? (

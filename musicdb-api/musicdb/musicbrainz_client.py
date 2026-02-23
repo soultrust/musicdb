@@ -23,14 +23,29 @@ def _headers():
     return {"User-Agent": user_agent}
 
 
-def search(query, search_type="album", limit=20, offset=0):
+def search(query, search_type="album", limit=20, offset=0, year=None, year_from=None, year_to=None):
     """
     Search MusicBrainz. search_type: 'artist' | 'album' | 'song'.
+    For album (release) only: year (single) or year_from/year_to (range) filter by release date.
     Returns (response, normalized_results).
     """
     entity = SEARCH_TYPE_TO_ENTITY.get(search_type, "release")
+    q = query.strip()
+    if entity == "release" and (year is not None or (year_from is not None and year_to is not None)):
+        try:
+            if year is not None:
+                y = str(int(year))[:4]
+                if len(y) == 4:
+                    q = f"({q}) AND date:[{y} TO {y}]"
+            elif year_from is not None and year_to is not None:
+                yf = str(int(year_from))[:4]
+                yt = str(int(year_to))[:4]
+                if len(yf) == 4 and len(yt) == 4:
+                    q = f"({q}) AND date:[{yf} TO {yt}]"
+        except (ValueError, TypeError):
+            pass
     url = f"{MUSICBRAINZ_API_BASE}/{entity}"
-    params = {"query": query, "fmt": "json", "limit": min(limit, 100), "offset": offset}
+    params = {"query": q, "fmt": "json", "limit": min(limit, 100), "offset": offset}
     resp = requests.get(url, headers=_headers(), params=params, timeout=15)
     if resp.status_code != 200:
         return resp, []

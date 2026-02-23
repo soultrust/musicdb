@@ -77,7 +77,31 @@ Migrations run automatically every time the service starts.
 
 ### One-time: If you had an existing database when the app was named "discogs"
 
-After renaming the app to `musicdb`, existing databases must update migration history and table names once. Run this SQL (e.g. in Neon SQL Editor or `psql $DATABASE_URL`):
+After renaming the app to `musicdb`, existing databases must update migration history and table names once so your **lists and data** are visible again.
+
+**If you already deployed the new code and ran migrate**, the app may have created empty `musicdb_*` tables. Your list data is still in `discogs_*`. Run this in your production DB (Neon SQL Editor or `psql $DATABASE_URL`), in order:
+
+```sql
+-- 1. Remove migration records for the new (empty) musicdb tables
+DELETE FROM django_migrations WHERE app = 'musicdb';
+
+-- 2. Drop the empty musicdb tables (order matters: listitem first due to foreign key)
+DROP TABLE IF EXISTS musicdb_listitem;
+DROP TABLE IF EXISTS musicdb_list;
+DROP TABLE IF EXISTS musicdb_consumedalbum;
+DROP TABLE IF EXISTS musicdb_albumoverview;
+
+-- 3. Point migration history at the old app name so renames work
+UPDATE django_migrations SET app = 'musicdb' WHERE app = 'discogs';
+
+-- 4. Rename old tables to musicdb_* (your data is in these; list before listitem for FK)
+ALTER TABLE discogs_list RENAME TO musicdb_list;
+ALTER TABLE discogs_listitem RENAME TO musicdb_listitem;
+ALTER TABLE discogs_consumedalbum RENAME TO musicdb_consumedalbum;
+ALTER TABLE discogs_albumoverview RENAME TO musicdb_albumoverview;
+```
+
+**If you have not deployed the new code yet** (or migrate has not run since the rename), you only have `discogs_*` tables. Run this instead:
 
 ```sql
 UPDATE django_migrations SET app = 'musicdb' WHERE app = 'discogs';
