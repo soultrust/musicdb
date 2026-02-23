@@ -315,12 +315,16 @@ function App() {
     };
   }, [selectedPlaylistId, spotifyToken, accessToken, viewListId]);
 
-  // When a list's items load, auto-select the first item and load its detail (same as search results)
+  // When a list's items load, auto-select the first item after the list has painted (avoids detail not loading)
   useEffect(() => {
     const items = listViewData?.items;
     if (!viewListId || !items?.length) return;
     const first = items[0];
-    handleItemClick({ id: first.id, type: first.type, title: first.title });
+    const item = { id: first.id, type: first.type, title: first.title };
+    const id = requestAnimationFrame(() => {
+      handleItemClick(item);
+    });
+    return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when list loads, not when handleItemClick ref changes
   }, [viewListId, listViewData]);
 
@@ -360,7 +364,8 @@ function App() {
       setResults(data.results || []);
       setViewListId(null); /* switch to search results when searching */
       if (data.results?.length) {
-        handleItemClick(data.results[0]);
+        const first = data.results[0];
+        requestAnimationFrame(() => handleItemClick(first));
       } else {
         setSelectedItem(null);
         setDetailData(null);
