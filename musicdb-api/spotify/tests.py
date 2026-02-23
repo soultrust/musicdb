@@ -37,6 +37,7 @@ class NormalizeTitleForMatchTests(TestCase):
         self.assertEqual(_normalize_title_for_match("Secret Stair Pt. 1"), "secret stair 1")
         self.assertEqual(_normalize_title_for_match("Secret Stair #1"), "secret stair 1")
         self.assertEqual(_normalize_title_for_match("Secret Stair Part 1"), "secret stair 1")
+        self.assertEqual(_normalize_title_for_match("Secret Stair, Part 1"), "secret stair 1")
         self.assertEqual(_normalize_title_for_match("Secret Stair Pt 1"), "secret stair 1")
         self.assertEqual(_normalize_title_for_match("Secret Stair (1)"), "secret stair 1")
 
@@ -94,6 +95,7 @@ class TitleBaseForSearchTests(TestCase):
 
     def test_strips_trailing_part_word(self):
         self.assertEqual(_title_base_for_search("Secret Stair Part 1"), "Secret Stair")
+        self.assertEqual(_title_base_for_search("Secret Stair, Part 1"), "Secret Stair")
         self.assertEqual(_title_base_for_search("Song Part 2"), "Song")
 
     def test_strips_parenthetical_part(self):
@@ -138,6 +140,17 @@ class FindBestMatchTests(TestCase):
         self.assertIsNotNone(match)
         self.assertEqual(match["name"], "Secret Stair #1")
         self.assertEqual(match["id"], "spotify:track:123")
+
+    def test_matches_comma_part_to_hash(self):
+        """MusicBrainz style 'Secret Stair, Part 1' should match Spotify 'Secret Stair #1'"""
+        discogs_title = "Secret Stair, Part 1"
+        discogs_artists = ["Artist Name"]
+        spotify_results = [
+            {"name": "Secret Stair #1", "artists": [{"name": "Artist Name"}], "id": "spotify:track:123"},
+        ]
+        match = find_best_match(discogs_title, discogs_artists, spotify_results)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["name"], "Secret Stair #1")
 
     def test_matches_hash_to_pt_dot(self):
         """Reverse direction: 'Secret Stair #1' should match 'Secret Stair Pt. 1'"""

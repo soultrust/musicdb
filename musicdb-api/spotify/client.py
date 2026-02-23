@@ -75,6 +75,8 @@ def _normalize_title_for_match(title):
     s = (title or "").lower().strip()
     # Normalize dash variants so "-", "–", "—" behave the same
     s = s.replace("–", "-").replace("—", "-")
+    # Treat comma as space so "Secret Stair, Part 1" and "Secret Stair #1" compare equal
+    s = re.sub(r",\s*", " ", s)
     s = _normalize_roman_range(s)
     s = re.sub(r"\bpart\s+(\d+)\b", r"\1", s, flags=re.IGNORECASE)
     s = re.sub(r"\bpt\.?\s*(\d+)\b", r"\1", s, flags=re.IGNORECASE)
@@ -143,16 +145,17 @@ def _title_base_for_search(title):
     if not title:
         return (title or "").strip()
     s = (title or "").strip()
-    # Trailing non-parenthetical: " Pt. 1", " #1", " Part 1"
+    # Trailing non-parenthetical: " Pt. 1", " #1", " Part 1", ", Part 1"
     s = re.sub(r"\s+pt\.?\s*\d+\s*$", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s+#\d+\s*$", "", s)
-    s = re.sub(r"\s+part\s+\d+\s*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r",?\s+part\s+\d+\s*$", "", s, flags=re.IGNORECASE)
     # Trailing ", Parts I-V" or ", Part IV" (Roman) so e.g. "Shine On..., Parts I-V" → "Shine On..." for search
     s = re.sub(r",?\s+parts?\s+[ivx]+\s*[-–]\s*[ivx]+\s*$", "", s, flags=re.IGNORECASE)
     s = re.sub(r",?\s+part\s+[ivx]+\s*$", "", s, flags=re.IGNORECASE)
     # Trailing parenthetical like " (Part 1)" or " (Pt. 1)" or " (Pts. 1-5)"
     s = re.sub(r"\s*\(\s*(?:pt\.?s?|part)s?\s*\d(?:\s*[-–]\s*\d)?\s*\)\s*$", "", s, flags=re.IGNORECASE)
-    return s.strip() or (title or "").strip()
+    s = s.strip().rstrip(",").strip()
+    return s or (title or "").strip()
 
 
 def _get_access_token():
