@@ -10,6 +10,8 @@ from .views import (
     ListItemsCheckView,
     ListItemsView,
     ListsView,
+    ManualSpotifyMatchView,
+    ManualSpotifyMatchesView,
     SearchAPIView,
 )
 
@@ -25,4 +27,6 @@ urlpatterns = [
     path("lists/<int:list_id>/", ListDetailView.as_view(), name="list-detail"),
     path("lists/items/", ListItemsView.as_view(), name="list-items"),
     path("lists/items/check/", ListItemsCheckView.as_view(), name="list-items-check"),
+    path("manual-spotify-matches/", ManualSpotifyMatchesView.as_view(), name="manual-spotify-matches"),
+    path("manual-spotify-match/", ManualSpotifyMatchView.as_view(), name="manual-spotify-match"),
 ]

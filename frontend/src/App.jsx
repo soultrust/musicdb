@@ -400,7 +400,7 @@ function App() {
 
       // If it's a release with tracks, match them to Spotify
       if (data.tracklist && data.tracklist.length > 0 && data.artists) {
-        matchTracksToSpotify(data.tracklist, data.artists);
+        matchTracksToSpotify(data.tracklist, data.artists, item?.id);
       }
 
       // Fetch album overview only for album/release types (cache or Wikipedia)
@@ -443,7 +443,7 @@ function App() {
     }
   }
 
-  async function matchTracksToSpotify(tracklist, artists) {
+  async function matchTracksToSpotify(tracklist, artists, releaseId) {
     setSpotifyMatching(true);
     try {
       const tracks = tracklist.map((track) => ({
@@ -458,11 +458,26 @@ function App() {
       });
 
       const data = await res.json();
-      if (res.ok) {
-        setSpotifyMatches(data.matches || []);
-      } else {
-        console.error("Match tracks API error:", data);
+      let matches = res.ok ? (data.matches || []) : [];
+      if (res.ok && releaseId) {
+        try {
+          const manRes = await authFetch(
+            `${API_BASE}/api/search/manual-spotify-matches/?release_id=${encodeURIComponent(releaseId)}`,
+          );
+          const manData = await manRes.json();
+          if (manRes.ok && manData.matches?.length) {
+            matches = matches.map((m) => {
+              const manual = manData.matches.find((mm) => mm.track_title === m.discogs_title);
+              if (manual?.spotify_track) return { ...m, spotify_track: manual.spotify_track };
+              return m;
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load manual Spotify matches:", err);
+        }
       }
+      if (res.ok) setSpotifyMatches(matches);
+      else console.error("Match tracks API error:", data);
     } catch (err) {
       console.error("Failed to match tracks:", err);
     } finally {
@@ -1431,15 +1446,33 @@ function App() {
     }
   }
 
-  function handleSelectSpotifyTrack(track) {
-    if (!manualMatchTrackTitle) return;
-    setSpotifyMatches((prev) =>
-      prev.map((m) =>
-        m.discogs_title === manualMatchTrackTitle
-          ? { ...m, spotify_track: track }
-          : m,
-      ),
-    );
+  async function handleSelectSpotifyTrack(track) {
+    if (!manualMatchTrackTitle || !selectedItem?.id) return;
+    try {
+      await authFetch(`${API_BASE}/api/search/manual-spotify-match/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          release_id: selectedItem.id,
+          track_title: manualMatchTrackTitle,
+          spotify_track: {
+            id: track.id,
+            uri: track.uri,
+            name: track.name,
+            artists: track.artists || [],
+          },
+        }),
+      });
+      setSpotifyMatches((prev) =>
+        prev.map((m) =>
+          m.discogs_title === manualMatchTrackTitle
+            ? { ...m, spotify_track: track }
+            : m,
+        ),
+      );
+    } catch (err) {
+      console.error("Failed to save manual Spotify match:", err);
+    }
     closeSpotifySearchModal();
   }
 

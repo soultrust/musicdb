@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import AlbumOverview, ConsumedAlbum, List, ListItem
+from .models import AlbumOverview, ConsumedAlbum, List, ListItem, TrackSpotifyLink
 from .serializers import AlbumOverviewSerializer
 from .client import get_release, get_master
 from . import musicbrainz_client as mb
@@ -931,4 +931,82 @@ class ListDetailView(APIView):
             "list_type": list_obj.list_type,
             "name": list_obj.name,
             "items": items,
+        })
+
+
+class ManualSpotifyMatchesView(APIView):
+    """GET /api/search/manual-spotify-matches/?release_id=... — list user's manual track→Spotify links for a release."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        release_id = (request.GET.get("release_id") or "").strip()
+        if not release_id:
+            return Response(
+                {"error": "Missing required parameter: release_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        links = TrackSpotifyLink.objects.filter(
+            user=request.user,
+            release_id=release_id,
+        )
+        matches = [
+            {
+                "track_title": link.track_title,
+                "spotify_track": {
+                    "id": link.spotify_track_id,
+                    "uri": link.spotify_uri,
+                    "name": link.spotify_name,
+                    "artists": link.spotify_artists or [],
+                },
+            }
+            for link in links
+        ]
+        return Response({"matches": matches})
+
+
+class ManualSpotifyMatchView(APIView):
+    """POST /api/search/manual-spotify-match/ — save or update a manual track→Spotify link."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        release_id = (request.data.get("release_id") or "").strip()
+        track_title = (request.data.get("track_title") or "").strip()
+        spotify_track = request.data.get("spotify_track")
+        if not release_id or not track_title:
+            return Response(
+                {"error": "Missing required: release_id, track_title"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not spotify_track or not spotify_track.get("id"):
+            return Response(
+                {"error": "Missing or invalid spotify_track (must have id)"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        track_id = str(spotify_track.get("id", "")).strip()
+        uri = str(spotify_track.get("uri") or "").strip()
+        name = str(spotify_track.get("name") or "").strip()
+        artists = spotify_track.get("artists")
+        if not isinstance(artists, list):
+            artists = []
+        artists = [{"name": str(a.get("name", "")).strip()} for a in artists]
+
+        link, _ = TrackSpotifyLink.objects.update_or_create(
+            user=request.user,
+            release_id=release_id,
+            track_title=track_title,
+            defaults={
+                "spotify_track_id": track_id,
+                "spotify_uri": uri[:128] if uri else "",
+                "spotify_name": name[:512] if name else "",
+                "spotify_artists": artists,
+            },
+        )
+        return Response({
+            "track_title": link.track_title,
+            "spotify_track": {
+                "id": link.spotify_track_id,
+                "uri": link.spotify_uri,
+                "name": link.spotify_name,
+                "artists": link.spotify_artists,
+            },
         })

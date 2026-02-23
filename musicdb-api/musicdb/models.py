@@ -98,3 +98,29 @@ class ListItem(models.Model):
 
     def __str__(self):
         return f"{self.list.name} - {self.type}-{self.discogs_id}"
+
+
+class TrackSpotifyLink(models.Model):
+    """
+    User's manual link: catalog track (release + title) → Spotify track.
+    When present, overrides the automatic match for this track on this release.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="track_spotify_links",
+    )
+    release_id = models.CharField(max_length=64)  # MusicBrainz release MBID or similar
+    track_title = models.CharField(max_length=512)
+    spotify_track_id = models.CharField(max_length=64)
+    spotify_uri = models.CharField(max_length=128, blank=True)
+    spotify_name = models.CharField(max_length=512, blank=True)
+    spotify_artists = models.JSONField(default=list)  # [{"name": "..."}, ...]
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "release_id", "track_title")
+        ordering = ["release_id", "track_title"]
+
+    def __str__(self):
+        return f"{self.release_id} / {self.track_title} → {self.spotify_track_id}"
