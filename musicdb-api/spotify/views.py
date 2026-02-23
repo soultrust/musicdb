@@ -71,6 +71,32 @@ class MatchTracksAPIView(APIView):
             )
 
 
+class SpotifySearchView(APIView):
+    """
+    GET /api/spotify/search/?q=...&artist=... — search Spotify for tracks (for manual matching).
+    Returns raw track list; no matching algorithm.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        q = (request.GET.get("q") or "").strip()
+        if not q:
+            return Response(
+                {"error": "Missing query parameter: q"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        artist = (request.GET.get("artist") or "").strip() or None
+        limit = min(20, max(1, int(request.GET.get("limit", 10))))
+        try:
+            results = search_track(query=q, artist=artist, limit=limit)
+            return Response({"tracks": results})
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 @method_decorator(csrf_exempt, name='dispatch')
 class SpotifyCallbackAPIView(View):
     """

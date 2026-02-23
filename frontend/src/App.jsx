@@ -84,6 +84,13 @@ function App() {
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
   const [playlistTracksData, setPlaylistTracksData] = useState(null);
   const [playlistTracksLoading, setPlaylistTracksLoading] = useState(false);
+  // Manual Spotify track search (Now Playing)
+  const [showSpotifySearchModal, setShowSpotifySearchModal] = useState(false);
+  const [manualMatchTrackTitle, setManualMatchTrackTitle] = useState(null);
+  const [spotifySearchQuery, setSpotifySearchQuery] = useState("");
+  const [spotifySearchResults, setSpotifySearchResults] = useState([]);
+  const [spotifySearchLoading, setSpotifySearchLoading] = useState(false);
+  const [spotifySearchFetched, setSpotifySearchFetched] = useState(false);
 
   function logout() {
     setAccessToken(null);
@@ -1384,6 +1391,58 @@ function App() {
     setListError(null);
   }
 
+  function openSpotifySearchModal(catalogTrackTitle) {
+    setManualMatchTrackTitle(catalogTrackTitle);
+    setSpotifySearchQuery(catalogTrackTitle || "");
+    setSpotifySearchResults([]);
+    setSpotifySearchFetched(false);
+    setShowSpotifySearchModal(true);
+  }
+
+  function closeSpotifySearchModal() {
+    setShowSpotifySearchModal(false);
+    setManualMatchTrackTitle(null);
+    setSpotifySearchQuery("");
+    setSpotifySearchResults([]);
+    setSpotifySearchFetched(false);
+  }
+
+  async function handleSpotifySearch(e) {
+    e.preventDefault();
+    const q = spotifySearchQuery.trim();
+    if (!q) return;
+    setSpotifySearchLoading(true);
+    setSpotifySearchResults([]);
+    setSpotifySearchFetched(false);
+    try {
+      const artist = detailData?.artists?.[0]?.name;
+      const params = new URLSearchParams({ q });
+      if (artist) params.set("artist", artist);
+      params.set("limit", "15");
+      const res = await authFetch(`${API_BASE}/api/spotify/search/?${params}`);
+      const data = await res.json();
+      if (res.ok) setSpotifySearchResults(data.tracks || []);
+      else setSpotifySearchResults([]);
+    } catch {
+      setSpotifySearchResults([]);
+    } finally {
+      setSpotifySearchLoading(false);
+      setSpotifySearchFetched(true);
+    }
+  }
+
+  function handleSelectSpotifyTrack(track) {
+    if (!manualMatchTrackTitle) return;
+    setSpotifyMatches((prev) =>
+      prev.map((m) =>
+        m.discogs_title === manualMatchTrackTitle
+          ? { ...m, spotify_track: track }
+          : m,
+      ),
+    );
+    closeSpotifySearchModal();
+  }
+
   // Toggle list selection
   function toggleListSelection(listId) {
     setSelectedListIds((prev) =>
@@ -2352,6 +2411,39 @@ function App() {
                       </div>
                     )}
                   </div>
+                  {currentTrack &&
+                    detailData?.tracklist &&
+                    (selectedItem?.type === "release" ||
+                      selectedItem?.type === "master" ||
+                      selectedItem?.type === "album") && (
+                      <div className="now-playing-section">
+                        <h3>Now Playing</h3>
+                        <p className="now-playing-track">
+                          {currentTrack.name}
+                          {currentTrack.artists?.length > 0 && (
+                            <span className="now-playing-artist">
+                              {" \u00b7 "}
+                              {currentTrack.artists.map((a) => a.name).join(", ")}
+                            </span>
+                          )}
+                        </p>
+                        {(() => {
+                          const nowPlayingCatalogTrack = detailData.tracklist.find((t) => {
+                            const m = spotifyMatches.find((mm) => mm.discogs_title === t.title);
+                            return m?.spotify_track?.uri === currentTrack?.uri;
+                          });
+                          return nowPlayingCatalogTrack ? (
+                            <button
+                              type="button"
+                              className="now-playing-manual-link"
+                              onClick={() => openSpotifySearchModal(nowPlayingCatalogTrack.title)}
+                            >
+                              Manually find a matching track on Spotify
+                            </button>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
                   {(overviewLoading || overview || overviewError) && (
                     <div className="detail-overview">
                       <h3>Overview</h3>
@@ -2458,6 +2550,68 @@ function App() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {showSpotifySearchModal && (
+        <div className="modal-overlay" onClick={closeSpotifySearchModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Search Track on Spotify</h2>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={closeSpotifySearchModal}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSpotifySearch} className="spotify-search-form">
+                <label htmlFor="spotify-search-query">Search for a track</label>
+                <div className="spotify-search-input-group">
+                  <input
+                    id="spotify-search-query"
+                    type="text"
+                    value={spotifySearchQuery}
+                    onChange={(e) => setSpotifySearchQuery(e.target.value)}
+                    placeholder="Track name or artist"
+                    disabled={spotifySearchLoading}
+                    autoFocus
+                  />
+                  <button type="submit" disabled={spotifySearchLoading || !spotifySearchQuery.trim()}>
+                    {spotifySearchLoading ? "Searching…" : "Search"}
+                  </button>
+                </div>
+              </form>
+              {spotifySearchResults.length > 0 && (
+                <ul className="spotify-search-results">
+                  {spotifySearchResults.map((track) => (
+                    <li key={track.id || track.uri} className="spotify-search-result-item">
+                      <div className="spotify-search-result-info">
+                        <span className="spotify-search-result-name">{track.name}</span>
+                        <span className="spotify-search-result-artist">
+                          {track.artists?.map((a) => a.name).join(", ")}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className="spotify-search-select-btn"
+                        onClick={() => handleSelectSpotifyTrack(track)}
+                      >
+                        Select
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {spotifySearchFetched &&
+                !spotifySearchLoading &&
+                spotifySearchResults.length === 0 && (
+                  <p className="detail-loading">No results. Try a different search.</p>
+                )}
             </div>
           </div>
         </div>

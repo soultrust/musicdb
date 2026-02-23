@@ -44,6 +44,12 @@ class NormalizeTitleForMatchTests(TestCase):
         self.assertEqual(_normalize_title_for_match("Song Pt. 1 Pt. 2"), "song 1 2")
         self.assertEqual(_normalize_title_for_match("Song #1 #2"), "song 1 2")
 
+    def test_normalizes_dash_variants(self):
+        # Hyphen, en dash, and em dash should normalize identically
+        self.assertEqual(_normalize_title_for_match("Parts I-V"), _normalize_title_for_match("Parts I–V"))
+        self.assertEqual(_normalize_title_for_match("Pts. 1-5"), _normalize_title_for_match("Pts. 1–5"))
+        self.assertEqual(_normalize_title_for_match("Pts. 1-5"), _normalize_title_for_match("Pts. 1—5"))
+
     def test_preserves_non_part_content(self):
         self.assertEqual(_normalize_title_for_match("Regular Song Title"), "regular song title")
         self.assertEqual(_normalize_title_for_match("Song With Numbers 123"), "song with numbers 123")

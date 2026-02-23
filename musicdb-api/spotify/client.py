@@ -73,6 +73,8 @@ def _normalize_title_for_match(title):
     if not title:
         return ""
     s = (title or "").lower().strip()
+    # Normalize dash variants so "-", "–", "—" behave the same
+    s = s.replace("–", "-").replace("—", "-")
     s = _normalize_roman_range(s)
     s = re.sub(r"\bpart\s+(\d+)\b", r"\1", s, flags=re.IGNORECASE)
     s = re.sub(r"\bpt\.?\s*(\d+)\b", r"\1", s, flags=re.IGNORECASE)
