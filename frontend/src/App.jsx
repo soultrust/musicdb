@@ -2371,6 +2371,23 @@ function App() {
                                   )}
                                   <button
                                     type="button"
+                                    className="track-spotify-search-btn"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openSpotifySearchModal(track.title);
+                                    }}
+                                    title="Manually find a matching track on Spotify"
+                                    aria-label="Manually find a matching track on Spotify"
+                                  >
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
+                                      <path
+                                        fill="currentColor"
+                                        d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                                      />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    type="button"
                                     className={`track-like-btn track-like-${likeState}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
@@ -2411,41 +2428,9 @@ function App() {
                       </div>
                     )}
                   </div>
-                  {currentTrack &&
-                    detailData?.tracklist &&
-                    (selectedItem?.type === "release" ||
-                      selectedItem?.type === "master" ||
-                      selectedItem?.type === "album") && (
-                      <div className="now-playing-section">
-                        <h3>Now Playing</h3>
-                        <p className="now-playing-track">
-                          {currentTrack.name}
-                          {currentTrack.artists?.length > 0 && (
-                            <span className="now-playing-artist">
-                              {" \u00b7 "}
-                              {currentTrack.artists.map((a) => a.name).join(", ")}
-                            </span>
-                          )}
-                        </p>
-                        {(() => {
-                          const nowPlayingCatalogTrack = detailData.tracklist.find((t) => {
-                            const m = spotifyMatches.find((mm) => mm.discogs_title === t.title);
-                            return m?.spotify_track?.uri === currentTrack?.uri;
-                          });
-                          return nowPlayingCatalogTrack ? (
-                            <button
-                              type="button"
-                              className="now-playing-manual-link"
-                              onClick={() => openSpotifySearchModal(nowPlayingCatalogTrack.title)}
-                            >
-                              Manually find a matching track on Spotify
-                            </button>
-                          ) : null;
-                        })()}
-                      </div>
-                    )}
-                  {(overviewLoading || overview || overviewError) && (
-                    <div className="detail-overview">
+                  <div className="detail-sidebar">
+                    {(overviewLoading || overview || overviewError) && (
+                      <div className="detail-overview">
                       <h3>Overview</h3>
                         {(detailData.uri ||
                         selectedItem?.type === "release" ||
@@ -2476,8 +2461,9 @@ function App() {
                         </p>
                       )}
                       {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
