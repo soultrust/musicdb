@@ -154,6 +154,11 @@ If you have a frontend:
 - Update `CORS_ALLOWED_ORIGINS` with your frontend URL
 - Set `CORS_ALLOW_ALL_ORIGINS=False` in production
 
+### Django admin 404 or 403 CSRF
+
+- **404**: Open the admin at your **backend** URL, not the frontend. Use `https://your-api-service.onrender.com/admin/` (or your Railway API URL). The frontend app does not serve `/admin/`.
+- **403 CSRF verification failed**: The app sets `CSRF_TRUSTED_ORIGINS` from `RAILWAY_PUBLIC_DOMAIN` (or Render URL). If you still see 403, set `CSRF_TRUSTED_ORIGINS` in the API environment to your backend origin, e.g. `https://your-api-service.onrender.com` (no trailing slash).
+
 ### Build Failures
 
 - Check Render build logs for specific errors

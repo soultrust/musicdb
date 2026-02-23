@@ -39,6 +39,18 @@ if railway_domain:
 
 ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=default_allowed_hosts)
 
+# CSRF: allow admin login from the same host (required for Django 4+ over HTTPS)
+_default_csrf_origins = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+if railway_domain:
+    # Railway public domain is usually host only, e.g. "xxx.railway.app"
+    origin = railway_domain if railway_domain.startswith("http") else f"https://{railway_domain.split(':')[0]}"
+    if origin not in _default_csrf_origins:
+        _default_csrf_origins.append(origin)
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=_default_csrf_origins)
+
 # Add our new packages to INSTALLED_APPS
 INSTALLED_APPS = [
     'django.contrib.admin',
