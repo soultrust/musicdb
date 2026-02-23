@@ -225,6 +225,20 @@ class FindBestMatchTests(TestCase):
         match = find_best_match(discogs_title, discogs_artists, spotify_results)
         self.assertIsNone(match)
 
+    def test_rejects_different_part_numbers_parenthetical(self):
+        """Should not match when part numbers differ in parens (e.g. 'Song (1)' vs 'Song (2)')"""
+        discogs_title = "Secret Stair (1)"
+        discogs_artists = ["Artist"]
+        spotify_results = [
+            {
+                "name": "Secret Stair (2)",
+                "artists": [{"name": "Artist"}],
+                "id": "wrong_part",
+            },
+        ]
+        match = find_best_match(discogs_title, discogs_artists, spotify_results)
+        self.assertIsNone(match)
+
     def test_handles_empty_results(self):
         """Should return None for empty results"""
         match = find_best_match("Song", ["Artist"], [])

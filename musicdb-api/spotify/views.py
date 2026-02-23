@@ -35,7 +35,10 @@ class MatchTracksAPIView(APIView):
             matches = []
             for track in tracks:
                 title = track.get("title", "").strip()
-                artists = track.get("artists", [])
+                artists_raw = track.get("artists", [])
+                artists = list(artists_raw) if isinstance(artists_raw, list) else [artists_raw]
+                artists = [str(a) if isinstance(a, str) else str((a.get("name") if isinstance(a, dict) else a) or "") for a in artists]
+                artists = [a for a in artists if a]
                 artist = artists[0] if artists else None
                 
                 if not title:
@@ -47,7 +50,7 @@ class MatchTracksAPIView(APIView):
                 
                 try:
                     # Search Spotify for this track - get multiple results to find best match
-                    spotify_results = search_track(query=title, artist=artist, limit=5)
+                    spotify_results = search_track(query=title, artist=artist, limit=10)
                     # Use best match algorithm instead of just taking first result
                     spotify_track = find_best_match(title, artists, spotify_results)
                     

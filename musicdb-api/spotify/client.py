@@ -90,12 +90,21 @@ def _normalize_title_for_match(title):
     return s
 
 
+def _trailing_part_from_normalized(norm_title):
+    """From a normalized title like 'secret stair 1' or 'song 1 2', get trailing part (digit or n-m) or None."""
+    if not norm_title:
+        return None
+    # Trailing number or range: " 1", " 2", " 1-5"
+    m = re.search(r"(?:^|\s)(\d+(?:-\d+)?)\s*$", norm_title)
+    return m.group(1) if m else None
+
+
 def _trailing_part_designation(title):
     """Extract trailing part designation (e.g. 'Pts. 1-5', 'Parts I-V', ', Parts I-V'). Return normalized form or None."""
     if not title:
         return None
     t = (title or "").strip()
-    # Parenthetical at end: "(Pts. 1-5)", "(Part 2)"
+    # Parenthetical at end: "(Pts. 1-5)", "(Part 2)", "(1)", "(2)" (bare numbers common in catalogs)
     match = re.search(r"\s*\(([^)]+)\)\s*$", t)
     if match:
         content = match.group(1).strip()
@@ -103,6 +112,13 @@ def _trailing_part_designation(title):
             return _normalize_title_for_match(content) or content.lower()
         if re.search(r"\b(?:parts?\s+)?[ivx]+\s*[-–]\s*[ivx]+\b", content, re.IGNORECASE):
             return _normalize_title_for_match(content)
+        # Bare "(1)", "(2)", "(1-5)" at end
+        m = re.match(r"^(\d+)\s*$", content)
+        if m:
+            return m.group(1)
+        m = re.match(r"^(\d+)\s*[-–]\s*(\d+)\s*$", content)
+        if m:
+            return f"{m.group(1)}-{m.group(2)}"
     # Trailing ", Parts I-V" or ", Part IV" (no parens)
     match = re.search(r",?\s+parts?\s+([ivx]+)\s*[-–]\s*([ivx]+)\s*$", t, re.IGNORECASE)
     if match:
@@ -291,5 +307,12 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
         discogs_part = _trailing_part_designation(discogs_title)
         spotify_part = _trailing_part_designation(best_match.get("name", ""))
         if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
+            return None
+        # Fallback: compare normalized titles — e.g. "secret stair 1" vs "secret stair 2" (catches "(1)" etc.)
+        discogs_norm = _normalize_title_for_match(discogs_title)
+        spotify_norm = _normalize_title_for_match(best_match.get("name", ""))
+        trail_d = _trailing_part_from_normalized(discogs_norm)
+        trail_s = _trailing_part_from_normalized(spotify_norm)
+        if trail_d and trail_s and trail_d != trail_s:
             return None
     return best_match
