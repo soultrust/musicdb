@@ -115,12 +115,15 @@ New/fresh databases do not need this; `migrate` will create `musicdb_*` tables a
 
 ## Step 6: Create Superuser (Optional)
 
-If you want to use Django admin:
+If you want to use Django admin, you must create a superuser **against the production database**. If you never ran this against prod, admin login will always show the login page (wrong credentials).
 
-```bash
-cd musicdb-api
-python manage.py createsuperuser
-```
+- **Render**: Use the Shell (one-off). In the dashboard: your service → Shell → run:
+  ```bash
+  cd musicdb-api && python manage.py createsuperuser
+  ```
+  The Shell uses the same `DATABASE_URL` as the service, so the user is created in prod.
+- **Railway**: From your machine with Railway CLI: `railway run python musicdb-api/manage.py createsuperuser` (see Railway section below).
+- **Local one-off against prod**: `cd musicdb-api && DATABASE_URL='postgresql://...' python manage.py createsuperuser` (use your Neon prod URL).
 
 ## Step 7: Update ALLOWED_HOSTS
 
@@ -144,10 +147,11 @@ If you have a frontend:
 - Check that Neon allows connections from Render's IPs (usually enabled by default)
 - Verify SSL mode is set in connection string (`?sslmode=require`)
 
-### Static Files Not Loading
+### Static Files Not Loading (admin CSS 404)
 
-- Ensure `collectstatic` runs in build command
-- Check `STATIC_ROOT` is set correctly in settings.py
+- The app uses **WhiteNoise** so `/static/` (including admin CSS/JS) is served by the same process. Ensure `whitenoise` is in `requirements.txt` and that `whitenoise.middleware.WhiteNoiseMiddleware` is in `MIDDLEWARE` (right after `SecurityMiddleware`) in `config/settings.py`.
+- Ensure `collectstatic` runs in the build command so `staticfiles` is populated.
+- If admin loads but with no styles, redeploy after the WhiteNoise setup; the build must run `collectstatic` before start.
 
 ### CORS Errors
 
