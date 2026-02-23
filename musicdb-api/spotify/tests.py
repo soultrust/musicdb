@@ -66,7 +66,8 @@ class TrailingPartDesignationTests(TestCase):
         self.assertIsNone(_trailing_part_designation("Song (Remix)"))
 
     def test_returns_none_for_no_parenthetical(self):
-        self.assertIsNone(_trailing_part_designation("Song Pt. 1"))
+        # Trailing " Pt. 1" is now detected so we can reject Pt. 1 vs Pt. 2
+        self.assertEqual(_trailing_part_designation("Song Pt. 1"), "1")
         self.assertIsNone(_trailing_part_designation("Regular Song"))
 
     def test_handles_empty(self):
@@ -222,25 +223,7 @@ class FindBestMatchTests(TestCase):
         ]
         
         match = find_best_match(discogs_title, discogs_artists, spotify_results)
-        # Normalized: "secret stair 1" vs "secret stair 2" - different, so no normalized match
-        # Partial match: "secret stair pt. 1" in "secret stair pt. 2"? No.
-        # But wait, let me check the logic more carefully...
-        # discogs_title_norm = "secret stair 1"
-        # spotify_title_norm = "secret stair 2"
-        # They're different, so no normalized match (95 points)
-        # Partial match check: "secret stair pt. 1" in "secret stair pt. 2"? No.
-        # So only artist match: 30 points
-        # Total: 30, threshold is 30, so should match... but that's wrong!
-        # Actually, the partial match logic checks if titles contain each other
-        # "secret stair pt. 1" not in "secret stair pt. 2", so no partial match
-        # Only artist: 30 points, which meets threshold
-        # Hmm, this might be a bug, but let's test what actually happens
-        # Actually wait, let me re-read the code...
-        # The partial match checks discogs_title_lower in spotify_title or vice versa
-        # "secret stair pt. 1" not in "secret stair pt. 2", so no partial match
-        # So score = 30 (artist only), which meets threshold
-        # This might be a false positive, but let's test it
-        self.assertIsNotNone(match)  # Currently matches due to artist only
+        self.assertIsNone(match)
 
     def test_handles_empty_results(self):
         """Should return None for empty results"""

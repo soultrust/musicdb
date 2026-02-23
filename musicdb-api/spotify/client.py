@@ -91,11 +91,11 @@ def _normalize_title_for_match(title):
 
 
 def _trailing_part_designation(title):
-    """Extract trailing part designation (e.g. 'Pts. 1-5', 'Parts I-V', ', Parts I-V'). Return normalized form or None."""
+    """Extract trailing part designation (e.g. 'Pts. 1-5', 'Parts I-V', 'Pt. 1', '(1)'). Return normalized form or None."""
     if not title:
         return None
     t = (title or "").strip()
-    # Parenthetical at end: "(Pts. 1-5)", "(Part 2)"
+    # Parenthetical at end: "(Pts. 1-5)", "(Part 2)", "(1)", "(2)"
     match = re.search(r"\s*\(([^)]+)\)\s*$", t)
     if match:
         content = match.group(1).strip()
@@ -103,6 +103,13 @@ def _trailing_part_designation(title):
             return _normalize_title_for_match(content) or content.lower()
         if re.search(r"\b(?:parts?\s+)?[ivx]+\s*[-–]\s*[ivx]+\b", content, re.IGNORECASE):
             return _normalize_title_for_match(content)
+        # Bare "(1)" or "(2)" or "(1-5)"
+        m = re.match(r"^(\d+)\s*$", content)
+        if m:
+            return m.group(1)
+        m = re.match(r"^(\d+)\s*[-–]\s*(\d+)\s*$", content)
+        if m:
+            return f"{m.group(1)}-{m.group(2)}"
     # Trailing ", Parts I-V" or ", Part IV" (no parens)
     match = re.search(r",?\s+parts?\s+([ivx]+)\s*[-–]\s*([ivx]+)\s*$", t, re.IGNORECASE)
     if match:
@@ -113,11 +120,24 @@ def _trailing_part_designation(title):
     if match:
         a = _roman_to_int(match.group(1))
         return str(a) if a is not None else None
+    # Trailing " Pt. 1", " #1", " Part 1", " Pts. 1-5" (no parens) — so Pt. 1 vs Pt. 2 can be rejected
+    match = re.search(r"\s+pts\.?\s*(\d+)\s*[-–]\s*(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}"
+    match = re.search(r"\s+pt\.?\s*(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    match = re.search(r"\s+#(\d+)\s*$", t)
+    if match:
+        return match.group(1)
+    match = re.search(r"\s+part\s+(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return match.group(1)
     return None
 
 
 def _title_base_for_search(title):
-    """Strip trailing part designation (Pt. 1, #1, Part 1, etc.) so search returns all part variants."""
+    """Strip trailing part designation (Pt. 1, #1, Part 1, Parts I-V, etc.) so search returns all part variants."""
     if not title:
         return (title or "").strip()
     s = (title or "").strip()
@@ -125,8 +145,11 @@ def _title_base_for_search(title):
     s = re.sub(r"\s+pt\.?\s*\d+\s*$", "", s, flags=re.IGNORECASE)
     s = re.sub(r"\s+#\d+\s*$", "", s)
     s = re.sub(r"\s+part\s+\d+\s*$", "", s, flags=re.IGNORECASE)
-    # Trailing parenthetical like " (Part 1)" or " (Pt. 1)"
-    s = re.sub(r"\s*\(\s*(?:pt\.?s?|part)\s*\d+\s*\)\s*$", "", s, flags=re.IGNORECASE)
+    # Trailing ", Parts I-V" or ", Part IV" (Roman) so e.g. "Shine On..., Parts I-V" → "Shine On..." for search
+    s = re.sub(r",?\s+parts?\s+[ivx]+\s*[-–]\s*[ivx]+\s*$", "", s, flags=re.IGNORECASE)
+    s = re.sub(r",?\s+part\s+[ivx]+\s*$", "", s, flags=re.IGNORECASE)
+    # Trailing parenthetical like " (Part 1)" or " (Pt. 1)" or " (Pts. 1-5)"
+    s = re.sub(r"\s*\(\s*(?:pt\.?s?|part)s?\s*\d(?:\s*[-–]\s*\d)?\s*\)\s*$", "", s, flags=re.IGNORECASE)
     return s.strip() or (title or "").strip()
 
 
@@ -271,7 +294,12 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
             best_match = track
     
     # Only return if score is above threshold (at least some match)
-    if best_score >= 30:
-        return best_match
-    
-    return None
+    if best_score < 30:
+        return None
+    # When numbers are involved, part designations must match (e.g. Pt. 1 must not match Pt. 2)
+    if best_match:
+        discogs_part = _trailing_part_designation(discogs_title)
+        spotify_part = _trailing_part_designation(best_match.get("name", ""))
+        if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
+            return None
+    return best_match
