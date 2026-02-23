@@ -285,3 +285,18 @@ class FindBestMatchTests(TestCase):
         match = find_best_match(discogs_title, discogs_artists, spotify_results)
         self.assertIsNotNone(match)
         self.assertEqual(match["id"], "two_matches")  # Should prefer better artist match
+
+    def test_parts_roman_numeral_matches_pts_digits(self):
+        """'Parts I-V' (catalog) should match '(Pts. 1-5)' (Spotify)"""
+        discogs_title = "Shine On You Crazy Diamond, Parts I-V"
+        discogs_artists = ["Pink Floyd"]
+        spotify_results = [
+            {
+                "name": "Shine On You Crazy Diamond, (Pts. 1-5)",
+                "artists": [{"name": "Pink Floyd"}],
+                "id": "spotify:shine-1-5",
+            },
+        ]
+        match = find_best_match(discogs_title, discogs_artists, spotify_results)
+        self.assertIsNotNone(match)
+        self.assertEqual(match["id"], "spotify:shine-1-5")

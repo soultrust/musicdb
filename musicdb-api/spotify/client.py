@@ -15,29 +15,104 @@ def _normalize_artist(name):
     return re.sub(r"\s*\(\d+\)\s*$", "", (name or "").strip())
 
 
+# Roman numeral conversion for part matching (I=1 through X=10, plus common combinations)
+_ROMAN_VALS = (
+    ("ix", 9), ("iv", 4), ("vi", 6), ("vii", 7), ("viii", 8),
+    ("iii", 3), ("ii", 2), ("i", 1), ("x", 10), ("v", 5),
+)
+
+
+def _roman_to_int(roman_str):
+    """Convert a Roman numeral string to int (e.g. 'IV' -> 4, 'V' -> 5). Returns None if invalid."""
+    if not roman_str:
+        return None
+    s = roman_str.strip().lower()
+    if not s:
+        return None
+    n = 0
+    i = 0
+    while i < len(s):
+        found = False
+        for r, v in _ROMAN_VALS:
+            if s[i:i + len(r)] == r:
+                n += v
+                i += len(r)
+                found = True
+                break
+        if not found:
+            return None
+    return n if n > 0 else None
+
+
+def _normalize_roman_range(text):
+    """Replace Roman numeral range (e.g. 'I-V', 'Parts I-V') with digit range '1-5' for comparison."""
+    if not text:
+        return text
+    # Match "I-V" or "Parts I-V" style range (Roman-Roman)
+    def repl(m):
+        a, b = _roman_to_int(m.group(1)), _roman_to_int(m.group(2))
+        if a is not None and b is not None:
+            return f"{a}-{b}"
+        return m.group(0)
+    text = re.sub(
+        r"\b(?:parts?\s+)?([ivx]+)\s*[-–]\s*([ivx]+)\b",
+        repl,
+        text,
+        flags=re.IGNORECASE,
+    )
+    # Standalone "Part I" / "Part IV" etc.
+    def repl_one(m):
+        a = _roman_to_int(m.group(1))
+        return str(a) if a is not None else m.group(0)
+    text = re.sub(r"\bparts?\s+([ivx]+)\b", repl_one, text, flags=re.IGNORECASE)
+    return text
+
+
 def _normalize_title_for_match(title):
-    """Canonicalize title variations: 'Part 1'/'Pt. 1'/'#1'/'Pt 1' all become '1' for comparison."""
+    """Canonicalize title variations: 'Part 1'/'Pt. 1'/'#1'/'Parts I-V'/'Pts. 1-5' for comparison."""
     if not title:
         return ""
     s = (title or "").lower().strip()
+    s = _normalize_roman_range(s)
     s = re.sub(r"\bpart\s+(\d+)\b", r"\1", s, flags=re.IGNORECASE)
     s = re.sub(r"\bpt\.?\s*(\d+)\b", r"\1", s, flags=re.IGNORECASE)
+    s = re.sub(r"\bpts\.?\s*(\d+)\s*[-–]\s*(\d+)\b", r"\1-\2", s, flags=re.IGNORECASE)
     s = re.sub(r"#(\d+)\b", r"\1", s)
     s = re.sub(r"\(\s*(\d+)\s*\)", r"\1", s)
+    # Normalize parenthetical part designations only: "(Pts. 1-5)" -> "1-5", "(Parts I-V)" -> "1-5"
+    def _norm_paren(m):
+        inner = m.group(1)
+        if re.search(r"pt\.?s?|parts?|\d+\s*[-–]\s*\d+|[ivx]+\s*[-–]\s*[ivx]+", inner, re.IGNORECASE):
+            return _normalize_title_for_match(inner)
+        return m.group(0)
+    s = re.sub(r"\(\s*([^)]+)\s*\)", _norm_paren, s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
 
 def _trailing_part_designation(title):
-    """Extract trailing parenthetical that looks like a part (e.g. 'Pts. 1-5', 'Part 2'). Return None if none."""
+    """Extract trailing part designation (e.g. 'Pts. 1-5', 'Parts I-V', ', Parts I-V'). Return normalized form or None."""
     if not title:
         return None
-    match = re.search(r"\s*\(([^)]+)\)\s*$", (title or "").strip())
-    if not match:
-        return None
-    content = match.group(1).strip()
-    if re.search(r"\b(?:pt\.?s?|part)\s*\d", content, re.IGNORECASE) or re.search(r"\d+\s*[-–]\s*\d+", content):
-        return _normalize_title_for_match(content) or content.lower()
+    t = (title or "").strip()
+    # Parenthetical at end: "(Pts. 1-5)", "(Part 2)"
+    match = re.search(r"\s*\(([^)]+)\)\s*$", t)
+    if match:
+        content = match.group(1).strip()
+        if re.search(r"\b(?:pt\.?s?|part)s?\s*\d", content, re.IGNORECASE) or re.search(r"\d+\s*[-–]\s*\d+", content):
+            return _normalize_title_for_match(content) or content.lower()
+        if re.search(r"\b(?:parts?\s+)?[ivx]+\s*[-–]\s*[ivx]+\b", content, re.IGNORECASE):
+            return _normalize_title_for_match(content)
+    # Trailing ", Parts I-V" or ", Part IV" (no parens)
+    match = re.search(r",?\s+parts?\s+([ivx]+)\s*[-–]\s*([ivx]+)\s*$", t, re.IGNORECASE)
+    if match:
+        a, b = _roman_to_int(match.group(1)), _roman_to_int(match.group(2))
+        if a is not None and b is not None:
+            return f"{a}-{b}"
+    match = re.search(r",?\s+part\s+([ivx]+)\s*$", t, re.IGNORECASE)
+    if match:
+        a = _roman_to_int(match.group(1))
+        return str(a) if a is not None else None
     return None
 
 
