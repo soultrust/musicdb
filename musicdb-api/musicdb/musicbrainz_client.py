@@ -23,27 +23,40 @@ def _headers():
     return {"User-Agent": user_agent}
 
 
-def search(query, search_type="album", limit=20, offset=0, year=None, year_from=None, year_to=None):
+def _lucene_quote(s):
+    """Escape and quote a string for Lucene (backslash and double-quote)."""
+    if not s:
+        return '""'
+    escaped = (s.strip().replace("\\", "\\\\").replace('"', '\\"'))
+    return f'"{escaped}"'
+
+
+def search(query, search_type="album", limit=20, offset=0, year=None, year_from=None, year_to=None, artist=None):
     """
     Search MusicBrainz. search_type: 'artist' | 'album' | 'song'.
-    For album (release) only: year (single) or year_from/year_to (range) filter by release date.
+    For album (release) only: year (single) or year_from/year_to (range), and optional artist filter.
     Returns (response, normalized_results).
     """
     entity = SEARCH_TYPE_TO_ENTITY.get(search_type, "release")
     q = query.strip()
-    if entity == "release" and (year is not None or (year_from is not None and year_to is not None)):
-        try:
-            if year is not None:
-                y = str(int(year))[:4]
-                if len(y) == 4:
-                    q = f"({q}) AND date:[{y} TO {y}]"
-            elif year_from is not None and year_to is not None:
-                yf = str(int(year_from))[:4]
-                yt = str(int(year_to))[:4]
-                if len(yf) == 4 and len(yt) == 4:
-                    q = f"({q}) AND date:[{yf} TO {yt}]"
-        except (ValueError, TypeError):
-            pass
+    if entity == "release":
+        if artist:
+            a = artist.strip()
+            if a:
+                q = f"({q}) AND artist:{_lucene_quote(a)}"
+        if year is not None or (year_from is not None and year_to is not None):
+            try:
+                if year is not None:
+                    y = str(int(year))[:4]
+                    if len(y) == 4:
+                        q = f"({q}) AND date:[{y} TO {y}]"
+                elif year_from is not None and year_to is not None:
+                    yf = str(int(year_from))[:4]
+                    yt = str(int(year_to))[:4]
+                    if len(yf) == 4 and len(yt) == 4:
+                        q = f"({q}) AND date:[{yf} TO {yt}]"
+            except (ValueError, TypeError):
+                pass
     url = f"{MUSICBRAINZ_API_BASE}/{entity}"
     params = {"query": q, "fmt": "json", "limit": min(limit, 100), "offset": offset}
     resp = requests.get(url, headers=_headers(), params=params, timeout=15)

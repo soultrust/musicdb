@@ -220,6 +220,10 @@
   color: #a3a3a3;
 }
 
+.search-artist-input {
+  max-width: none;
+}
+
 .search-year-input {
   width: 100%;
   max-width: 5rem;
@@ -251,6 +255,10 @@
 .search-year-range-sep {
   color: #737373;
   font-weight: 600;
+}
+
+.search-submit-btn {
+  margin-top: 0.25rem;
 }
 
 .error {

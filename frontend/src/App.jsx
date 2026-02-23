@@ -22,6 +22,7 @@ function App() {
   const [filterYear, setFilterYear] = useState("");
   const [filterYearFrom, setFilterYearFrom] = useState("");
   const [filterYearTo, setFilterYearTo] = useState("");
+  const [filterArtist, setFilterArtist] = useState("");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -336,6 +337,7 @@ function App() {
         type: searchType,
       });
       if (searchType === "album") {
+        if (filterArtist.trim()) params.set("artist", filterArtist.trim());
         if (filterYear.trim()) params.set("year", filterYear.trim());
         if (filterYearFrom.trim()) params.set("year_from", filterYearFrom.trim());
         if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
@@ -1837,7 +1839,16 @@ function App() {
               autoFocus={viewListId == null}
             />
             {searchType === "album" && (
-              <div className="search-year-filter" aria-label="Filter by release year">
+              <div className="search-year-filter" aria-label="Album filters">
+                <label className="search-year-label">Artist</label>
+                <input
+                  type="text"
+                  value={filterArtist}
+                  onChange={(e) => setFilterArtist(e.target.value)}
+                  placeholder="Filter by artist"
+                  className="search-year-input search-artist-input"
+                  aria-label="Artist filter"
+                />
                 <label className="search-year-label">Release year</label>
                 <input
                   type="text"
@@ -1878,6 +1889,9 @@ function App() {
                 </div>
               </div>
             )}
+            <button type="submit" disabled={loading} className="search-submit-btn">
+              {loading ? "Searching…" : "Search"}
+            </button>
           </form>
           {error && <p className="error">{error}</p>}
           {viewListId === "spotify-playlists" ? (

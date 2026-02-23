@@ -72,6 +72,9 @@ class SearchAPIView(APIView):
                 year_to = int(year_to)
             except ValueError:
                 year_to = None
+        artist = (request.GET.get("artist") or "").strip() or None
+        if search_type != "album":
+            artist = None
         response, results = mb.search(
             q,
             search_type=search_type,
@@ -80,6 +83,7 @@ class SearchAPIView(APIView):
             year=year,
             year_from=year_from,
             year_to=year_to,
+            artist=artist,
         )
         if response.status_code != 200:
             return Response(
