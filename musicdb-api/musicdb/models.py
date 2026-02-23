@@ -38,7 +38,6 @@ class AlbumOverview(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        # Ensure we don't have duplicate entries for the same album/artist
         unique_together = ('artist', 'album')
         ordering = ['-created_at']
 

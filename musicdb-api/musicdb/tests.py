@@ -7,11 +7,11 @@ import unittest
 from django.conf import settings
 from django.test import TestCase
 
-from discogs.client import get_api_root, search
+from musicdb.client import get_api_root, search
 
 
 class DiscogsClientIntegrationTests(TestCase):
-    """Integration tests: real HTTP calls to api.discogs.com."""
+    """Integration tests: real HTTP calls to Discogs API (legacy client)."""
 
     @unittest.skipIf(
         not getattr(settings, "DISCOGS_USER_AGENT", None),

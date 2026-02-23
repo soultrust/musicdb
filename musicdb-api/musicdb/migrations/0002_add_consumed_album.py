@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("discogs", "0001_album_overview"),
+        ("musicdb", "0001_album_overview"),
     ]
 
     operations = [

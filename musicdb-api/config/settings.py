@@ -14,6 +14,7 @@ env = environ.Env(
     DEBUG=(bool, False),
     DISCOGS_USER_AGENT=(str, ""),
     DISCOGS_TOKEN=(str, ""),
+    MUSICBRAINZ_USER_AGENT=(str, "SoulTrustMusicDB/1.0"),
     GEMINI_API_KEY=(str, ""),
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
@@ -53,7 +54,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'accounts.apps.AccountsConfig',
-    'discogs.apps.DiscogsConfig',
+    'musicdb.apps.MusicdbConfig',
     'spotify.apps.SpotifyConfig',
 ]
 
@@ -166,10 +167,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Discogs API
+# Discogs API (legacy / lists)
 DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
 DISCOGS_TOKEN = env("DISCOGS_TOKEN")
 DISCOGS_API_BASE_URL = "https://api.discogs.com"
+
+# MusicBrainz API (search and detail)
+MUSICBRAINZ_USER_AGENT = env("MUSICBRAINZ_USER_AGENT")
 
 # Gemini API (optional; for AI overviews)
 GEMINI_API_KEY = env("GEMINI_API_KEY")

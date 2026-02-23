@@ -46,9 +46,9 @@ git push origin main
 4. Configure:
    - **Name**: `soultrust-musicdb-api`
    - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r discogs-api/requirements.txt && cd discogs-api && python manage.py collectstatic --noinput`
-   - **Start Command**: `cd discogs-api && python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
-   - **Root Directory**: Leave empty (or set to `discogs-api` if you prefer)
+   - **Build Command**: `pip install -r musicdb-api/requirements.txt && cd musicdb-api && python manage.py collectstatic --noinput`
+   - **Start Command**: `cd musicdb-api && python manage.py migrate --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT`
+   - **Root Directory**: Leave empty (or set to `musicdb-api` if you prefer)
 
 ## Step 4: Configure Environment Variables
 
@@ -73,14 +73,28 @@ In Render dashboard, go to your service → Environment → Add the following:
 
 ## Step 5: Database Migrations (No Shell Required)
 
-Migrations run automatically every time the service starts. The start command runs `python manage.py migrate --noinput` before starting Gunicorn, so new migrations are applied on each deploy and when the service wakes from sleep. You don’t need (or need to pay for) the Shell.
+Migrations run automatically every time the service starts.
+
+### One-time: If you had an existing database when the app was named "discogs"
+
+After renaming the app to `musicdb`, existing databases must update migration history and table names once. Run this SQL (e.g. in Neon SQL Editor or `psql $DATABASE_URL`):
+
+```sql
+UPDATE django_migrations SET app = 'musicdb' WHERE app = 'discogs';
+ALTER TABLE discogs_albumoverview RENAME TO musicdb_albumoverview;
+ALTER TABLE discogs_consumedalbum RENAME TO musicdb_consumedalbum;
+ALTER TABLE discogs_list RENAME TO musicdb_list;
+ALTER TABLE discogs_listitem RENAME TO musicdb_listitem;
+```
+
+New/fresh databases do not need this; `migrate` will create `musicdb_*` tables as usual. The start command runs `python manage.py migrate --noinput` before starting Gunicorn, so new migrations are applied on each deploy and when the service wakes from sleep. You don’t need (or need to pay for) the Shell.
 
 ## Step 6: Create Superuser (Optional)
 
 If you want to use Django admin:
 
 ```bash
-cd discogs-api
+cd musicdb-api
 python manage.py createsuperuser
 ```
 
@@ -180,9 +194,9 @@ In Railway dashboard, go to your service → Variables → Add:
 3. Link project: `railway link` (from your repo root)
 4. Run migrations:
    ```bash
-   cd discogs-api && railway run python manage.py migrate
+   cd musicdb-api && railway run python manage.py migrate
    ```
-   (Or from repo root: `railway run bash -c "cd discogs-api && python manage.py migrate"`)
+   (Or from repo root: `railway run bash -c "cd musicdb-api && python manage.py migrate"`)
 
 **Option B: Using Railway Dashboard**
 1. In Railway dashboard, go to your service
@@ -191,7 +205,7 @@ In Railway dashboard, go to your service → Variables → Add:
 ### Step 6: Create Superuser (Optional)
 
 ```bash
-railway run python discogs-api/manage.py createsuperuser
+railway run python musicdb-api/manage.py createsuperuser
 ```
 
 ### Step 7: Update ALLOWED_HOSTS

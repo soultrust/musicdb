@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("discogs", "0005_consumedalbum_user"),
+        ("musicdb", "0005_consumedalbum_user"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -63,7 +63,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="items",
-                        to="discogs.list",
+                        to="musicdb.list",
                     ),
                 ),
             ],

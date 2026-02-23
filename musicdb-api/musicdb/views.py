@@ -8,7 +8,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import AlbumOverview, ConsumedAlbum, List, ListItem
 from .serializers import AlbumOverviewSerializer
-from .client import search, get_release, get_master, get_artist, get_label
+from .client import get_release, get_master, get_artist, get_label
+from . import musicbrainz_client as mb
 
 
 def _fetch_display_title_from_discogs(resource_type, resource_id):
@@ -34,7 +35,7 @@ def _fetch_display_title_from_discogs(resource_type, resource_id):
 
 
 class SearchAPIView(APIView):
-    """GET /api/search/?q=...&page=1 — proxy to Discogs search, return JSON. Adds consumed flag per result."""
+    """GET /api/search/?q=...&type=artist|album|song&page=1 — MusicBrainz search, returns JSON with results."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -44,33 +45,22 @@ class SearchAPIView(APIView):
                 {"error": "Missing query parameter: q"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if not getattr(settings, "DISCOGS_USER_AGENT", None):
+        search_type = (request.GET.get("type") or "album").strip().lower()
+        if search_type not in ("artist", "album", "song"):
             return Response(
-                {"error": "Discogs is not configured."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                {"error": "type must be 'artist', 'album', or 'song'"},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         page = max(1, int(request.GET.get("page", 1)))
-        response = search(q=q, per_page=20, page=page)
+        per_page = 20
+        offset = (page - 1) * per_page
+        response, results = mb.search(q, search_type=search_type, limit=per_page, offset=offset)
         if response.status_code != 200:
             return Response(
-                {"error": f"Discogs API returned {response.status_code}"},
+                {"error": f"MusicBrainz API returned {response.status_code}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        data = response.json()
-        try:
-            consumed_ids = set(
-                (r["type"].lower(), str(r["discogs_id"]))
-                for r in ConsumedAlbum.objects.filter(user=request.user, consumed=True).values("type", "discogs_id")
-            )
-        except Exception:
-            consumed_ids = set()
-        if consumed_ids and "results" in data:
-            for r in data["results"]:
-                t = (r.get("type") or "").lower()
-                if t in ("release", "master"):
-                    rid = r.get("id")
-                    r["consumed"] = (t, str(rid)) in consumed_ids
-        return Response(data)
+        return Response({"results": results})
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -186,55 +176,110 @@ class ConsumedBackfillView(APIView):
         return Response({"updated": updated})
 
 
+def _normalize_mb_release(data):
+    """Convert MusicBrainz release JSON to frontend-friendly shape (title, artists, year, tracklist, uri)."""
+    title = (data.get("title") or "").strip()
+    artist_credit = data.get("artist-credit") or []
+    artists = [{"name": (a.get("artist", {}).get("name") or a.get("name") or "").strip()} for a in artist_credit]
+    date = (data.get("date") or "")[:4]  # year
+    mbid = data.get("id") or ""
+    uri = f"https://musicbrainz.org/release/{mbid}" if mbid else ""
+    tracklist = []
+    for medium in data.get("media") or []:
+        for track in medium.get("tracks") or []:
+            rec = track.get("recording") or {}
+            length = track.get("length") or rec.get("length")
+            duration = ""
+            if length is not None:
+                s = int(length) // 1000
+                duration = f"{s // 60}:{s % 60:02d}"
+            tracklist.append({
+                "title": (rec.get("title") or track.get("title") or "").strip(),
+                "duration": duration,
+                "position": track.get("position") or str(len(tracklist) + 1),
+            })
+    out = {
+        "title": title,
+        "artists": artists,
+        "year": date,
+        "tracklist": tracklist,
+        "uri": uri,
+        "country": (data.get("country") or "").strip() or None,
+    }
+    # Album art from Cover Art Archive (MusicBrainz doesn’t include it)
+    cover = mb.get_cover_art(mbid) if mbid else None
+    if cover:
+        out["thumb"] = cover.get("thumb")
+        out["images"] = cover.get("images") or []
+    return out
+
+
+def _normalize_mb_artist(data):
+    """Convert MusicBrainz artist JSON to frontend-friendly shape."""
+    name = (data.get("name") or "").strip()
+    mbid = data.get("id") or ""
+    uri = f"https://musicbrainz.org/artist/{mbid}" if mbid else ""
+    disambiguation = (data.get("disambiguation") or "").strip()
+    profile = f"({disambiguation})" if disambiguation else ""
+    return {"title": name, "artists": [], "profile": profile, "uri": uri}
+
+
+def _normalize_mb_recording(data):
+    """Convert MusicBrainz recording JSON to frontend-friendly shape."""
+    title = (data.get("title") or "").strip()
+    artist_credit = data.get("artist-credit") or []
+    artists = [{"name": (a.get("artist", {}).get("name") or a.get("name") or "").strip()} for a in artist_credit]
+    length = data.get("length")
+    duration = ""
+    if length is not None:
+        s = int(length) // 1000
+        duration = f"{s // 60}:{s % 60:02d}"
+    mbid = data.get("id") or ""
+    uri = f"https://musicbrainz.org/recording/{mbid}" if mbid else ""
+    return {"title": title, "artists": artists, "tracklist": [], "uri": uri, "duration": duration}
+
+
 class DetailAPIView(APIView):
-    """GET /api/detail/?type=release&id=123 — get full details for a release/artist/label."""
+    """GET /api/search/detail/?type=artist|album|song&id=<mbid> — MusicBrainz lookup, returns normalized JSON."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         resource_type = request.GET.get("type", "").strip().lower()
-        resource_id = request.GET.get("id", "").strip()
-        
+        resource_id = (request.GET.get("id") or "").strip()
         if not resource_type or not resource_id:
             return Response(
                 {"error": "Missing required parameters: type and id"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
-        if not getattr(settings, "DISCOGS_USER_AGENT", None):
+        if resource_type not in ("artist", "album", "song"):
             return Response(
-                {"error": "Discogs is not configured."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-        
-        try:
-            resource_id = int(resource_id)
-        except ValueError:
-            return Response(
-                {"error": "Invalid id parameter"},
+                {"error": "type must be 'artist', 'album', or 'song'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        
-        if resource_type == "release":
-            response = get_release(resource_id)
-        elif resource_type == "master":
-            response = get_master(resource_id)
-        elif resource_type == "artist":
-            response = get_artist(resource_id)
-        elif resource_type == "label":
-            response = get_label(resource_id)
-        else:
-            return Response(
-                {"error": f"Invalid type: {resource_type}. Must be 'release', 'master', 'artist', or 'label'"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        
+        if resource_type == "artist":
+            response = mb.get_artist(resource_id)
+            if response.status_code != 200:
+                return Response(
+                    {"error": f"MusicBrainz API returned {response.status_code}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            return Response(_normalize_mb_artist(response.json()))
+        if resource_type == "album":
+            response = mb.get_release(resource_id)
+            if response.status_code != 200:
+                return Response(
+                    {"error": f"MusicBrainz API returned {response.status_code}"},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            return Response(_normalize_mb_release(response.json()))
+        # song -> recording
+        response = mb.get_recording(resource_id)
         if response.status_code != 200:
             return Response(
-                {"error": f"Discogs API returned {response.status_code}"},
+                {"error": f"MusicBrainz API returned {response.status_code}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        
-        return Response(response.json())
+        return Response(_normalize_mb_recording(response.json()))
 
 
 import re
@@ -688,9 +733,9 @@ class ListItemsView(APIView):
                     {"error": "Missing required parameters: type and id"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            if resource_type not in ("release", "master"):
+            if resource_type not in ("release", "master", "album"):
                 return Response(
-                    {"error": "type must be 'release' or 'master'"},
+                    {"error": "type must be 'release', 'master', or 'album'"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if not isinstance(list_ids, list):
@@ -702,7 +747,7 @@ class ListItemsView(APIView):
             # Convert list_ids to set for easier comparison
             selected_list_ids_set = set(list_ids)
 
-            # Get all user's release lists (to validate selected ones)
+            # Get all user's release/album lists (to validate selected ones)
             user_release_lists = List.objects.filter(
                 user=request.user, list_type=List.LIST_TYPE_RELEASE
             )
@@ -717,9 +762,12 @@ class ListItemsView(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-            # Fetch title from Discogs if not provided
+            # Fetch title: for album (MusicBrainz) use provided title; for release/master fetch from Discogs
             if not title:
-                title = _fetch_display_title_from_discogs(resource_type, resource_id)
+                if resource_type == "album":
+                    title = f"album-{resource_id}"
+                else:
+                    title = _fetch_display_title_from_discogs(resource_type, resource_id)
 
             # Find all lists that currently contain this item
             current_list_items = ListItem.objects.filter(
@@ -812,9 +860,9 @@ class ListItemsCheckView(APIView):
                 {"error": "Missing required parameters: type and id"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        if resource_type not in ("release", "master"):
+        if resource_type not in ("release", "master", "album"):
             return Response(
-                {"error": "type must be 'release' or 'master'"},
+                {"error": "type must be 'release', 'master', or 'album'"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

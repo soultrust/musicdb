@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 
-class DiscogsConfig(AppConfig):
+class MusicdbConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "discogs"
-    verbose_name = "Discogs API client"
+    name = "musicdb"
+    verbose_name = "MusicDB"

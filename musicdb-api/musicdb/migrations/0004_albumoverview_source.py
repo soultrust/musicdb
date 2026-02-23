@@ -6,13 +6,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("discogs", "0002_add_consumed_album"),
+        ('musicdb', '0003_consumedalbum_title'),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="consumedalbum",
-            name="title",
-            field=models.CharField(blank=True, max_length=512),
+            model_name='albumoverview',
+            name='source',
+            field=models.CharField(default='unknown', max_length=50),
         ),
     ]

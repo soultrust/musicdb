@@ -151,6 +151,23 @@
   flex-shrink: 0;
 }
 
+.search-type-select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.95rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #e5e5e5;
+  cursor: pointer;
+}
+
+.search-type-select:focus {
+  outline: none;
+  border-color: #22c55e;
+}
+
 .search-form input {
   width: 100%;
   box-sizing: border-box;

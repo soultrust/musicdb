@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("discogs", "0004_albumoverview_source"),
+        ("musicdb", "0004_albumoverview_source"),
     ]
 
     operations = [

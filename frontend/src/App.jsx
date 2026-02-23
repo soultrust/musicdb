@@ -18,13 +18,14 @@ function App() {
   const [_user, setUser] = useState(null);
   const [authError, setAuthError] = useState(null);
   const [query, setQuery] = useState("");
+  const [searchType, setSearchType] = useState("album"); // "artist" | "album" | "song"
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailError, setDetailError] = useState(null);
+  const [, setDetailError] = useState(null);
   const [overview, setOverview] = useState(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState(null);
@@ -134,6 +135,15 @@ function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        setAuthError(
+          "Server returned HTML instead of JSON. Check that the API is running at " +
+            API_BASE +
+            " and CORS is configured."
+        );
+        return;
+      }
       const data = await res.json();
       if (!res.ok) {
         setAuthError(data.error || "Something went wrong.");
@@ -312,7 +322,7 @@ function App() {
     setError(null);
     try {
       const searchRes = await authFetch(
-        `${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}`,
+        `${API_BASE}/api/search/?q=${encodeURIComponent(query.trim())}&type=${encodeURIComponent(searchType)}`,
       );
       const data = await searchRes.json();
       if (!searchRes.ok) {
@@ -365,10 +375,12 @@ function App() {
         matchTracksToSpotify(data.tracklist, data.artists);
       }
 
-      // Fetch album overview (cache or Wikipedia) if we have title and artist
+      // Fetch album overview only for album/release types (cache or Wikipedia)
+      const isAlbumType =
+        item.type === "release" || item.type === "master" || item.type === "album";
       const album = data.title || "";
       const artist = data.artists?.length ? data.artists.map((a) => a.name).join(", ") : "";
-      if (album && artist) {
+      if (isAlbumType && album && artist) {
         setOverviewLoading(true);
         setOverviewError(null);
         try {
@@ -541,7 +553,11 @@ function App() {
     const authUrl = `https://accounts.spotify.com/authorize?client_id=${SPOTIFY_CLIENT_ID}&response_type=code&redirect_uri=${redirectUriEncoded}&scope=${encodeURIComponent(scopes)}`;
 
     // #region agent log
-    console.log('[DEBUG] Spotify login initiated', {redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,apiBase:API_BASE});
+    console.log("[DEBUG] Spotify login initiated", {
+      redirectUri: SPOTIFY_REDIRECT_URI,
+      currentOrigin: window.location.origin,
+      apiBase: API_BASE,
+    });
     // #endregion
 
     // Store current origin for popup to use
@@ -803,7 +819,13 @@ function App() {
       window.history.replaceState({}, document.title, window.location.pathname);
 
       // #region agent log
-      console.log('[DEBUG] Spotify callback received code', {code:code.substring(0,20)+'...',redirectUri:SPOTIFY_REDIRECT_URI,currentOrigin:window.location.origin,isPopup,hasOpener:!!window.opener});
+      console.log("[DEBUG] Spotify callback received code", {
+        code: code.substring(0, 20) + "...",
+        redirectUri: SPOTIFY_REDIRECT_URI,
+        currentOrigin: window.location.origin,
+        isPopup,
+        hasOpener: !!window.opener,
+      });
       // #endregion
 
       fetch(
@@ -811,14 +833,21 @@ function App() {
       )
         .then(async (res) => {
           // #region agent log
-          console.log('[DEBUG] Backend callback response received', {status:res.status,statusText:res.statusText,contentType:res.headers.get('content-type')});
+          console.log("[DEBUG] Backend callback response received", {
+            status: res.status,
+            statusText: res.statusText,
+            contentType: res.headers.get("content-type"),
+          });
           // #endregion
 
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
             const text = await res.text();
             // #region agent log
-            console.error('[DEBUG] Backend returned non-JSON response', {contentType,responseText:text.substring(0,200)});
+            console.error("[DEBUG] Backend returned non-JSON response", {
+              contentType,
+              responseText: text.substring(0, 200),
+            });
             // #endregion
             throw new Error(
               `Expected JSON but got ${contentType}. Response: ${text.substring(0, 200)}`,
@@ -828,7 +857,11 @@ function App() {
         })
         .then((data) => {
           // #region agent log
-          console.log('[DEBUG] Backend callback data parsed', {hasAccessToken:!!data.access_token,hasError:!!data.error,error:data.error});
+          console.log("[DEBUG] Backend callback data parsed", {
+            hasAccessToken: !!data.access_token,
+            hasError: !!data.error,
+            error: data.error,
+          });
           // #endregion
 
           if (data.access_token) {
@@ -838,7 +871,12 @@ function App() {
               const openerOrigin = storedOrigin || window.location.origin;
 
               // #region agent log
-              console.log('[DEBUG] Sending postMessage with token', {storedOrigin,openerOrigin,currentOrigin:window.location.origin,originsMatch:openerOrigin===window.location.origin});
+              console.log("[DEBUG] Sending postMessage with token", {
+                storedOrigin,
+                openerOrigin,
+                currentOrigin: window.location.origin,
+                originsMatch: openerOrigin === window.location.origin,
+              });
               // #endregion
 
               // Try the stored/detected origin first
@@ -869,7 +907,10 @@ function App() {
           } else {
             console.error("Spotify: No access_token in response:", data);
             // #region agent log
-            console.error('[DEBUG] No access_token in response', {error:data.error,fullData:data});
+            console.error("[DEBUG] No access_token in response", {
+              error: data.error,
+              fullData: data,
+            });
             // #endregion
             if (isPopup && window.opener) {
               const storedOrigin =
@@ -892,7 +933,10 @@ function App() {
         .catch((err) => {
           console.error("Spotify token exchange error:", err);
           // #region agent log
-          console.error('[DEBUG] Token exchange fetch error', {error:err.message,stack:err.stack});
+          console.error("[DEBUG] Token exchange fetch error", {
+            error: err.message,
+            stack: err.stack,
+          });
           // #endregion
           if (isPopup && window.opener) {
             const storedOrigin =
@@ -941,7 +985,12 @@ function App() {
       }
 
       // #region agent log
-      console.log('[DEBUG] PostMessage received', {type:e.data.type,messageOrigin:e.origin,currentOrigin:window.location.origin,originsMatch:e.origin===window.location.origin});
+      console.log("[DEBUG] PostMessage received", {
+        type: e.data.type,
+        messageOrigin: e.origin,
+        currentOrigin: window.location.origin,
+        originsMatch: e.origin === window.location.origin,
+      });
       // #endregion
 
       // Allow messages from same origin or localhost/127.0.0.1 variations
@@ -960,25 +1009,33 @@ function App() {
 
       // Allow messages between Railway URL and custom domain (same app, different domains)
       // Check if both are Railway-related domains pointing to the same app
-      const isRailwayDomainPair = 
+      const isRailwayDomainPair =
         (e.origin.includes("railway.app") && window.location.origin.includes("soultrust.com")) ||
         (e.origin.includes("soultrust.com") && window.location.origin.includes("railway.app")) ||
         (e.origin.includes("railway.app") && window.location.origin.includes("railway.app"));
 
       // #region agent log
-      console.log('[DEBUG] PostMessage origin check', {isSameOrigin,isLocalDev,isRailwayDomainPair,willAccept:isSameOrigin||isLocalDev||isRailwayDomainPair});
+      console.log("[DEBUG] PostMessage origin check", {
+        isSameOrigin,
+        isLocalDev,
+        isRailwayDomainPair,
+        willAccept: isSameOrigin || isLocalDev || isRailwayDomainPair,
+      });
       // #endregion
 
       if (!isSameOrigin && !isLocalDev && !isRailwayDomainPair) {
         // #region agent log
-        console.warn('[DEBUG] PostMessage rejected due to origin mismatch', {messageOrigin:e.origin,currentOrigin:window.location.origin});
+        console.warn("[DEBUG] PostMessage rejected due to origin mismatch", {
+          messageOrigin: e.origin,
+          currentOrigin: window.location.origin,
+        });
         // #endregion
         return;
       }
 
       if (e.data.type === "spotify-token") {
         // #region agent log
-        console.log('[DEBUG] PostMessage accepted, setting token', {hasToken:!!e.data.token});
+        console.log("[DEBUG] PostMessage accepted, setting token", { hasToken: !!e.data.token });
         // #endregion
         setSpotifyToken(e.data.token);
         setSpotifyConnectionStatus("connecting");
@@ -991,7 +1048,7 @@ function App() {
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
         // #region agent log
-        console.error('[DEBUG] PostMessage auth error received', {error:e.data.error});
+        console.error("[DEBUG] PostMessage auth error received", { error: e.data.error });
         // #endregion
         sessionStorage.removeItem("spotify_auth_origin"); // Clean up
         // Don't auto-reconnect on auth errors (user needs to manually authorize)
@@ -1218,7 +1275,7 @@ function App() {
     listModalItemRef.current = { id: itemId, type: itemType };
 
     const t = selectedItem ? (selectedItem.type || "").toLowerCase() : "";
-    const needCheck = selectedItem && (t === "release" || t === "master");
+    const needCheck = selectedItem && (t === "release" || t === "master" || t === "album");
     const haveListsCached = lists.length > 0;
 
     const checkPromise = needCheck
@@ -1291,7 +1348,7 @@ function App() {
   function handleAddToList() {
     if (!selectedItem) return;
     const t = (selectedItem.type || "").toLowerCase();
-    if (t !== "release" && t !== "master") return;
+    if (t !== "release" && t !== "master" && t !== "album") return;
     setShowListModal(true);
     setNewListName("");
     setListError(null);
@@ -1361,7 +1418,7 @@ function App() {
   async function handleAddToLists() {
     if (!selectedItem) return;
     const t = (selectedItem.type || "").toLowerCase();
-    if (t !== "release" && t !== "master") return;
+    if (t !== "release" && t !== "master" && t !== "album") return;
 
     const titleToSave = (
       detailData?.artists?.length && detailData?.title
@@ -1651,7 +1708,7 @@ function App() {
     <div className="app">
       <div className="app-header">
         <h1>
-          MusicDB <span className="app-header-subtitle">Discogs Interface</span>
+          MusicDB <span className="app-header-subtitle">MusicBrainz</span>
         </h1>
         <div className="app-header-right">
           {spotifyToken ? (
@@ -1736,11 +1793,27 @@ function App() {
       <div className="content">
         <div className="sidebar">
           <form onSubmit={handleSubmit} className="search-form">
+            <select
+              value={searchType}
+              onChange={(e) => setSearchType(e.target.value)}
+              className="search-type-select"
+              aria-label="Search type"
+            >
+              <option value="artist">Artist</option>
+              <option value="album">Album</option>
+              <option value="song">Song</option>
+            </select>
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search releases, artists, labels…"
+              placeholder={
+                searchType === "artist"
+                  ? "Search artists…"
+                  : searchType === "song"
+                    ? "Search songs…"
+                    : "Search albums…"
+              }
               disabled={loading}
               autoFocus={viewListId == null}
             />
@@ -1811,7 +1884,13 @@ function App() {
                 {results.map((item, i) => (
                   <li
                     key={item.id != null ? `${item.type}-${item.id}` : i}
-                    className={selectedItem?.id === item.id ? "selected" : ""}
+                    className={
+                      selectedItem &&
+                      String(selectedItem.id) === String(item.id) &&
+                      selectedItem?.type === item.type
+                        ? "selected"
+                        : ""
+                    }
                     onClick={() => handleItemClick(item)}
                   >
                     {item.title}
@@ -1932,7 +2011,9 @@ function App() {
                           <div className="detail-thumb-placeholder">No Image</div>
                         )}
 
-                        {(selectedItem?.type === "release" || selectedItem?.type === "master") && (
+                        {(selectedItem?.type === "release" ||
+                          selectedItem?.type === "master" ||
+                          selectedItem?.type === "album") && (
                           <button onClick={handleAddToList} className="add-to-list-btn">
                             Manage Lists
                           </button>
@@ -2199,9 +2280,12 @@ function App() {
                   {(overviewLoading || overview || overviewError) && (
                     <div className="detail-overview">
                       <h3>Overview</h3>
-                      {(detailData.uri ||
+                        {(detailData.uri ||
                         selectedItem?.type === "release" ||
-                        selectedItem?.type === "master") && (
+                        selectedItem?.type === "master" ||
+                        selectedItem?.type === "artist" ||
+                        selectedItem?.type === "album" ||
+                        selectedItem?.type === "song") && (
                         <div className="detail-row detail-row-links">
                           {detailData.uri && (
                             <a
@@ -2210,7 +2294,7 @@ function App() {
                               rel="noopener noreferrer"
                               className="detail-link"
                             >
-                              View on Discogs →
+                              View on MusicBrainz →
                             </a>
                           )}
                         </div>

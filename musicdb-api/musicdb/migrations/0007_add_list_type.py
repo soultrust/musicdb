@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("discogs", "0006_list_listitem"),
+        ("musicdb", "0006_list_listitem"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
