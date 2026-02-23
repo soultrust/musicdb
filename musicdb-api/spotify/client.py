@@ -113,6 +113,19 @@ def _trailing_part_designation(title):
     if match:
         a = _roman_to_int(match.group(1))
         return str(a) if a is not None else None
+    # Trailing " Pt. 1", " #1", " Part 1" (no parens) — so we can reject Pt. 1 vs Pt. 2
+    match = re.search(r"\s+pts\.?\s*(\d+)\s*[-–]\s*(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}"
+    match = re.search(r"\s+pt\.?\s*(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return match.group(1)
+    match = re.search(r"\s+#(\d+)\s*$", t)
+    if match:
+        return match.group(1)
+    match = re.search(r"\s+part\s+(\d+)\s*$", t, re.IGNORECASE)
+    if match:
+        return match.group(1)
     return None
 
 
@@ -271,7 +284,12 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
             best_match = track
     
     # Only return if score is above threshold (at least some match)
-    if best_score >= 30:
-        return best_match
-    
-    return None
+    if best_score < 30:
+        return None
+    # Reject when both titles have part designations and they differ (e.g. Pt. 1 vs Pt. 2)
+    if best_match:
+        discogs_part = _trailing_part_designation(discogs_title)
+        spotify_part = _trailing_part_designation(best_match.get("name", ""))
+        if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
+            return None
+    return best_match
