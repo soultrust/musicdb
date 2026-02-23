@@ -78,6 +78,9 @@ function App() {
   const [viewListId, setViewListId] = useState(null);
   const [listViewData, setListViewData] = useState(null);
   const [listViewLoading, setListViewLoading] = useState(false);
+  // Album art: deferred until detail panel has painted, with retry on load error
+  const [albumArtReady, setAlbumArtReady] = useState(false);
+  const [albumArtRetryKey, setAlbumArtRetryKey] = useState(0);
   // Spotify playlists view
   const [spotifyPlaylists, setSpotifyPlaylists] = useState([]);
   const [spotifyPlaylistsLoading, setSpotifyPlaylistsLoading] = useState(false);
@@ -328,6 +331,13 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when list loads, not when handleItemClick ref changes
   }, [viewListId, listViewData]);
 
+  // Defer album art load until detail panel has painted (avoids flaky loads) and enable retry on error
+  useEffect(() => {
+    if (!detailData || detailLoading) return;
+    const id = requestAnimationFrame(() => setAlbumArtReady(true));
+    return () => cancelAnimationFrame(id);
+  }, [detailData, detailLoading]);
+
   // Removed consumed list loading - replaced with lists feature
 
   function allowDigitsOnly(setter, maxLength = 4) {
@@ -384,6 +394,8 @@ function App() {
     setDetailError(null);
     setOverview(null);
     setOverviewError(null);
+    setAlbumArtReady(false);
+    setAlbumArtRetryKey(0);
 
     if (!item.id || !item.type) {
       setDetailError("Item missing id or type");
@@ -2167,18 +2179,23 @@ function App() {
                     <div className="detail-header">
                       <div className="detail-thumb-container">
                         {detailData.thumb || detailData.images?.[0]?.uri ? (
-                          <img
-                            src={detailData.thumb || detailData.images?.[0]?.uri}
-                            alt={detailData.title || selectedItem.title}
-                            className="detail-thumb"
-                            onError={(e) => {
-                              console.error(
-                                "Image failed to load:",
-                                detailData.thumb || detailData.images?.[0]?.uri,
-                              );
-                              e.target.style.display = "none";
-                            }}
-                          />
+                          albumArtReady ? (
+                            <img
+                              key={albumArtRetryKey}
+                              src={`${detailData.thumb || detailData.images?.[0]?.uri}${albumArtRetryKey ? `?retry=${albumArtRetryKey}` : ""}`}
+                              alt={detailData.title || selectedItem.title}
+                              className="detail-thumb"
+                              onError={(e) => {
+                                if (albumArtRetryKey < 2) {
+                                  setAlbumArtRetryKey((k) => k + 1);
+                                } else {
+                                  e.target.style.display = "none";
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="detail-thumb-placeholder">Loading…</div>
+                          )
                         ) : (
                           <div className="detail-thumb-placeholder">No Image</div>
                         )}
