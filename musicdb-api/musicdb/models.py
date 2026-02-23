@@ -14,7 +14,7 @@ class ConsumedAlbum(models.Model):
         related_name="consumed_albums",
     )
     type = models.CharField(max_length=20)  # 'release' or 'master'
-    discogs_id = models.CharField(max_length=32)
+    discogs_id = models.CharField(max_length=64)  # Discogs numeric IDs or MusicBrainz UUIDs (36 chars)
     title = models.CharField(max_length=512, blank=True)  # search result title for duplicate hiding
     consumed = models.BooleanField(default=True)
 
@@ -88,7 +88,7 @@ class ListItem(models.Model):
         related_name="items",
     )
     type = models.CharField(max_length=20)  # 'release', 'master', or 'artist'
-    discogs_id = models.CharField(max_length=32)
+    discogs_id = models.CharField(max_length=64)  # Discogs numeric IDs or MusicBrainz UUIDs (36 chars)
     title = models.CharField(max_length=512, blank=True)  # search result title for display
     added_at = models.DateTimeField(auto_now_add=True)
 
