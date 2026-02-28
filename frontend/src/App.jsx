@@ -154,7 +154,7 @@ function App() {
         setAuthError(
           "Server returned HTML instead of JSON. Check that the API is running at " +
             API_BASE +
-            " and CORS is configured."
+            " and CORS is configured.",
         );
         return;
       }
@@ -363,9 +363,7 @@ function App() {
         if (filterYearFrom.trim()) params.set("year_from", filterYearFrom.trim());
         if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
       }
-      const searchRes = await authFetch(
-        `${API_BASE}/api/search/?${params.toString()}`,
-      );
+      const searchRes = await authFetch(`${API_BASE}/api/search/?${params.toString()}`);
       const data = await searchRes.json();
       if (!searchRes.ok) {
         setError(data.error || `Request failed: ${searchRes.status}`);
@@ -475,7 +473,7 @@ function App() {
       });
 
       const data = await res.json();
-      let matches = res.ok ? (data.matches || []) : [];
+      let matches = res.ok ? data.matches || [] : [];
       if (res.ok && releaseId) {
         try {
           const manRes = await authFetch(
@@ -1482,9 +1480,7 @@ function App() {
       });
       setSpotifyMatches((prev) =>
         prev.map((m) =>
-          m.discogs_title === manualMatchTrackTitle
-            ? { ...m, spotify_track: track }
-            : m,
+          m.discogs_title === manualMatchTrackTitle ? { ...m, spotify_track: track } : m,
         ),
       );
     } catch (err) {
@@ -2486,36 +2482,38 @@ function App() {
                   <div className="detail-sidebar">
                     {(overviewLoading || overview || overviewError) && (
                       <div className="detail-overview">
-                      <h3>Overview</h3>
+                        <h3>Overview</h3>
                         {(detailData.uri ||
-                        selectedItem?.type === "release" ||
-                        selectedItem?.type === "master" ||
-                        selectedItem?.type === "artist" ||
-                        selectedItem?.type === "album" ||
-                        selectedItem?.type === "song") && (
-                        <div className="detail-row detail-row-links">
-                          {detailData.uri && (
-                            <a
-                              href={detailData.uri}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="detail-link"
-                            >
-                              View on MusicBrainz →
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      {overviewLoading && <p className="detail-loading">Loading overview…</p>}
-                      {overviewError && !overviewLoading && (
-                        <p className="error">
-                          {overviewError.includes("Wikipedia") &&
-                          overviewError.toLowerCase().includes("no ")
-                            ? "No overview available for this album."
-                            : overviewError}
-                        </p>
-                      )}
-                      {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
+                          selectedItem?.type === "release" ||
+                          selectedItem?.type === "master" ||
+                          selectedItem?.type === "artist" ||
+                          selectedItem?.type === "album" ||
+                          selectedItem?.type === "song") && (
+                          <div className="detail-row detail-row-links">
+                            {detailData.uri && (
+                              <a
+                                href={detailData.uri}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="detail-link"
+                              >
+                                View on MusicBrainz →
+                              </a>
+                            )}
+                          </div>
+                        )}
+                        {overviewLoading && <p className="detail-loading">Loading overview…</p>}
+                        {overviewError && !overviewLoading && (
+                          <p className="error">
+                            {overviewError.includes("Wikipedia") &&
+                            overviewError.toLowerCase().includes("no ")
+                              ? "No overview available for this album."
+                              : overviewError}
+                          </p>
+                        )}
+                        {overview && !overviewLoading && (
+                          <p className="overview-text">{overview}</p>
+                        )}
                       </div>
                     )}
                   </div>
@@ -2622,7 +2620,10 @@ function App() {
                     disabled={spotifySearchLoading}
                     autoFocus
                   />
-                  <button type="submit" disabled={spotifySearchLoading || !spotifySearchQuery.trim()}>
+                  <button
+                    type="submit"
+                    disabled={spotifySearchLoading || !spotifySearchQuery.trim()}
+                  >
                     {spotifySearchLoading ? "Searching…" : "Search"}
                   </button>
                 </div>
