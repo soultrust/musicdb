@@ -48,8 +48,12 @@ class MatchTracksAPIView(APIView):
                 try:
                     # Search Spotify for this track - get multiple results to find best match
                     spotify_results = search_track(query=title, artist=artist, limit=10)
-                    # Use best match algorithm instead of just taking first result
                     spotify_track = find_best_match(title, artists, spotify_results)
+                    # If no match (e.g. catalog artist "The Jimi Hendrix Experience" returns no Spotify results),
+                    # retry search without artist so we get candidates and can match by title
+                    if spotify_track is None and artist:
+                        spotify_results = search_track(query=title, artist=None, limit=10)
+                        spotify_track = find_best_match(title, artists, spotify_results)
                     
                     matches.append({
                         "discogs_title": title,

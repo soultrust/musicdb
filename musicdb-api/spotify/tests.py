@@ -6,6 +6,7 @@ from django.test import TestCase
 from spotify.client import (
     _normalize_artist,
     _normalize_title_for_match,
+    _normalize_title_quotes,
     _trailing_part_designation,
     _title_base_for_search,
     find_best_match,
@@ -322,3 +323,28 @@ class FindBestMatchTests(TestCase):
         match = find_best_match(discogs_title, discogs_artists, spotify_results)
         self.assertIsNotNone(match)
         self.assertEqual(match["id"], "spotify:shine-6-9")
+
+    def test_title_match_normalizes_apostrophes(self):
+        """Song title with typographic apostrophe (MusicBrainz) should match ASCII apostrophe (Spotify). E.g. 'I Don't Live Today'."""
+        # MusicBrainz often uses U+2019 RIGHT SINGLE QUOTATION MARK; Spotify may use ASCII '
+        typographic = "I Don\u2019t Live Today"  # U+2019
+        ascii_version = "I Don't Live Today"   # ASCII apostrophe
+        spotify_results = [
+            {"name": ascii_version, "artists": [{"name": "Jimi Hendrix"}], "id": "correct"},
+            {"name": "Other Song", "artists": [{"name": "Jimi Hendrix"}], "id": "wrong"},
+        ]
+        match = find_best_match(typographic, ["Jimi Hendrix"], spotify_results)
+        self.assertIsNotNone(match, "Exact title match after normalizing apostrophes")
+        self.assertEqual(match["id"], "correct")
+
+    def test_title_match_normalizes_no_break_space(self):
+        """Title with no-break space (U+00A0) should match same title with regular space. E.g. 'Foxy Lady'."""
+        catalog_title = "Foxy\u00a0Lady"   # no-break space (MusicBrainz/HTML can emit this)
+        spotify_title = "Foxy Lady"        # ASCII space
+        spotify_results = [
+            {"name": spotify_title, "artists": [{"name": "Jimi Hendrix"}], "id": "correct"},
+            {"name": "Other", "artists": [{"name": "Jimi Hendrix"}], "id": "wrong"},
+        ]
+        match = find_best_match(catalog_title, ["Jimi Hendrix"], spotify_results)
+        self.assertIsNotNone(match, "Exact title match after normalizing no-break space")
+        self.assertEqual(match["id"], "correct")

@@ -2,10 +2,11 @@
 Spotify API client. Uses Client Credentials flow for search (no user login needed).
 """
 import base64
+import re
+import unicodedata
 import requests
 from django.conf import settings
 from django.core.cache import cache
-import re
 
 
 def _normalize_artist(name):
@@ -68,11 +69,37 @@ def _normalize_roman_range(text):
     return text
 
 
+def _normalize_title_quotes(s):
+    """
+    Normalize title string for comparison: apostrophe/quote variants, Unicode spaces,
+    and NFC form so 'Foxy Lady' matches 'Foxy\u00a0Lady' (no-break space) and 'Don't' matches 'Don't'.
+    """
+    if not s:
+        return s
+    s = (s or "").strip()
+    s = unicodedata.normalize("NFC", s)
+    # Apostrophe/quote variants -> ASCII apostrophe
+    s = s.replace("\u2019", "'")   # RIGHT SINGLE QUOTATION MARK (typographic apostrophe)
+    s = s.replace("\u2018", "'")   # LEFT SINGLE QUOTATION MARK
+    s = s.replace("\u02bc", "'")   # MODIFIER LETTER APOSTROPHE
+    # Space-like and zero-width -> ASCII space or remove (so "Foxy Lady" matches "Foxy\u00a0Lady")
+    s = s.replace("\u00a0", " ")   # NO-BREAK SPACE
+    s = s.replace("\u2003", " ")   # EM SPACE
+    s = s.replace("\u2009", " ")   # THIN SPACE
+    s = s.replace("\u200b", "")    # ZERO-WIDTH SPACE
+    s = s.replace("\u200c", "")    # ZERO-WIDTH NON-JOINER
+    s = s.replace("\u200d", "")    # ZERO-WIDTH JOINER
+    s = s.replace("\ufeff", "")    # ZERO-WIDTH NO-BREAK SPACE / BOM
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
 def _normalize_title_for_match(title):
     """Canonicalize title variations: 'Part 1'/'Pt. 1'/'#1'/'Parts I-V'/'Pts. 1-5' for comparison."""
     if not title:
         return ""
     s = (title or "").lower().strip()
+    s = _normalize_title_quotes(s)
     # Normalize dash variants so "-", "–", "—" behave the same
     s = s.replace("–", "-").replace("—", "-")
     # Treat comma as space so "Secret Stair, Part 1" and "Secret Stair #1" compare equal
@@ -213,8 +240,9 @@ def search_track(query, artist=None, limit=5):
     # Only strip Discogs disambiguation like " (2)" at the end, NOT part numbers like " (Pts. 1-5)"
     clean_query = re.sub(r"\s*\(\d+\)\s*$", "", query.strip()).strip()
     # Strip part designations (Pt. 1, #1, Part 1) so search returns all variants
-    # e.g. "Secret Stair Pt. 1" → "Secret Stair" to find both "Pt. 1" and "#1" versions
     search_query_title = _title_base_for_search(clean_query)
+    # Normalize spaces/quotes so Spotify finds the track (e.g. "Foxy\u00a0Lady" → "Foxy Lady")
+    search_query_title = _normalize_title_quotes(search_query_title)
     
     # Build search query: "track:name artist:artist" or just "track:name"
     search_query = f'track:"{search_query_title}"'
@@ -255,8 +283,14 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
     if not spotify_results:
         return None
     
-    # Normalize for comparison (strip Discogs disambiguation suffixes like " (2)")
-    discogs_title_lower = discogs_title.lower().strip()
+    # Normalize for comparison: strip, lower, and normalize apostrophe/quote variants so
+    # "I Don't Live Today" (MusicBrainz typographic ') matches "I Don't Live Today" (Spotify ASCII ')
+    def _title_for_compare(title):
+        if not title:
+            return ""
+        return _normalize_title_quotes((title or "").lower().strip())
+    
+    discogs_title_compare = _title_for_compare(discogs_title)
     discogs_artists_lower = [_normalize_artist(a).lower() for a in discogs_artists]
     
     # Score each result
@@ -265,21 +299,22 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
     
     for track in spotify_results:
         score = 0
-        spotify_title = track.get("name", "").lower().strip()
+        spotify_title_raw = track.get("name", "").lower().strip()
+        spotify_title_compare = _title_for_compare(track.get("name", ""))
         spotify_artists = [a.get("name", "").lower().strip() for a in track.get("artists", [])]
         
         discogs_title_norm = _normalize_title_for_match(discogs_title)
         spotify_title_norm = _normalize_title_for_match(track.get("name", ""))
         discogs_part = _trailing_part_designation(discogs_title)
         spotify_part = _trailing_part_designation(track.get("name", ""))
-        # Exact title match gets high score
-        if discogs_title_lower == spotify_title:
+        # Exact title match (after quote normalization) gets high score
+        if discogs_title_compare == spotify_title_compare:
             score += 100
         # Normalized title match (e.g. "Part 1" vs "#1") - same song, different spelling
         elif discogs_title_norm and discogs_title_norm == spotify_title_norm:
             score += 95
         # Title contains or is contained (partial match) — but not when part designations differ (e.g. Pts. 1-5 vs Pts. 6-9)
-        elif discogs_title_lower in spotify_title or spotify_title in discogs_title_lower:
+        elif discogs_title_compare in spotify_title_compare or spotify_title_compare in discogs_title_compare:
             if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
                 pass
             else:
@@ -290,7 +325,7 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
         if artist_matches > 0:
             score += 30 * artist_matches
         
-        # Bonus if all artists match
+        # Bonus if all artists match exactly
         if set(discogs_artists_lower) == set(spotify_artists):
             score += 20
         
