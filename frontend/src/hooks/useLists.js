@@ -27,6 +27,18 @@ export function useLists({
   const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
   const [playlistTracksData, setPlaylistTracksData] = useState(null);
   const [playlistTracksLoading, setPlaylistTracksLoading] = useState(false);
+  const handleItemClickRef = useRef(handleItemClick);
+  const authFetchRef = useRef(authFetch);
+  const fetchListsInFlightRef = useRef(false);
+
+  // Keep a stable ref so effects don't re-run when `handleItemClick` identity changes
+  useEffect(() => {
+    handleItemClickRef.current = handleItemClick;
+  }, [handleItemClick]);
+
+  useEffect(() => {
+    authFetchRef.current = authFetch;
+  }, [authFetch]);
 
   useEffect(() => {
     if (!accessToken) {
@@ -34,18 +46,26 @@ export function useLists({
       return;
     }
     let cancelled = false;
-    authFetch(`${API_BASE}/api/search/lists/`)
+    if (fetchListsInFlightRef.current) return;
+    fetchListsInFlightRef.current = true;
+
+    authFetchRef.current(`${API_BASE}/api/search/lists/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
       .then((res) => (res.ok ? res.json() : { lists: [] }))
       .then((data) => {
         if (!cancelled) setAllListsForView(data.lists || []);
       })
       .catch(() => {
         if (!cancelled) setAllListsForView([]);
+      })
+      .finally(() => {
+        fetchListsInFlightRef.current = false;
       });
     return () => {
       cancelled = true;
     };
-  }, [accessToken, API_BASE, authFetch]);
+  }, [accessToken, API_BASE]);
 
   useEffect(() => {
     if (!viewListId || !accessToken) {
@@ -56,7 +76,9 @@ export function useLists({
     setListViewLoading(true);
     setListViewData(null);
     let cancelled = false;
-    authFetch(`${API_BASE}/api/search/lists/${viewListId}/`)
+    authFetchRef.current(`${API_BASE}/api/search/lists/${viewListId}/`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
       .then((res) => {
         if (!res.ok) return null;
         return res.json();
@@ -70,7 +92,7 @@ export function useLists({
     return () => {
       cancelled = true;
     };
-  }, [viewListId, accessToken, API_BASE, authFetch]);
+  }, [viewListId, accessToken, API_BASE]);
 
   useEffect(() => {
     if (viewListId !== "spotify-playlists" || !spotifyToken || !accessToken) {
@@ -81,7 +103,7 @@ export function useLists({
     }
     setSpotifyPlaylistsLoading(true);
     let cancelled = false;
-    authFetch(`${API_BASE}/api/spotify/playlists/`, {
+    authFetchRef.current(`${API_BASE}/api/spotify/playlists/`, {
       headers: { Authorization: `Bearer ${spotifyToken}` },
     })
       .then((res) => {
@@ -100,7 +122,7 @@ export function useLists({
     return () => {
       cancelled = true;
     };
-  }, [viewListId, spotifyToken, accessToken, API_BASE, authFetch]);
+  }, [viewListId, spotifyToken, accessToken, API_BASE]);
 
   useEffect(() => {
     if (!selectedPlaylistId || !spotifyToken || !accessToken || viewListId !== "spotify-playlists") {
@@ -109,7 +131,7 @@ export function useLists({
     }
     setPlaylistTracksLoading(true);
     let cancelled = false;
-    authFetch(`${API_BASE}/api/spotify/playlists/${selectedPlaylistId}/tracks/`, {
+    authFetchRef.current(`${API_BASE}/api/spotify/playlists/${selectedPlaylistId}/tracks/`, {
       headers: { Authorization: `Bearer ${spotifyToken}` },
     })
       .then((res) => {
@@ -128,7 +150,7 @@ export function useLists({
     return () => {
       cancelled = true;
     };
-  }, [selectedPlaylistId, spotifyToken, accessToken, viewListId, API_BASE, authFetch]);
+  }, [selectedPlaylistId, spotifyToken, accessToken, viewListId, API_BASE]);
 
   useEffect(() => {
     const items = listViewData?.items;
@@ -136,10 +158,10 @@ export function useLists({
     const first = items[0];
     const item = { id: first.id, type: first.type, title: first.title };
     const id = requestAnimationFrame(() => {
-      handleItemClick(item);
+      handleItemClickRef.current(item);
     });
     return () => cancelAnimationFrame(id);
-  }, [viewListId, listViewData, handleItemClick]);
+  }, [viewListId, listViewData]);
 
   useEffect(() => {
     if (!showListModal || !accessToken) return;
@@ -154,7 +176,7 @@ export function useLists({
     const haveListsCached = lists.length > 0;
 
     const checkPromise = needCheck
-      ? authFetch(
+      ? authFetchRef.current(
           `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
         )
           .then((res) => (res.ok ? res.json() : { list_ids: [] }))
@@ -164,7 +186,7 @@ export function useLists({
     const listType = "release";
     const listsPromise = haveListsCached
       ? Promise.resolve(lists)
-      : authFetch(`${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`)
+      : authFetchRef.current(`${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`)
           .then((res) => {
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}`);
@@ -185,7 +207,7 @@ export function useLists({
         setListError(err.message || "Failed to load lists");
       })
       .finally(() => setListLoading(false));
-  }, [showListModal, accessToken, selectedItem, API_BASE, authFetch, lists]);
+  }, [showListModal, accessToken, selectedItem, API_BASE, lists]);
 
   function handleAddToList() {
     if (!selectedItem) return;

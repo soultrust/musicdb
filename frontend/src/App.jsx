@@ -1,10 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import "./App.css";
 import { authFetchWithRefresh } from "./services/authFetch";
-import { matchTracksToSpotifyApi } from "./services/trackMatchingApi";
 import AuthGate from "./components/AuthGate";
 import AppHeader from "./components/AppHeader";
-import TrackList from "./components/TrackList";
 import ListModal from "./components/ListModal";
 import SpotifySearchModal from "./components/SpotifySearchModal";
 import SearchSidebar from "./components/SearchSidebar";
@@ -17,6 +15,8 @@ import { useLikedTracks } from "./hooks/useLikedTracks";
 import { useSpotifyPlayer } from "./hooks/useSpotifyPlayer";
 import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
 import { useSpotifySearchModal } from "./hooks/useSpotifySearchModal";
+import { useDetailController } from "./hooks/useDetailController";
+import { useViewSwitchReset } from "./hooks/useViewSwitchReset";
 import { API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI } from "./config";
 
 console.log("API_BASE being used:", API_BASE);
@@ -77,14 +77,17 @@ function App() {
   const [albumArtRetryKey, setAlbumArtRetryKey] = useState(0);
   // Spotify playlists + lists state moved into useLists
 
-  const authFetch = (url, options = {}) =>
-    authFetchWithRefresh(url, options, {
-      API_BASE,
-      AUTH_REFRESH_KEY,
-      accessToken,
-      setAccessToken,
-      logout,
-    });
+  const authFetch = useCallback(
+    (url, options = {}) =>
+      authFetchWithRefresh(url, options, {
+        API_BASE,
+        AUTH_REFRESH_KEY,
+        accessToken,
+        setAccessToken,
+        logout,
+      }),
+    [accessToken, logout, setAccessToken],
+  );
 
   const {
     showListModal,
@@ -122,6 +125,15 @@ function App() {
     handleItemClick,
   });
 
+  const resetOnViewSwitch = useViewSwitchReset({
+    setViewListId,
+    setListViewData,
+    setSelectedItem,
+    setDetailData,
+    setSelectedPlaylistId,
+    setPlaylistTracksData,
+  });
+
   const {
     getTrackKey,
     tracklistFilter,
@@ -140,6 +152,28 @@ function App() {
     spotifyMatches,
     spotifyToken,
   });
+
+  const { handleItemClick: handleItemClickInternal } = useDetailController({
+    API_BASE,
+    authFetch,
+    syncEspeciallyLikedForItem,
+
+    setSelectedItem,
+    setDetailData,
+    setDetailLoading,
+    setDetailError,
+    setOverview,
+    setOverviewLoading,
+    setOverviewError,
+    setAlbumArtReady,
+    setAlbumArtRetryKey,
+    setSpotifyMatches,
+    setSpotifyMatching,
+  });
+
+  async function handleItemClick(item) {
+    return handleItemClickInternal(item);
+  }
 
   const {
     spotifyConnectionStatus,
@@ -240,97 +274,7 @@ function App() {
     }
   }
 
-  async function handleItemClick(item) {
-    setSelectedItem(item);
-    setDetailData(null);
-    setDetailError(null);
-    setOverview(null);
-    setOverviewError(null);
-    setAlbumArtReady(false);
-    setAlbumArtRetryKey(0);
-
-    if (!item.id || !item.type) {
-      setDetailError("Item missing id or type");
-      return;
-    }
-
-    setDetailLoading(true);
-    try {
-      const res = await authFetch(
-        `${API_BASE}/api/search/detail/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}`,
-      );
-      const data = await res.json();
-      if (!res.ok) {
-        setDetailError(data.error || `Request failed: ${res.status}`);
-        return;
-      }
-      setDetailData(data);
-      // Removed consumed state
-
-      await syncEspeciallyLikedForItem(item, data);
-
-      // If it's a release with tracks, match them to Spotify
-      if (data.tracklist && data.tracklist.length > 0 && data.artists) {
-        matchTracksToSpotify(data.tracklist, data.artists, item?.id);
-      }
-
-      // Fetch album overview only for album/release types (cache or Wikipedia)
-      const isAlbumType =
-        item.type === "release" || item.type === "master" || item.type === "album";
-      const album = data.title || "";
-      const artist = data.artists?.length ? data.artists.map((a) => a.name).join(", ") : "";
-      if (isAlbumType && album && artist) {
-        setOverviewLoading(true);
-        setOverviewError(null);
-        try {
-          const ovRes = await authFetch(
-            `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`,
-          );
-          const text = await ovRes.text();
-          if (text.trim().startsWith("<")) {
-            setOverviewError("Overview unavailable (server error). Is the Django API running?");
-          } else {
-            try {
-              const ovData = JSON.parse(text);
-              if (ovRes.ok && ovData?.data?.overview) {
-                setOverview(ovData.data.overview);
-              } else if (!ovRes.ok && ovData?.error) {
-                setOverviewError(ovData.error);
-              }
-            } catch {
-              setOverviewError("Could not load overview.");
-            }
-          }
-        } catch (err) {
-          setOverviewError(err.message || "Failed to load overview");
-        } finally {
-          setOverviewLoading(false);
-        }
-      }
-    } catch (err) {
-      setDetailError(err.message || "Request failed");
-    } finally {
-      setDetailLoading(false);
-    }
-  }
-
-  async function matchTracksToSpotify(tracklist, artists, releaseId) {
-    setSpotifyMatching(true);
-    try {
-      const matches = await matchTracksToSpotifyApi({
-        authFetch,
-        API_BASE,
-        tracklist,
-        artists,
-        releaseId,
-      });
-      setSpotifyMatches(matches);
-    } catch (err) {
-      console.error("Failed to match tracks:", err);
-    } finally {
-      setSpotifyMatching(false);
-    }
-  }
+  // handleItemClick is now provided by useDetailController
 
 
   function handleSpotifyLogout() {
@@ -368,30 +312,7 @@ function App() {
         togglePlayback={togglePlayback}
         handleSpotifyLogin={handleSpotifyLogin}
         viewListId={viewListId}
-        onViewListChange={(e) => {
-          const v = e.target.value;
-          if (v === "") {
-            setViewListId(null);
-            setListViewData(null);
-            setSelectedItem(null);
-            setDetailData(null);
-            setSelectedPlaylistId(null);
-            setPlaylistTracksData(null);
-          } else if (v === "spotify-playlists") {
-            setViewListId("spotify-playlists");
-            setListViewData(null);
-            setSelectedItem(null);
-            setDetailData(null);
-            setSelectedPlaylistId(null);
-            setPlaylistTracksData(null);
-          } else {
-            setViewListId(parseInt(v, 10));
-            setSelectedItem(null);
-            setDetailData(null);
-            setSelectedPlaylistId(null);
-            setPlaylistTracksData(null);
-          }
-        }}
+        onViewListChange={resetOnViewSwitch}
         allListsForView={allListsForView}
         logout={logout}
       />
