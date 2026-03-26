@@ -12,6 +12,7 @@ const SPOTIFY_REDIRECT_URI = (
 ).replace(/\/$/, "");
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const AUTH_REFRESH_KEY = "soultrust_refresh_token";
+const ESPECIALLY_LIKED_BACKFILL_KEY = "soultrust_especially_liked_backfilled_v1";
 
 function App() {
   const [accessToken, setAccessToken] = useState(null);
@@ -45,6 +46,7 @@ function App() {
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const [deviceId, setDeviceId] = useState(null);
   const playerRef = useRef(null);
+  const backfillInFlightRef = useRef(false);
   const [likedTracks, setLikedTracks] = useState(() => {
     try {
       const stored = localStorage.getItem(LIKED_TRACKS_KEY);
@@ -195,6 +197,62 @@ function App() {
       cancelled = true;
     };
   }, []);
+
+  // One-time migration: copy localStorage "especially liked" (state 2) into DB on login.
+  useEffect(() => {
+    if (!accessToken) return;
+    if (backfillInFlightRef.current) return;
+
+    let alreadyBackfilled = false;
+    try {
+      alreadyBackfilled = localStorage.getItem(ESPECIALLY_LIKED_BACKFILL_KEY) === "true";
+    } catch {
+      alreadyBackfilled = false;
+    }
+    if (alreadyBackfilled) return;
+
+    backfillInFlightRef.current = true;
+    (async () => {
+      let ok = true;
+      let storedLiked = {};
+      try {
+        storedLiked = JSON.parse(localStorage.getItem(LIKED_TRACKS_KEY) || "{}") || {};
+      } catch {
+        storedLiked = {};
+      }
+
+      const entries = Object.entries(storedLiked).filter(([, v]) => v === 2);
+      if (entries.length === 0) {
+        localStorage.setItem(ESPECIALLY_LIKED_BACKFILL_KEY, "true");
+        return;
+      }
+
+      for (const [key] of entries) {
+        const parsed = parseTrackKeyForEspeciallyLiked(key);
+        if (!parsed) continue;
+        try {
+          const res = await authFetch(`${API_BASE}/api/search/especially-liked-track/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              item_type: parsed.itemType,
+              item_id: parsed.itemId,
+              track_title: parsed.trackTitle,
+              track_position: parsed.trackPosition,
+              especially_liked: true,
+            }),
+          });
+          if (!res.ok) ok = false;
+        } catch {
+          ok = false;
+        }
+      }
+
+      if (ok) localStorage.setItem(ESPECIALLY_LIKED_BACKFILL_KEY, "true");
+    })().finally(() => {
+      backfillInFlightRef.current = false;
+    });
+  }, [accessToken]);
 
   // Fetch all lists for the header "View a list" dropdown (no list_type filter)
   useEffect(() => {
@@ -1268,6 +1326,29 @@ function App() {
     if (!item) return null;
     const position = track.position != null && track.position !== "" ? String(track.position) : "";
     return `${item.type}-${item.id}-${position}-${track.title}`;
+  }
+
+  function parseTrackKeyForEspeciallyLiked(key) {
+    if (!key || typeof key !== "string") return null;
+    const prefixes = ["release-", "master-", "album-"];
+    const prefix = prefixes.find((p) => key.startsWith(p));
+    if (!prefix) return null;
+
+    const itemType = prefix.slice(0, -1); // remove trailing '-'
+    const remainder = key.slice(prefix.length); // itemId-position-title
+
+    // Split from the right to avoid breaking on '-' inside itemId / title.
+    const lastDash = remainder.lastIndexOf("-");
+    if (lastDash === -1) return null;
+    const trackTitle = remainder.slice(lastDash + 1);
+
+    const remainder2 = remainder.slice(0, lastDash); // itemId-position
+    const secondLastDash = remainder2.lastIndexOf("-");
+    if (secondLastDash === -1) return null;
+    const trackPosition = remainder2.slice(secondLastDash + 1);
+    const itemId = remainder2.slice(0, secondLastDash);
+
+    return { itemType, itemId, trackPosition, trackTitle };
   }
 
   function getTrackKey(track) {
