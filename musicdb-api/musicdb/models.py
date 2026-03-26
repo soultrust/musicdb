@@ -124,3 +124,27 @@ class TrackSpotifyLink(models.Model):
 
     def __str__(self):
         return f"{self.release_id} / {self.track_title} → {self.spotify_track_id}"
+
+
+class TrackEspeciallyLiked(models.Model):
+    """
+    User's "especially liked" track preference (state 2) for a specific item track.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="especially_liked_tracks",
+    )
+    item_type = models.CharField(max_length=20)  # 'release' | 'master' | 'album'
+    item_id = models.CharField(max_length=64)
+    track_position = models.CharField(max_length=32, blank=True)
+    track_title = models.CharField(max_length=512)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "item_type", "item_id", "track_position", "track_title")
+        ordering = ["item_type", "item_id", "track_position", "track_title"]
+
+    def __str__(self):
+        pos = f"{self.track_position} - " if self.track_position else ""
+        return f"{self.item_type}/{self.item_id}: {pos}{self.track_title}"

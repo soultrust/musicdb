@@ -413,6 +413,47 @@ function App() {
       setDetailData(data);
       // Removed consumed state
 
+      if (
+        item?.id &&
+        (item?.type === "release" || item?.type === "master" || item?.type === "album") &&
+        data.tracklist?.length
+      ) {
+        try {
+          const likesRes = await authFetch(
+            `${API_BASE}/api/search/especially-liked-tracks/?item_type=${encodeURIComponent(item.type)}&item_id=${encodeURIComponent(item.id)}`,
+          );
+          const likesData = await likesRes.json();
+          if (likesRes.ok) {
+            const especiallySet = new Set(
+              (likesData.tracks || []).map(
+                (t) => `${String(t.track_position || "")}::${String(t.track_title || "").trim()}`,
+              ),
+            );
+            setLikedTracks((prev) => {
+              const next = { ...prev };
+              let changed = false;
+              for (const track of data.tracklist) {
+                const key = buildTrackKeyForItem(item, track);
+                if (!key) continue;
+                const fp = `${track.position != null && track.position !== "" ? String(track.position) : ""}::${String(track.title || "").trim()}`;
+                if (especiallySet.has(fp)) {
+                  if (next[key] !== 2) {
+                    next[key] = 2;
+                    changed = true;
+                  }
+                } else if (next[key] === 2) {
+                  delete next[key];
+                  changed = true;
+                }
+              }
+              return changed ? next : prev;
+            });
+          }
+        } catch (err) {
+          console.error("Failed to load especially liked tracks:", err);
+        }
+      }
+
       // If it's a release with tracks, match them to Spotify
       if (data.tracklist && data.tracklist.length > 0 && data.artists) {
         matchTracksToSpotify(data.tracklist, data.artists, item?.id);
@@ -575,8 +616,8 @@ function App() {
                 currentSelected && currentDetail
                   ? `${currentSelected.type}-${currentSelected.id}-${track.position != null && track.position !== "" ? String(track.position) : ""}-${track.title}`
                   : null;
-              /* Only clear when we have a local liked state (1 or 2); unliking on Spotify → empty star */
-              if (!key || (prev[key] !== 1 && prev[key] !== 2)) continue;
+              // Keep "especially liked" (2) independent from Spotify saved-state sync.
+              if (!key || prev[key] !== 1) continue;
               const match = spotifyMatches.find((m) => m.discogs_title === track.title);
               const sid = match?.spotify_track?.id;
               if (sid && !saved.has(sid)) {
@@ -1223,10 +1264,35 @@ function App() {
     seekTrack(fraction * playbackDuration);
   }
 
+  function buildTrackKeyForItem(item, track) {
+    if (!item) return null;
+    const position = track.position != null && track.position !== "" ? String(track.position) : "";
+    return `${item.type}-${item.id}-${position}-${track.title}`;
+  }
+
   function getTrackKey(track) {
     if (!selectedItem || !detailData) return null;
-    const position = track.position != null && track.position !== "" ? String(track.position) : "";
-    return `${selectedItem.type}-${selectedItem.id}-${position}-${track.title}`;
+    return buildTrackKeyForItem(selectedItem, track);
+  }
+
+  async function persistEspeciallyLikedTrack(track, nextState) {
+    if (!selectedItem?.id || !selectedItem?.type) return;
+    try {
+      await authFetch(`${API_BASE}/api/search/especially-liked-track/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          item_type: selectedItem.type,
+          item_id: selectedItem.id,
+          track_title: track?.title || "",
+          track_position:
+            track?.position != null && track?.position !== "" ? String(track.position) : "",
+          especially_liked: nextState === 2,
+        }),
+      });
+    } catch (err) {
+      console.error("Failed to persist especially liked track:", err);
+    }
   }
 
   /** Display state: 0 = not liked, 1 = like (dark green), 2 = especially like (brighter green).
@@ -1280,6 +1346,7 @@ function App() {
     }
 
     setLikedTracks((prev) => ({ ...prev, [key]: nextState }));
+    persistEspeciallyLikedTrack(track, nextState);
 
     // Clearing filter when going to "unliked" keeps the track visible instead of it disappearing
     if (nextState === 0 && tracklistFilter) {

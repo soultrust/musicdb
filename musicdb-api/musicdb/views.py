@@ -6,7 +6,14 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import AlbumOverview, ConsumedAlbum, List, ListItem, TrackSpotifyLink
+from .models import (
+    AlbumOverview,
+    ConsumedAlbum,
+    List,
+    ListItem,
+    TrackEspeciallyLiked,
+    TrackSpotifyLink,
+)
 from .serializers import AlbumOverviewSerializer
 from .client import get_release, get_master
 from . import musicbrainz_client as mb
@@ -1010,3 +1017,72 @@ class ManualSpotifyMatchView(APIView):
                 "artists": link.spotify_artists,
             },
         })
+
+
+class EspeciallyLikedTracksView(APIView):
+    """GET /api/search/especially-liked-tracks/?item_type=...&item_id=..."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        item_type = (request.GET.get("item_type") or "").strip().lower()
+        item_id = (request.GET.get("item_id") or "").strip()
+        if not item_type or not item_id:
+            return Response(
+                {"error": "Missing required parameters: item_type, item_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if item_type not in ("release", "master", "album"):
+            return Response(
+                {"error": "item_type must be 'release', 'master', or 'album'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        rows = TrackEspeciallyLiked.objects.filter(
+            user=request.user,
+            item_type=item_type,
+            item_id=item_id,
+        )
+        tracks = [
+            {"track_title": row.track_title, "track_position": row.track_position}
+            for row in rows
+        ]
+        return Response({"tracks": tracks})
+
+
+class EspeciallyLikedTrackView(APIView):
+    """POST /api/search/especially-liked-track/ — upsert/delete an especially liked track."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        item_type = (request.data.get("item_type") or "").strip().lower()
+        item_id = (request.data.get("item_id") or "").strip()
+        track_title = (request.data.get("track_title") or "").strip()
+        track_position = str(request.data.get("track_position") or "").strip()
+        especially_liked = request.data.get("especially_liked")
+        especially_liked = bool(especially_liked)
+        if not item_type or not item_id or not track_title:
+            return Response(
+                {"error": "Missing required: item_type, item_id, track_title"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if item_type not in ("release", "master", "album"):
+            return Response(
+                {"error": "item_type must be 'release', 'master', or 'album'"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        query = {
+            "user": request.user,
+            "item_type": item_type,
+            "item_id": item_id,
+            "track_position": track_position[:32],
+            "track_title": track_title[:512],
+        }
+        if especially_liked:
+            TrackEspeciallyLiked.objects.update_or_create(
+                **query,
+                defaults={},
+            )
+        else:
+            TrackEspeciallyLiked.objects.filter(**query).delete()
+
+        return Response({"ok": True, "especially_liked": especially_liked})
