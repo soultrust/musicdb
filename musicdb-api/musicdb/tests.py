@@ -3,6 +3,7 @@ Tests for the Discogs API client. Require DISCOGS_USER_AGENT (and optionally
 DISCOGS_TOKEN) in .env. Hit the real Discogs API (integration tests).
 """
 import unittest
+import os
 
 from django.conf import settings
 from django.test import TestCase
@@ -12,6 +13,12 @@ from musicdb.client import get_api_root, search
 
 class DiscogsClientIntegrationTests(TestCase):
     """Integration tests: real HTTP calls to Discogs API (legacy client)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        if os.getenv("RUN_DISCOGS_INTEGRATION", "").lower() not in ("1", "true", "yes"):
+            raise unittest.SkipTest("Set RUN_DISCOGS_INTEGRATION=1 to run legacy Discogs tests")
 
     @unittest.skipIf(
         not getattr(settings, "DISCOGS_USER_AGENT", None),

@@ -8,7 +8,7 @@ from .. import musicbrainz_client as mb
 from ..models import ConsumedAlbum
 from .common import (
     _bad_request,
-    _fetch_display_title_from_discogs,
+    _fetch_display_title_from_catalog,
     _normalize_mb_artist,
     _normalize_mb_recording,
     _normalize_mb_release,
@@ -91,7 +91,7 @@ class ConsumedAlbumView(APIView):
             consumed = True
             title = ""
         if consumed:
-            fetched = _fetch_display_title_from_discogs(resource_type, resource_id)
+            fetched = _fetch_display_title_from_catalog(resource_type, resource_id)
             if fetched:
                 title = fetched
         record, _ = ConsumedAlbum.objects.update_or_create(
@@ -144,7 +144,7 @@ class ConsumedBackfillView(APIView):
     def get(self, request):
         updated = 0
         for rec in ConsumedAlbum.objects.filter(user=request.user, consumed=True):
-            fetched = _fetch_display_title_from_discogs(rec.type, rec.discogs_id)
+            fetched = _fetch_display_title_from_catalog(rec.type, rec.discogs_id)
             if fetched and (not (rec.title or "").strip() or " - " not in (rec.title or "")):
                 rec.title = fetched
                 rec.save(update_fields=["title"])

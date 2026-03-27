@@ -1,10 +1,11 @@
-import { useContext } from "react";
-import { MusicDbAppContext } from "../context/musicDbAppContext";
-
-export function useMusicDbApp() {
-  const ctx = useContext(MusicDbAppContext);
-  if (ctx == null) {
-    throw new Error("useMusicDbApp must be used within MusicDbAppProvider");
-  }
-  return ctx;
-}
+/** Re-exports slice contexts so feature code can import from `hooks/useMusicDbApp`. */
+export {
+  useHeaderContext,
+  useSearchSidebarContext,
+  usePlaylistDetailContext,
+  useListModalContext,
+  useSpotifySearchModalContext,
+  useDetailShellContext,
+  useDetailTracklistContext,
+  useDetailOverviewContext,
+} from "../context/musicDbSliceContexts";

@@ -1,6 +1,7 @@
-import json
-import requests
 import base64
+import logging
+
+import requests
 from django.conf import settings
 from django.http import JsonResponse
 from django.views import View
@@ -13,11 +14,13 @@ from rest_framework.permissions import IsAuthenticated
 
 from .client import search_track, find_best_match
 
+logger = logging.getLogger(__name__)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class MatchTracksAPIView(APIView):
     """
-    POST /api/spotify/match-tracks/ — match Discogs tracks to Spotify tracks.
+    POST /api/spotify/match-tracks/ — match catalog tracks to Spotify tracks.
     """
     permission_classes = [IsAuthenticated]
 
@@ -40,6 +43,7 @@ class MatchTracksAPIView(APIView):
                 
                 if not title:
                     matches.append({
+                        "catalog_title": title or "Unknown",
                         "discogs_title": title or "Unknown",
                         "spotify_track": None,
                     })
@@ -56,11 +60,13 @@ class MatchTracksAPIView(APIView):
                         spotify_track = find_best_match(title, artists, spotify_results)
                     
                     matches.append({
+                        "catalog_title": title,
                         "discogs_title": title,
                         "spotify_track": spotify_track,
                     })
                 except Exception as e:
                     matches.append({
+                        "catalog_title": title,
                         "discogs_title": title,
                         "spotify_track": None,
                         "error": str(e),
@@ -108,50 +114,19 @@ class SpotifyCallbackAPIView(View):
     """
     
     def get(self, request):
-        import logging
-        import json
-        logger = logging.getLogger(__name__)
-        
-        # #region agent log
-        log_path = "/Users/soultrust/dev/SOULTRUST PROJECTS/music/soultrust-musicdb/.cursor/debug-48f4bd.log"
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:81","message":"Spotify callback endpoint called","data":{"hasCode":bool(request.GET.get("code")),"redirectUri":request.GET.get("redirect_uri"),"requestOrigin":request.headers.get("Origin"),"referer":request.headers.get("Referer")},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-        except: pass
-        # #endregion
-        
         code = request.GET.get("code")
         if not code:
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:86","message":"Missing authorization code","data":{},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-            except: pass
-            # #endregion
             return JsonResponse(
                 {"error": "Missing authorization code"},
                 status=400,
             )
-        
+
         client_id = getattr(settings, "SPOTIFY_CLIENT_ID", None)
         client_secret = getattr(settings, "SPOTIFY_CLIENT_SECRET", None)
         redirect_uri = request.GET.get("redirect_uri", "http://127.0.0.1:3000")
-        
-        # #region agent log
-        try:
-            with open(log_path, "a") as f:
-                f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:95","message":"Preparing token exchange","data":{"hasClientId":bool(client_id),"hasClientSecret":bool(client_secret),"redirectUri":redirect_uri,"codePrefix":code[:20]+"..."},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-        except: pass
-        # #endregion
-        
+
         if not client_id or not client_secret:
             logger.error("Spotify credentials not configured")
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:99","message":"Spotify credentials missing","data":{},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-            except: pass
-            # #endregion
             return JsonResponse(
                 {"error": "Spotify credentials not configured"},
                 status=503,
@@ -174,14 +149,7 @@ class SpotifyCallbackAPIView(View):
                 },
                 timeout=10,
             )
-            
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:120","message":"Spotify API token exchange response","data":{"statusCode":response.status_code,"hasAccessToken":bool(response.json().get("access_token") if response.status_code==200 else False),"error":response.text[:200] if response.status_code!=200 else None},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-            except: pass
-            # #endregion
-            
+
             if response.status_code != 200:
                 error_text = response.text
                 logger.error(f"Spotify token exchange failed: {response.status_code}, {error_text}")
@@ -193,33 +161,18 @@ class SpotifyCallbackAPIView(View):
             data = response.json()
             access_token = data.get("access_token")
             if not access_token:
-                logger.error(f"Spotify: No access_token in response: {data}")
-                # #region agent log
-                try:
-                    with open(log_path, "a") as f:
-                        f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:131","message":"No access_token in Spotify response","data":{"responseData":data},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-                except: pass
-                # #endregion
-            
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:133","message":"Token exchange successful, returning token","data":{"hasAccessToken":bool(access_token)},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-            except: pass
-            # #endregion
-            
+                logger.error("Spotify: No access_token in response: %s", data)
+                return JsonResponse(
+                    {"error": "Token exchange succeeded but response had no access_token", "details": str(data)[:500]},
+                    status=502,
+                )
+
             return JsonResponse({
                 "access_token": access_token,
                 "expires_in": data.get("expires_in"),
             })
         except requests.exceptions.RequestException as e:
             logger.error(f"Spotify token exchange request failed: {e}")
-            # #region agent log
-            try:
-                with open(log_path, "a") as f:
-                    f.write(json.dumps({"sessionId":"48f4bd","location":"spotify/views.py:138","message":"Token exchange request exception","data":{"error":str(e)},"timestamp":int(__import__("time").time()*1000),"runId":"run1","hypothesisId":"E"}) + "\n")
-            except: pass
-            # #endregion
             return JsonResponse(
                 {"error": f"Request failed: {str(e)}"},
                 status=502,

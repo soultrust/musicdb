@@ -38,6 +38,17 @@ def _internal_error_response(message, exc):
     return Response(payload, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _format_duration_from_mb_length(length):
+    """MusicBrainz JSON often exposes duration in milliseconds as int or string."""
+    if length is None:
+        return ""
+    try:
+        s = int(length) // 1000
+    except (TypeError, ValueError):
+        return ""
+    return f"{s // 60}:{s % 60:02d}"
+
+
 def _parse_optional_int(value):
     if value in (None, ""):
         return None
@@ -61,8 +72,8 @@ def _validate_required(value_map):
     return _bad_request(f"Missing required: {', '.join(missing)}")
 
 
-def _fetch_display_title_from_discogs(resource_type, resource_id):
-    """Fetch 'Artist - Album' from Discogs API for a release or master. Returns '' on failure."""
+def _fetch_display_title_from_catalog(resource_type, resource_id):
+    """Fetch 'Artist - Album' from configured catalog source for a release or master."""
     try:
         if resource_type == "release":
             resp = get_release(int(resource_id))
@@ -83,6 +94,11 @@ def _fetch_display_title_from_discogs(resource_type, resource_id):
         return ""
 
 
+def _fetch_display_title_from_discogs(resource_type, resource_id):
+    """Backward-compatible alias; use _fetch_display_title_from_catalog going forward."""
+    return _fetch_display_title_from_catalog(resource_type, resource_id)
+
+
 def _normalize_mb_release(data):
     """Convert MusicBrainz release JSON to frontend-friendly shape (title, artists, year, tracklist, uri)."""
     title = (data.get("title") or "").strip()
@@ -96,10 +112,7 @@ def _normalize_mb_release(data):
         for track in medium.get("tracks") or []:
             rec = track.get("recording") or {}
             length = track.get("length") or rec.get("length")
-            duration = ""
-            if length is not None:
-                s = int(length) // 1000
-                duration = f"{s // 60}:{s % 60:02d}"
+            duration = _format_duration_from_mb_length(length)
             tracklist.append(
                 {
                     "title": (rec.get("title") or track.get("title") or "").strip(),
@@ -138,10 +151,7 @@ def _normalize_mb_recording(data):
     artist_credit = data.get("artist-credit") or []
     artists = [{"name": (a.get("artist", {}).get("name") or a.get("name") or "").strip()} for a in artist_credit]
     length = data.get("length")
-    duration = ""
-    if length is not None:
-        s = int(length) // 1000
-        duration = f"{s // 60}:{s % 60:02d}"
+    duration = _format_duration_from_mb_length(length)
     mbid = data.get("id") or ""
     uri = f"https://musicbrainz.org/recording/{mbid}" if mbid else ""
     return {"title": title, "artists": artists, "tracklist": [], "uri": uri, "duration": duration}

@@ -1,7 +1,7 @@
-import { useMusicDbApp } from "../hooks/useMusicDbApp";
+import { useSpotifySearchModalContext } from "../hooks/useMusicDbApp";
 
 export default function SpotifySearchModal() {
-  const { spotifySearchModal: s } = useMusicDbApp();
+  const s = useSpotifySearchModalContext();
   return (
     <div className="modal-overlay" onClick={s.closeSpotifySearchModal}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>

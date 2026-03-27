@@ -1,7 +1,7 @@
 import { manualSpotifyMatchesUrl } from "./searchApi";
 
-// Discogs/MusicBrainz tracklist → server-side Spotify matching,
-// plus optional manual Discogs→Spotify overrides.
+// Catalog tracklist → server-side Spotify matching,
+// plus optional manual track→Spotify overrides.
 //
 // This is intentionally UI-agnostic: it just returns match rows.
 
@@ -33,8 +33,8 @@ export async function matchTracksToSpotifyApi({
 
       if (manRes.ok && manData.matches?.length) {
         matches = matches.map((m) => {
-          // Backend uses `track_title` in manual rows and `discogs_title` in match rows.
-          const manual = manData.matches.find((mm) => mm.track_title === m.discogs_title);
+          const matchTitle = m.catalog_title ?? m.discogs_title;
+          const manual = manData.matches.find((mm) => mm.track_title === matchTitle);
           if (manual?.spotify_track) return { ...m, spotify_track: manual.spotify_track };
           return m;
         });

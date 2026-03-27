@@ -29,6 +29,9 @@ class AuthSmokeEndpointsTests(TestCase):
         res = self.noauth_client.get("/api/search/detail/?type=artist&id=abc")
         self.assertNoAuth(res)
 
+        res = self.noauth_client.get("/api/search/album-overview/?album=x&artist=y")
+        self.assertNoAuth(res)
+
     def test_list_endpoints_require_auth(self):
         res = self.noauth_client.get("/api/search/lists/")
         self.assertNoAuth(res)

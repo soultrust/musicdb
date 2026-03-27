@@ -1,7 +1,7 @@
-import { useMusicDbApp } from "../hooks/useMusicDbApp";
+import { useHeaderContext } from "../hooks/useMusicDbApp";
 
 export default function AppHeader() {
-  const { header: h } = useMusicDbApp();
+  const h = useHeaderContext();
   return (
     <div className="app-header">
       <h1>

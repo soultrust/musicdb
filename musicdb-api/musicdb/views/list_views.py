@@ -7,7 +7,7 @@ from ..models import List, ListItem
 from ..serializers import ListCreateSerializer, ListItemsWriteSerializer
 from .common import (
     _bad_request,
-    _fetch_display_title_from_discogs,
+    _fetch_display_title_from_catalog,
     _internal_error_response,
     logger,
     _validate_choice,
@@ -92,7 +92,7 @@ class ListItemsView(APIView):
                 if resource_type == "album":
                     title = f"album-{resource_id}"
                 else:
-                    title = _fetch_display_title_from_discogs(resource_type, resource_id)
+                    title = _fetch_display_title_from_catalog(resource_type, resource_id)
 
             current_list_items = ListItem.objects.filter(
                 list__user=request.user,

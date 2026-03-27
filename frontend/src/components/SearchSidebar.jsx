@@ -1,7 +1,7 @@
-import { useMusicDbApp } from "../hooks/useMusicDbApp";
+import { useSearchSidebarContext } from "../hooks/useMusicDbApp";
 
 export default function SearchSidebar() {
-  const { searchSidebar: s } = useMusicDbApp();
+  const s = useSearchSidebarContext();
   return (
     <div className="sidebar">
       <form onSubmit={s.handleSubmit} className="search-form">

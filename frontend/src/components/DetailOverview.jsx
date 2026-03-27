@@ -1,4 +1,8 @@
-export default function DetailOverview({ detailData, selectedItem, overviewLoading, overview, overviewError }) {
+import { useDetailOverviewContext } from "../hooks/useMusicDbApp";
+
+export default function DetailOverview() {
+  const { detailData, selectedItem, overviewLoading, overview, overviewError } = useDetailOverviewContext();
+
   if (!(overviewLoading || overview || overviewError)) return null;
 
   return (
@@ -35,4 +39,3 @@ export default function DetailOverview({ detailData, selectedItem, overviewLoadi
     </div>
   );
 }
-

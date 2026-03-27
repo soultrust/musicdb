@@ -74,7 +74,9 @@ export function useSpotifySearchModal({
       });
       setSpotifyMatches((prev) =>
         prev.map((m) =>
-          m.discogs_title === manualMatchTrackTitle ? { ...m, spotify_track: track } : m,
+          (m.catalog_title ?? m.discogs_title) === manualMatchTrackTitle
+            ? { ...m, spotify_track: track }
+            : m,
         ),
       );
     } catch (err) {

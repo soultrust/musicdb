@@ -183,7 +183,9 @@ export function useLikedTracks({
           for (const track of currentDetail.tracklist) {
             const key = currentSelected ? buildTrackKeyForItem(currentSelected, track) : null;
             if (!key || normalizeStoredLikeValue(prev[key]) !== 1) continue;
-            const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+            const match = spotifyMatches.find(
+              (m) => (m.catalog_title ?? m.discogs_title) === track.title,
+            );
             const sid = match?.spotify_track?.id;
             if (sid && !saved.has(sid)) {
               next[key] = 0;
@@ -212,7 +214,9 @@ export function useLikedTracks({
       if (!key) return 0;
       const hasLocal = Object.prototype.hasOwnProperty.call(likedTracks, key);
       const local = normalizeStoredLikeValue(likedTracks[key]);
-      const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+      const match = spotifyMatches.find(
+        (m) => (m.catalog_title ?? m.discogs_title) === track.title,
+      );
       const spotifyId = match?.spotify_track?.id;
       const spotifySaved = spotifyId && spotifySavedTrackIds.has(spotifyId);
       if (hasLocal && local === 2) return 2;
@@ -244,7 +248,9 @@ export function useLikedTracks({
   function toggleLikeTrack(track) {
     const key = getTrackKey(track);
     if (!key) return;
-    const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+    const match = spotifyMatches.find(
+      (m) => (m.catalog_title ?? m.discogs_title) === track.title,
+    );
     const spotifyTrack = match?.spotify_track;
     const displayState = getDisplayLikeState(track);
     const nextState = (displayState + 1) % 3;

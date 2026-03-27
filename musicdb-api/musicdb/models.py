@@ -14,6 +14,7 @@ class ConsumedAlbum(models.Model):
         related_name="consumed_albums",
     )
     type = models.CharField(max_length=20)  # 'release' or 'master'
+    # Legacy field name retained for migration compatibility; stores generic catalog IDs.
     discogs_id = models.CharField(max_length=64)  # Discogs numeric IDs or MusicBrainz UUIDs (36 chars)
     title = models.CharField(max_length=512, blank=True)  # search result title for duplicate hiding
     consumed = models.BooleanField(default=True)

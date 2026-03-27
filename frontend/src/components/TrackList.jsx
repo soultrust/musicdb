@@ -1,24 +1,29 @@
 import TrackRow from "./TrackRow";
+import { useDetailShellContext, useDetailTracklistContext } from "../hooks/useMusicDbApp";
 
-export default function TrackList({
-  tracklist,
-  spotifyMatching,
-  autoplay,
-  setAutoplay,
-  tracklistFilter,
-  setTracklistFilter,
-  getDisplayLikeState,
-  spotifyMatches,
-  currentTrack,
-  playbackDuration,
-  playbackPosition,
-  getTrackKey,
-  handleTrackRowClick,
-  playTrack,
-  openSpotifySearchModal,
-  toggleLikeTrack,
-  spotifyToken,
-}) {
+export default function TrackList() {
+  const { detailData } = useDetailShellContext();
+  const {
+    spotifyMatching,
+    autoplay,
+    setAutoplay,
+    tracklistFilter,
+    setTracklistFilter,
+    getDisplayLikeState,
+    spotifyMatches,
+    currentTrack,
+    playbackDuration,
+    playbackPosition,
+    getTrackKey,
+    handleTrackRowClick,
+    playTrack,
+    openSpotifySearchModal,
+    toggleLikeTrack,
+    spotifyToken,
+  } = useDetailTracklistContext();
+
+  const tracklist = detailData?.tracklist ?? [];
+
   return (
     <div className="detail-tracklist">
       <div className="tracklist-header">
@@ -94,7 +99,9 @@ export default function TrackList({
             return true;
           })
           .map((track, i) => {
-            const match = spotifyMatches.find((m) => m.discogs_title === track.title);
+            const match = spotifyMatches.find(
+              (m) => (m.catalog_title ?? m.discogs_title) === track.title,
+            );
             const spotifyTrack = match?.spotify_track;
             const isCurrentTrack =
               spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
@@ -127,4 +134,3 @@ export default function TrackList({
     </div>
   );
 }
-

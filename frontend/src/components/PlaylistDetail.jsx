@@ -1,7 +1,7 @@
-import { useMusicDbApp } from "../hooks/useMusicDbApp";
+import { usePlaylistDetailContext } from "../hooks/useMusicDbApp";
 
 export default function PlaylistDetail() {
-  const { playlistDetail: p } = useMusicDbApp();
+  const p = usePlaylistDetailContext();
   return (
     <div className="detail">
       {p.playlistTracksLoading && <p className="detail-loading">Loading playlist…</p>}

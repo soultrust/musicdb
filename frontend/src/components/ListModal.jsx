@@ -1,7 +1,7 @@
-import { useMusicDbApp } from "../hooks/useMusicDbApp";
+import { useListModalContext } from "../hooks/useMusicDbApp";
 
 export default function ListModal() {
-  const { listModal: l } = useMusicDbApp();
+  const l = useListModalContext();
   return (
     <div className="modal-overlay" onClick={l.handleCloseListModal}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
