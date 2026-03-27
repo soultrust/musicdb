@@ -14,6 +14,14 @@ def _bad_request(message):
     return Response({"error": message}, status=status.HTTP_400_BAD_REQUEST)
 
 
+def _validation_error_response(serializer):
+    """DRF serializer errors for request bodies or query-style payloads."""
+    return Response(
+        {"error": "Invalid request", "errors": serializer.errors},
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
 def _upstream_error(service_name, status_code):
     return Response(
         {"error": f"{service_name} API returned {status_code}"},

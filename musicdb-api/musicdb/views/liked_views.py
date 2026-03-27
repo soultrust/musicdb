@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..models import TrackEspeciallyLiked
-from .common import _bad_request, _validate_choice, _validate_required
+from ..serializers import EspeciallyLikedTrackWriteSerializer
+from .common import _validate_choice, _validate_required, _validation_error_response
 
 
 class EspeciallyLikedTracksView(APIView):
@@ -27,19 +28,14 @@ class EspeciallyLikedTrackView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        item_type = (request.data.get("item_type") or "").strip().lower()
-        item_id = (request.data.get("item_id") or "").strip()
-        track_title = (request.data.get("track_title") or "").strip()
-        track_position = str(request.data.get("track_position") or "").strip()
-        especially_liked = bool(request.data.get("especially_liked"))
-        required_error = _validate_required(
-            {"item_type": item_type, "item_id": item_id, "track_title": track_title}
-        )
-        if required_error:
-            return required_error
-        type_error = _validate_choice(item_type, ("release", "master", "album"), "item_type")
-        if type_error:
-            return type_error
+        ser = EspeciallyLikedTrackWriteSerializer(data=request.data)
+        if not ser.is_valid():
+            return _validation_error_response(ser)
+        item_type = ser.validated_data["item_type"]
+        item_id = ser.validated_data["item_id"]
+        track_title = ser.validated_data["track_title"]
+        track_position = str(ser.validated_data.get("track_position") or "").strip()
+        especially_liked = ser.validated_data["especially_liked"]
 
         query = {
             "user": request.user,

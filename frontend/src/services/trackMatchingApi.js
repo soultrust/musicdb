@@ -1,3 +1,5 @@
+import { manualSpotifyMatchesUrl } from "./searchApi";
+
 // Discogs/MusicBrainz tracklist → server-side Spotify matching,
 // plus optional manual Discogs→Spotify overrides.
 //
@@ -26,11 +28,7 @@ export async function matchTracksToSpotifyApi({
 
   if (res.ok && releaseId) {
     try {
-      const manRes = await authFetch(
-        `${API_BASE}/api/search/manual-spotify-matches/?release_id=${encodeURIComponent(
-          releaseId,
-        )}`,
-      );
+      const manRes = await authFetch(manualSpotifyMatchesUrl(API_BASE, releaseId));
       const manData = await manRes.json();
 
       if (manRes.ok && manData.matches?.length) {
@@ -49,4 +47,3 @@ export async function matchTracksToSpotifyApi({
 
   return matches;
 }
-

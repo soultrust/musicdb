@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { manualSpotifyMatchUrl } from "../services/searchApi";
 
 export function useSpotifySearchModal({
   API_BASE,
@@ -57,7 +58,7 @@ export function useSpotifySearchModal({
   async function handleSelectSpotifyTrack(track) {
     if (!manualMatchTrackTitle || !selectedItem?.id) return;
     try {
-      await authFetch(`${API_BASE}/api/search/manual-spotify-match/`, {
+      await authFetch(manualSpotifyMatchUrl(API_BASE), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

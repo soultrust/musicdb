@@ -1,69 +1,58 @@
-export default function AppHeader({
-  spotifyToken,
-  spotifyConnectionStatus,
-  deviceId,
-  isPlaying,
-  currentTrack,
-  togglePlayback,
-  handleSpotifyLogin,
-  viewListId,
-  onViewListChange,
-  allListsForView,
-  logout,
-}) {
+import { useMusicDbApp } from "../hooks/useMusicDbApp";
+
+export default function AppHeader() {
+  const { header: h } = useMusicDbApp();
   return (
     <div className="app-header">
       <h1>
         MusicDB <span className="app-header-subtitle">MusicBrainz</span>
       </h1>
       <div className="app-header-right">
-        {spotifyToken ? (
+        {h.spotifyToken ? (
           <div className="spotify-controls">
             <span
               className={`spotify-status ${
-                spotifyConnectionStatus === "connected"
+                h.spotifyConnectionStatus === "connected"
                   ? "spotify-connected"
-                  : spotifyConnectionStatus === "connecting"
+                  : h.spotifyConnectionStatus === "connecting"
                     ? "spotify-connecting"
                     : "spotify-disconnected"
               }`}
             >
-              {spotifyConnectionStatus === "connected" && deviceId
+              {h.spotifyConnectionStatus === "connected" && h.deviceId
                 ? "Spotify Connected"
-                : spotifyConnectionStatus === "connecting"
+                : h.spotifyConnectionStatus === "connecting"
                   ? "Spotify Connecting..."
                   : "Spotify Reconnecting..."}
             </span>
-            {spotifyConnectionStatus === "connected" && deviceId && (
+            {h.spotifyConnectionStatus === "connected" && h.deviceId && (
               <button
-                onClick={togglePlayback}
+                onClick={h.togglePlayback}
                 className="play-pause-btn"
-                disabled={!currentTrack}
+                disabled={!h.currentTrack}
               >
-                {isPlaying ? "⏸" : "▶"}
+                {h.isPlaying ? "⏸" : "▶"}
               </button>
             )}
           </div>
         ) : (
-          <button onClick={handleSpotifyLogin} className="spotify-login-btn">
+          <button onClick={h.handleSpotifyLogin} className="spotify-login-btn">
             Connect to Spotify
           </button>
         )}
         <select
           className="view-list-select"
-          value={viewListId ?? ""}
-          onChange={onViewListChange}
+          value={h.viewListId ?? ""}
+          onChange={h.onViewListChange}
           title="Select a list to view"
         >
           <option value="">— Select a list —</option>
-          {spotifyToken && <option value="spotify-playlists">Shared Playlists</option>}
+          {h.spotifyToken && <option value="spotify-playlists">Shared Playlists</option>}
           {[
             { label: "Releases", list_type: "release" },
             { label: "Artists", list_type: "person" },
           ].map(({ label, list_type }) => {
-            const groupLists = (allListsForView || []).filter(
-              (l) => l.list_type === list_type,
-            );
+            const groupLists = (h.allListsForView || []).filter((l) => l.list_type === list_type);
             if (groupLists.length === 0) return null;
             return (
               <optgroup key={list_type} label={label}>
@@ -76,11 +65,10 @@ export default function AppHeader({
             );
           })}
         </select>
-        <button onClick={logout} className="app-logout-btn" title="Log out of the app">
+        <button onClick={h.logout} className="app-logout-btn" title="Log out of the app">
           Log out
         </button>
       </div>
     </div>
   );
 }
-

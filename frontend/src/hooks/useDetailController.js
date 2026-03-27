@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
+import { albumOverviewUrl, detailUrl } from "../services/searchApi";
 
 export function useDetailController({
   API_BASE,
@@ -37,9 +38,7 @@ export function useDetailController({
 
       setDetailLoading(true);
       try {
-        const res = await authFetch(
-          `${API_BASE}/api/search/detail/?type=${encodeURIComponent(item.type)}&id=${encodeURIComponent(item.id)}`,
-        );
+        const res = await authFetch(detailUrl(API_BASE, item.type, item.id));
         const data = await res.json();
 
         if (!res.ok) {
@@ -81,11 +80,7 @@ export function useDetailController({
           setOverviewLoading(true);
           setOverviewError(null);
           try {
-            const ovRes = await authFetch(
-              `${API_BASE}/api/search/album-overview/?album=${encodeURIComponent(
-                album,
-              )}&artist=${encodeURIComponent(artist)}`,
-            );
+            const ovRes = await authFetch(albumOverviewUrl(API_BASE, album, artist));
             const text = await ovRes.text();
 
             if (text.trim().startsWith("<")) {

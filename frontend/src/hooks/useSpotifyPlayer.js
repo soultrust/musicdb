@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { spotifyPlayerPlayUris } from "../services/spotifyApi";
 
 export function useSpotifyPlayer({
   spotifyToken,
@@ -258,14 +259,7 @@ export function useSpotifyPlayer({
       if (!playerRef.current || !spotifyToken) return;
       if (!deviceId) return;
       try {
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${spotifyToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ uris: [spotifyUri] }),
-        });
+        await spotifyPlayerPlayUris(deviceId, [spotifyUri], spotifyToken);
       } catch (err) {
         console.error("Failed to play track:", err);
       }

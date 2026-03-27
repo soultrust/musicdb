@@ -4,9 +4,35 @@ import {
   getEspeciallyLikedTracksApi,
   setEspeciallyLikedTrackApi,
 } from "../services/especiallyLikedApi";
+import {
+  spotifyTracksContains,
+  spotifySaveUserTrack,
+  spotifyUnsaveUserTrack,
+} from "../services/spotifyApi";
 
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const ESPECIALLY_LIKED_BACKFILL_KEY = "soultrust_especially_liked_backfilled_v1";
+
+/** localStorage / JSON may restore 0–2 as strings; keep display and Spotify sync consistent */
+function normalizeStoredLikeValue(v) {
+  if (v === 0 || v === 1 || v === 2) return v;
+  if (v === "0" || v === "1" || v === "2") return Number(v);
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (n === 0 || n === 1 || n === 2) return n;
+  }
+  return null;
+}
+
+function normalizeLikedTracksMap(raw) {
+  if (!raw || typeof raw !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const n = normalizeStoredLikeValue(v);
+    if (n !== null) out[k] = n;
+  }
+  return out;
+}
 
 export function useLikedTracks({
   API_BASE,
@@ -21,7 +47,8 @@ export function useLikedTracks({
   const [likedTracks, setLikedTracks] = useState(() => {
     try {
       const stored = localStorage.getItem(LIKED_TRACKS_KEY);
-      return stored ? JSON.parse(stored) : {};
+      const parsed = stored ? JSON.parse(stored) : {};
+      return normalizeLikedTracksMap(parsed);
     } catch {
       return {};
     }
@@ -48,7 +75,9 @@ export function useLikedTracks({
         storedLiked = {};
       }
 
-      const entries = Object.entries(storedLiked).filter(([, v]) => v === 2);
+      const entries = Object.entries(storedLiked).filter(
+        ([, v]) => normalizeStoredLikeValue(v) === 2,
+      );
       if (entries.length === 0) {
         localStorage.setItem(ESPECIALLY_LIKED_BACKFILL_KEY, "true");
         return;
@@ -104,10 +133,7 @@ export function useLikedTracks({
       for (let i = 0; i < ids.length; i += BATCH) {
         const chunk = ids.slice(i, i + BATCH);
         try {
-          const res = await fetch(
-            `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
-            { headers: { Authorization: `Bearer ${spotifyToken}` } },
-          );
+          const res = await spotifyTracksContains(chunk, spotifyToken);
           if (!res.ok || cancelled) break;
           const arr = await res.json();
           chunk.forEach((id, idx) => {
@@ -138,10 +164,7 @@ export function useLikedTracks({
         for (let i = 0; i < ids.length; i += BATCH) {
           const chunk = ids.slice(i, i + BATCH);
           try {
-            const res = await fetch(
-              `https://api.spotify.com/v1/me/tracks/contains?ids=${chunk.map(encodeURIComponent).join(",")}`,
-              { headers: { Authorization: `Bearer ${spotifyToken}` } },
-            );
+            const res = await spotifyTracksContains(chunk, spotifyToken);
             if (!res.ok) return;
             const arr = await res.json();
             chunk.forEach((id, idx) => {
@@ -159,7 +182,7 @@ export function useLikedTracks({
           const next = { ...prev };
           for (const track of currentDetail.tracklist) {
             const key = currentSelected ? buildTrackKeyForItem(currentSelected, track) : null;
-            if (!key || prev[key] !== 1) continue;
+            if (!key || normalizeStoredLikeValue(prev[key]) !== 1) continue;
             const match = spotifyMatches.find((m) => m.discogs_title === track.title);
             const sid = match?.spotify_track?.id;
             if (sid && !saved.has(sid)) {
@@ -187,8 +210,8 @@ export function useLikedTracks({
     (track) => {
       const key = getTrackKey(track);
       if (!key) return 0;
-      const hasLocal = key in likedTracks;
-      const local = likedTracks[key];
+      const hasLocal = Object.prototype.hasOwnProperty.call(likedTracks, key);
+      const local = normalizeStoredLikeValue(likedTracks[key]);
       const match = spotifyMatches.find((m) => m.discogs_title === track.title);
       const spotifyId = match?.spotify_track?.id;
       const spotifySaved = spotifyId && spotifySavedTrackIds.has(spotifyId);
@@ -227,10 +250,7 @@ export function useLikedTracks({
     const nextState = (displayState + 1) % 3;
 
     if (nextState === 0 && spotifyTrack?.id && spotifyToken) {
-      fetch(`https://api.spotify.com/v1/me/tracks?ids=${encodeURIComponent(spotifyTrack.id)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${spotifyToken}` },
-      })
+      spotifyUnsaveUserTrack(spotifyTrack.id, spotifyToken)
         .then(() => {
           setSpotifySavedTrackIds((prev) => {
             const next = new Set(prev);
@@ -242,10 +262,7 @@ export function useLikedTracks({
     }
 
     if (nextState === 1 && spotifyTrack?.id && spotifyToken) {
-      fetch(`https://api.spotify.com/v1/me/tracks?ids=${encodeURIComponent(spotifyTrack.id)}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${spotifyToken}` },
-      })
+      spotifySaveUserTrack(spotifyTrack.id, spotifyToken)
         .then(() => {
           setSpotifySavedTrackIds((prev) => new Set(prev).add(spotifyTrack.id));
         })
@@ -304,12 +321,13 @@ export function useLikedTracks({
           const key = buildTrackKeyForItem(item, track);
           if (!key) continue;
           const fp = `${track.position != null && track.position !== "" ? String(track.position) : ""}::${String(track.title || "").trim()}`;
+          const current = normalizeStoredLikeValue(next[key]);
           if (especiallySet.has(fp)) {
-            if (next[key] !== 2) {
+            if (current !== 2) {
               next[key] = 2;
               changed = true;
             }
-          } else if (next[key] === 2) {
+          } else if (current === 2) {
             delete next[key];
             changed = true;
           }

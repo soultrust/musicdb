@@ -1,14 +1,12 @@
+import { especiallyLikedTrackUrl, especiallyLikedTracksUrl } from "./searchApi";
+
 export async function getEspeciallyLikedTracksApi({
   authFetch,
   API_BASE,
   itemType,
   itemId,
 }) {
-  const res = await authFetch(
-    `${API_BASE}/api/search/especially-liked-tracks/?item_type=${encodeURIComponent(
-      itemType,
-    )}&item_id=${encodeURIComponent(itemId)}`,
-  );
+  const res = await authFetch(especiallyLikedTracksUrl(API_BASE, itemType, itemId));
   const data = await res.json();
   return { ok: res.ok, data };
 }
@@ -22,7 +20,7 @@ export async function setEspeciallyLikedTrackApi({
   trackPosition,
   especiallyLiked,
 }) {
-  const res = await authFetch(`${API_BASE}/api/search/especially-liked-track/`, {
+  const res = await authFetch(especiallyLikedTrackUrl(API_BASE), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

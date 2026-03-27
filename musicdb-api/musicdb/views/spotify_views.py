@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..models import TrackSpotifyLink
-from .common import _bad_request, _validate_required
+from ..serializers import ManualSpotifyMatchSerializer
+from .common import _validate_required, _validation_error_response
 
 
 class ManualSpotifyMatchesView(APIView):
@@ -34,21 +35,23 @@ class ManualSpotifyMatchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        release_id = (request.data.get("release_id") or "").strip()
-        track_title = (request.data.get("track_title") or "").strip()
-        spotify_track = request.data.get("spotify_track")
-        required_error = _validate_required({"release_id": release_id, "track_title": track_title})
-        if required_error:
-            return required_error
-        if not spotify_track or not spotify_track.get("id"):
-            return _bad_request("Missing or invalid spotify_track (must have id)")
+        ser = ManualSpotifyMatchSerializer(data=request.data)
+        if not ser.is_valid():
+            return _validation_error_response(ser)
+        release_id = ser.validated_data["release_id"]
+        track_title = ser.validated_data["track_title"]
+        spotify_track = ser.validated_data["spotify_track"]
         track_id = str(spotify_track.get("id", "")).strip()
         uri = str(spotify_track.get("uri") or "").strip()
         name = str(spotify_track.get("name") or "").strip()
-        artists = spotify_track.get("artists")
-        if not isinstance(artists, list):
-            artists = []
-        artists = [{"name": str(a.get("name", "")).strip()} for a in artists]
+        artists_raw = spotify_track.get("artists") or []
+        if not isinstance(artists_raw, list):
+            artists_raw = []
+        artists = [
+            {"name": str(a.get("name", "")).strip()}
+            for a in artists_raw
+            if isinstance(a, dict)
+        ]
 
         link, _ = TrackSpotifyLink.objects.update_or_create(
             user=request.user,

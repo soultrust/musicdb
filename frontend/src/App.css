@@ -942,9 +942,9 @@
   fill: currentColor;
 }
 
-/* State 2: Especially like — brighter green */
+/* State 2: Especially like — nudge brighter than Spotify #1db954 for star emphasis */
 .track-like-2 {
-  color: #1db954;
+  color: #20c15a;
 }
 
 .track-like-2 svg path {

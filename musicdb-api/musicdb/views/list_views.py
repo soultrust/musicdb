@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..models import List, ListItem
+from ..serializers import ListCreateSerializer, ListItemsWriteSerializer
 from .common import (
     _bad_request,
     _fetch_display_title_from_discogs,
@@ -11,6 +12,7 @@ from .common import (
     logger,
     _validate_choice,
     _validate_required,
+    _validation_error_response,
 )
 
 
@@ -40,12 +42,11 @@ class ListsView(APIView):
 
     def post(self, request):
         try:
-            name = str(request.data.get("name") or "").strip()
-            list_type = str(request.data.get("list_type") or List.LIST_TYPE_RELEASE).strip().lower()
-            if not name:
-                return _bad_request("List name is required")
-            if list_type not in (List.LIST_TYPE_RELEASE, List.LIST_TYPE_PERSON):
-                return _bad_request("list_type must be 'release' or 'person'")
+            ser = ListCreateSerializer(data=request.data)
+            if not ser.is_valid():
+                return _validation_error_response(ser)
+            name = ser.validated_data["name"]
+            list_type = ser.validated_data["list_type"]
             if List.objects.filter(user=request.user, list_type=list_type, name=name).exists():
                 return _bad_request("A list with this name already exists for this type")
             list_obj = List.objects.create(user=request.user, list_type=list_type, name=name)
@@ -69,19 +70,13 @@ class ListItemsView(APIView):
 
     def post(self, request):
         try:
-            resource_type = str(request.data.get("type") or "").strip().lower()
-            resource_id = str(request.data.get("id") or "").strip()
-            list_ids = request.data.get("list_ids", [])
-            title = str(request.data.get("title") or "").strip()
-
-            required_error = _validate_required({"type": resource_type, "id": resource_id})
-            if required_error:
-                return _bad_request("Missing required parameters: type and id")
-            type_error = _validate_choice(resource_type, ("release", "master", "album"), "type")
-            if type_error:
-                return type_error
-            if not isinstance(list_ids, list):
-                return _bad_request("list_ids must be a list")
+            ser = ListItemsWriteSerializer(data=request.data)
+            if not ser.is_valid():
+                return _validation_error_response(ser)
+            resource_type = ser.validated_data["type"]
+            resource_id = str(ser.validated_data["id"]).strip()
+            list_ids = ser.validated_data["list_ids"]
+            title = str(ser.validated_data.get("title") or "").strip()
 
             selected_list_ids_set = set(list_ids)
             user_release_lists = List.objects.filter(user=request.user, list_type=List.LIST_TYPE_RELEASE)

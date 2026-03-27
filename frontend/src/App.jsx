@@ -17,9 +17,10 @@ import { useSpotifyAuth } from "./hooks/useSpotifyAuth";
 import { useSpotifySearchModal } from "./hooks/useSpotifySearchModal";
 import { useDetailController } from "./hooks/useDetailController";
 import { useViewSwitchReset } from "./hooks/useViewSwitchReset";
+import { useSearchSubmit } from "./hooks/useSearchSubmit";
+import { useAppContextValue } from "./hooks/useAppContextValue";
+import { MusicDbAppProvider } from "./context/MusicDbAppProvider";
 import { API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI } from "./config";
-
-console.log("API_BASE being used:", API_BASE);
 
 function App() {
   const {
@@ -90,6 +91,43 @@ function App() {
   );
 
   const {
+    getTrackKey,
+    tracklistFilter,
+    setTracklistFilter,
+    getDisplayLikeState,
+    toggleLikeTrack,
+    visibleTracklist,
+    isTrackVisible,
+    syncEspeciallyLikedForItem,
+  } = useLikedTracks({
+    API_BASE,
+    authFetch,
+    accessToken,
+    selectedItem,
+    detailData,
+    spotifyMatches,
+    spotifyToken,
+  });
+
+  const { handleItemClick } = useDetailController({
+    API_BASE,
+    authFetch,
+    syncEspeciallyLikedForItem,
+
+    setSelectedItem,
+    setDetailData,
+    setDetailLoading,
+    setDetailError,
+    setOverview,
+    setOverviewLoading,
+    setOverviewError,
+    setAlbumArtReady,
+    setAlbumArtRetryKey,
+    setSpotifyMatches,
+    setSpotifyMatching,
+  });
+
+  const {
     showListModal,
     lists,
     selectedListIds,
@@ -134,46 +172,24 @@ function App() {
     setPlaylistTracksData,
   });
 
-  const {
-    getTrackKey,
-    tracklistFilter,
-    setTracklistFilter,
-    getDisplayLikeState,
-    toggleLikeTrack,
-    visibleTracklist,
-    isTrackVisible,
-    syncEspeciallyLikedForItem,
-  } = useLikedTracks({
+  const handleSubmit = useSearchSubmit({
     API_BASE,
     authFetch,
-    accessToken,
-    selectedItem,
-    detailData,
-    spotifyMatches,
-    spotifyToken,
-  });
-
-  const { handleItemClick: handleItemClickInternal } = useDetailController({
-    API_BASE,
-    authFetch,
-    syncEspeciallyLikedForItem,
-
+    query,
+    searchType,
+    filterArtist,
+    filterYear,
+    filterYearFrom,
+    filterYearTo,
+    setLoading,
+    setError,
+    setResults,
+    setViewListId,
+    handleItemClick,
     setSelectedItem,
     setDetailData,
-    setDetailLoading,
-    setDetailError,
-    setOverview,
-    setOverviewLoading,
-    setOverviewError,
-    setAlbumArtReady,
-    setAlbumArtRetryKey,
     setSpotifyMatches,
-    setSpotifyMatching,
   });
-
-  async function handleItemClick(item) {
-    return handleItemClickInternal(item);
-  }
 
   const {
     spotifyConnectionStatus,
@@ -224,7 +240,89 @@ function App() {
     setSpotifyMatches,
   });
 
-  
+  const musicDbAppValue = useAppContextValue({
+    spotifyToken,
+    spotifyConnectionStatus,
+    deviceId,
+    isPlaying,
+    currentTrack,
+    togglePlayback,
+    handleSpotifyLogin,
+    viewListId,
+    resetOnViewSwitch,
+    allListsForView,
+    logout,
+    handleSubmit,
+    searchType,
+    setSearchType,
+    query,
+    setQuery,
+    loading,
+    filterArtist,
+    setFilterArtist,
+    filterYear,
+    setFilterYear,
+    filterYearFrom,
+    setFilterYearFrom,
+    filterYearTo,
+    setFilterYearTo,
+    allowDigitsOnly,
+    error,
+    spotifyPlaylistsLoading,
+    spotifyPlaylists,
+    selectedPlaylistId,
+    setSelectedPlaylistId,
+    setSelectedItem,
+    setDetailData,
+    listViewData,
+    listViewLoading,
+    handleItemClick,
+    results,
+    selectedItem,
+    playlistTracksLoading,
+    playlistTracksData,
+    playTrack,
+    listLoading,
+    lists,
+    selectedListIds,
+    toggleListSelection,
+    handleCreateList,
+    newListName,
+    setNewListName,
+    listError,
+    handleAddToLists,
+    handleCloseListModal,
+    closeSpotifySearchModal,
+    handleSpotifySearch,
+    spotifySearchQuery,
+    setSpotifySearchQuery,
+    spotifySearchLoading,
+    spotifySearchResults,
+    handleSelectSpotifyTrack,
+    spotifySearchFetched,
+    detailLoading,
+    detailData,
+    albumArtReady,
+    albumArtRetryKey,
+    setAlbumArtRetryKey,
+    handleAddToList,
+    spotifyMatching,
+    autoplay,
+    setAutoplay,
+    tracklistFilter,
+    setTracklistFilter,
+    getDisplayLikeState,
+    spotifyMatches,
+    playbackDuration,
+    playbackPosition,
+    getTrackKey,
+    handleTrackRowClick,
+    openSpotifySearchModal,
+    toggleLikeTrack,
+    overviewLoading,
+    overview,
+    overviewError,
+  });
 
   // Defer album art load until detail panel has painted (avoids flaky loads) and enable retry on error
   useEffect(() => {
@@ -232,50 +330,6 @@ function App() {
     const id = requestAnimationFrame(() => setAlbumArtReady(true));
     return () => cancelAnimationFrame(id);
   }, [detailData, detailLoading]);
-
-  // Removed consumed list loading - replaced with lists feature
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        q: query.trim(),
-        type: searchType,
-      });
-      if (searchType === "album") {
-        if (filterArtist.trim()) params.set("artist", filterArtist.trim());
-        if (filterYear.trim()) params.set("year", filterYear.trim());
-        if (filterYearFrom.trim()) params.set("year_from", filterYearFrom.trim());
-        if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
-      }
-      const searchRes = await authFetch(`${API_BASE}/api/search/?${params.toString()}`);
-      const data = await searchRes.json();
-      if (!searchRes.ok) {
-        setError(data.error || `Request failed: ${searchRes.status}`);
-        return;
-      }
-      setResults(data.results || []);
-      setViewListId(null); /* switch to search results when searching */
-      if (data.results?.length) {
-        const first = data.results[0];
-        requestAnimationFrame(() => handleItemClick(first));
-      } else {
-        setSelectedItem(null);
-        setDetailData(null);
-        setSpotifyMatches([]);
-      }
-    } catch (err) {
-      setError(err.message || "Request failed");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // handleItemClick is now provided by useDetailController
-
 
   function handleSpotifyLogout() {
     setSpotifyToken(null);
@@ -302,120 +356,21 @@ function App() {
   }
 
   return (
-    <div className="app">
-      <AppHeader
-        spotifyToken={spotifyToken}
-        spotifyConnectionStatus={spotifyConnectionStatus}
-        deviceId={deviceId}
-        isPlaying={isPlaying}
-        currentTrack={currentTrack}
-        togglePlayback={togglePlayback}
-        handleSpotifyLogin={handleSpotifyLogin}
-        viewListId={viewListId}
-        onViewListChange={resetOnViewSwitch}
-        allListsForView={allListsForView}
-        logout={logout}
-      />
-      <div className="content">
-        <SearchSidebar
-          handleSubmit={handleSubmit}
-          searchType={searchType}
-          setSearchType={setSearchType}
-          query={query}
-          setQuery={setQuery}
-          loading={loading}
-          viewListId={viewListId}
-          filterArtist={filterArtist}
-          setFilterArtist={setFilterArtist}
-          filterYear={filterYear}
-          setFilterYear={setFilterYear}
-          filterYearFrom={filterYearFrom}
-          setFilterYearFrom={setFilterYearFrom}
-          filterYearTo={filterYearTo}
-          setFilterYearTo={setFilterYearTo}
-          allowDigitsOnly={allowDigitsOnly}
-          error={error}
-          spotifyPlaylistsLoading={spotifyPlaylistsLoading}
-          spotifyToken={spotifyToken}
-          spotifyPlaylists={spotifyPlaylists}
-          selectedPlaylistId={selectedPlaylistId}
-          setSelectedPlaylistId={setSelectedPlaylistId}
-          setSelectedItem={setSelectedItem}
-          setDetailData={setDetailData}
-          listViewData={listViewData}
-          listViewLoading={listViewLoading}
-          handleItemClick={handleItemClick}
-          results={results}
-          selectedItem={selectedItem}
-        />
-        {selectedPlaylistId && playlistTracksData ? (
-          <PlaylistDetail
-            playlistTracksLoading={playlistTracksLoading}
-            playlistTracksData={playlistTracksData}
-            deviceId={deviceId}
-            spotifyToken={spotifyToken}
-            playTrack={playTrack}
-          />
-        ) : (
-          selectedItem && (
-            <SelectedItemDetail
-              detailLoading={detailLoading}
-              detailData={detailData}
-              selectedItem={selectedItem}
-              albumArtReady={albumArtReady}
-              albumArtRetryKey={albumArtRetryKey}
-              setAlbumArtRetryKey={setAlbumArtRetryKey}
-              handleAddToList={handleAddToList}
-              spotifyMatching={spotifyMatching}
-              autoplay={autoplay}
-              setAutoplay={setAutoplay}
-              tracklistFilter={tracklistFilter}
-              setTracklistFilter={setTracklistFilter}
-              getDisplayLikeState={getDisplayLikeState}
-              spotifyMatches={spotifyMatches}
-              currentTrack={currentTrack}
-              playbackDuration={playbackDuration}
-              playbackPosition={playbackPosition}
-              getTrackKey={getTrackKey}
-              handleTrackRowClick={handleTrackRowClick}
-              playTrack={playTrack}
-              openSpotifySearchModal={openSpotifySearchModal}
-              toggleLikeTrack={toggleLikeTrack}
-              spotifyToken={spotifyToken}
-              overviewLoading={overviewLoading}
-              overview={overview}
-              overviewError={overviewError}
-            />
-          )
-        )}
+    <MusicDbAppProvider value={musicDbAppValue}>
+      <div className="app">
+        <AppHeader />
+        <div className="content">
+          <SearchSidebar />
+          {selectedPlaylistId && playlistTracksData ? (
+            <PlaylistDetail />
+          ) : (
+            selectedItem && <SelectedItemDetail />
+          )}
+        </div>
+        {showListModal && <ListModal />}
+        {showSpotifySearchModal && <SpotifySearchModal />}
       </div>
-      {showListModal && (
-        <ListModal
-          listLoading={listLoading}
-          lists={lists}
-          selectedListIds={selectedListIds}
-          toggleListSelection={toggleListSelection}
-          handleCreateList={handleCreateList}
-          newListName={newListName}
-          setNewListName={setNewListName}
-          listError={listError}
-          handleAddToLists={handleAddToLists}
-          handleCloseListModal={handleCloseListModal}
-        />
-      )}
-      {showSpotifySearchModal && (
-        <SpotifySearchModal
-          closeSpotifySearchModal={closeSpotifySearchModal}
-          handleSpotifySearch={handleSpotifySearch}
-          spotifySearchQuery={spotifySearchQuery}
-          setSpotifySearchQuery={setSpotifySearchQuery}
-          spotifySearchLoading={spotifySearchLoading}
-          spotifySearchResults={spotifySearchResults}
-          handleSelectSpotifyTrack={handleSelectSpotifyTrack}
-          spotifySearchFetched={spotifySearchFetched}
-        />
-      )}
-    </div>
+    </MusicDbAppProvider>
   );
 }
 

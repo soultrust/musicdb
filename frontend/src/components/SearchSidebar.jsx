@@ -1,40 +1,13 @@
-export default function SearchSidebar({
-  handleSubmit,
-  searchType,
-  setSearchType,
-  query,
-  setQuery,
-  loading,
-  viewListId,
-  filterArtist,
-  setFilterArtist,
-  filterYear,
-  setFilterYear,
-  filterYearFrom,
-  setFilterYearFrom,
-  filterYearTo,
-  setFilterYearTo,
-  allowDigitsOnly,
-  error,
-  spotifyPlaylistsLoading,
-  spotifyToken,
-  spotifyPlaylists,
-  selectedPlaylistId,
-  setSelectedPlaylistId,
-  setSelectedItem,
-  setDetailData,
-  listViewData,
-  listViewLoading,
-  handleItemClick,
-  results,
-  selectedItem,
-}) {
+import { useMusicDbApp } from "../hooks/useMusicDbApp";
+
+export default function SearchSidebar() {
+  const { searchSidebar: s } = useMusicDbApp();
   return (
     <div className="sidebar">
-      <form onSubmit={handleSubmit} className="search-form">
+      <form onSubmit={s.handleSubmit} className="search-form">
         <select
-          value={searchType}
-          onChange={(e) => setSearchType(e.target.value)}
+          value={s.searchType}
+          onChange={(e) => s.setSearchType(e.target.value)}
           className="search-type-select"
           aria-label="Search type"
         >
@@ -44,25 +17,25 @@ export default function SearchSidebar({
         </select>
         <input
           type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          value={s.query}
+          onChange={(e) => s.setQuery(e.target.value)}
           placeholder={
-            searchType === "artist"
+            s.searchType === "artist"
               ? "Search artists…"
-              : searchType === "song"
+              : s.searchType === "song"
                 ? "Search songs…"
                 : "Search albums…"
           }
-          disabled={loading}
-          autoFocus={viewListId == null}
+          disabled={s.loading}
+          autoFocus={s.viewListId == null}
         />
-        {searchType === "album" && (
+        {s.searchType === "album" && (
           <div className="search-year-filter" aria-label="Album filters">
             <label className="search-year-label">Artist</label>
             <input
               type="text"
-              value={filterArtist}
-              onChange={(e) => setFilterArtist(e.target.value)}
+              value={s.filterArtist}
+              onChange={(e) => s.setFilterArtist(e.target.value)}
               placeholder="Filter by artist"
               className="search-year-input search-artist-input"
               aria-label="Artist filter"
@@ -73,8 +46,8 @@ export default function SearchSidebar({
               inputMode="numeric"
               pattern="[0-9]*"
               maxLength={4}
-              value={filterYear}
-              onChange={allowDigitsOnly(setFilterYear)}
+              value={s.filterYear}
+              onChange={s.allowDigitsOnly(s.setFilterYear)}
               placeholder="Year"
               className="search-year-input"
               aria-label="Single year"
@@ -86,8 +59,8 @@ export default function SearchSidebar({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={4}
-                value={filterYearFrom}
-                onChange={allowDigitsOnly(setFilterYearFrom)}
+                value={s.filterYearFrom}
+                onChange={s.allowDigitsOnly(s.setFilterYearFrom)}
                 placeholder="From"
                 className="search-year-input"
                 aria-label="From year"
@@ -98,8 +71,8 @@ export default function SearchSidebar({
                 inputMode="numeric"
                 pattern="[0-9]*"
                 maxLength={4}
-                value={filterYearTo}
-                onChange={allowDigitsOnly(setFilterYearTo)}
+                value={s.filterYearTo}
+                onChange={s.allowDigitsOnly(s.setFilterYearTo)}
                 placeholder="To"
                 className="search-year-input"
                 aria-label="To year"
@@ -107,27 +80,27 @@ export default function SearchSidebar({
             </div>
           </div>
         )}
-        <button type="submit" disabled={loading} className="search-submit-btn">
-          {loading ? "Searching…" : "Search"}
+        <button type="submit" disabled={s.loading} className="search-submit-btn">
+          {s.loading ? "Searching…" : "Search"}
         </button>
       </form>
-      {error && <p className="error">{error}</p>}
-      {viewListId === "spotify-playlists" ? (
+      {s.error && <p className="error">{s.error}</p>}
+      {s.viewListId === "spotify-playlists" ? (
         <>
           <div className="list-view-header">
             <span className="list-view-title">Shared Playlists</span>
           </div>
-          {spotifyPlaylistsLoading && <p className="detail-loading">Loading playlists…</p>}
-          {!spotifyToken && <p className="list-view-empty">Connect to Spotify to view playlists.</p>}
+          {s.spotifyPlaylistsLoading && <p className="detail-loading">Loading playlists…</p>}
+          {!s.spotifyToken && <p className="list-view-empty">Connect to Spotify to view playlists.</p>}
           <ul className="results">
-            {spotifyPlaylists.map((playlist) => (
+            {s.spotifyPlaylists.map((playlist) => (
               <li
                 key={playlist.id}
-                className={selectedPlaylistId === playlist.id ? "selected" : ""}
+                className={s.selectedPlaylistId === playlist.id ? "selected" : ""}
                 onClick={() => {
-                  setSelectedPlaylistId(playlist.id);
-                  setSelectedItem(null);
-                  setDetailData(null);
+                  s.setSelectedPlaylistId(playlist.id);
+                  s.setSelectedItem(null);
+                  s.setDetailData(null);
                 }}
               >
                 {playlist.name}
@@ -135,50 +108,50 @@ export default function SearchSidebar({
               </li>
             ))}
           </ul>
-          {!spotifyPlaylistsLoading && spotifyToken && spotifyPlaylists.length === 0 && (
+          {!s.spotifyPlaylistsLoading && s.spotifyToken && s.spotifyPlaylists.length === 0 && (
             <p className="list-view-empty">No playlists found.</p>
           )}
         </>
-      ) : viewListId != null ? (
+      ) : s.viewListId != null ? (
         <>
           <div className="list-view-header">
-            <span className="list-view-title">List: {listViewData?.name ?? "…"}</span>
+            <span className="list-view-title">List: {s.listViewData?.name ?? "…"}</span>
           </div>
-          {listViewLoading && <p className="detail-loading">Loading list…</p>}
+          {s.listViewLoading && <p className="detail-loading">Loading list…</p>}
           <ul className="results">
-            {(listViewData?.items || []).map((item, i) => (
+            {(s.listViewData?.items || []).map((item, i) => (
               <li
                 key={item.id != null ? `${item.type}-${item.id}` : i}
                 className={
-                  selectedItem?.id === String(item.id) && selectedItem?.type === item.type
+                  s.selectedItem?.id === String(item.id) && s.selectedItem?.type === item.type
                     ? "selected"
                     : ""
                 }
-                onClick={() => handleItemClick({ id: item.id, type: item.type, title: item.title })}
+                onClick={() => s.handleItemClick({ id: item.id, type: item.type, title: item.title })}
               >
                 {item.title}
               </li>
             ))}
           </ul>
-          {!listViewLoading && listViewData && (!listViewData.items || listViewData.items.length === 0) && (
+          {!s.listViewLoading && s.listViewData && (!s.listViewData.items || s.listViewData.items.length === 0) && (
             <p className="list-view-empty">This list is empty.</p>
           )}
         </>
       ) : (
         <>
-          {loading && <p className="detail-loading">Loading…</p>}
+          {s.loading && <p className="detail-loading">Loading…</p>}
           <ul className="results">
-            {results.map((item, i) => (
+            {s.results.map((item, i) => (
               <li
                 key={item.id != null ? `${item.type}-${item.id}` : i}
                 className={
-                  selectedItem &&
-                  String(selectedItem.id) === String(item.id) &&
-                  selectedItem?.type === item.type
+                  s.selectedItem &&
+                  String(s.selectedItem.id) === String(item.id) &&
+                  s.selectedItem?.type === item.type
                     ? "selected"
                     : ""
                 }
-                onClick={() => handleItemClick(item)}
+                onClick={() => s.handleItemClick(item)}
               >
                 {item.title}
               </li>
@@ -189,4 +162,3 @@ export default function SearchSidebar({
     </div>
   );
 }
-

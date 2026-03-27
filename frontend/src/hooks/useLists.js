@@ -1,4 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  listDetailUrl,
+  listItemsCheckUrl,
+  listItemsUrl,
+  listsIndexUrl,
+} from "../services/searchApi";
 
 export function useLists({
   API_BASE,
@@ -49,7 +55,7 @@ export function useLists({
     if (fetchListsInFlightRef.current) return;
     fetchListsInFlightRef.current = true;
 
-    authFetchRef.current(`${API_BASE}/api/search/lists/`, {
+    authFetchRef.current(listsIndexUrl(API_BASE), {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then((res) => (res.ok ? res.json() : { lists: [] }))
@@ -76,7 +82,7 @@ export function useLists({
     setListViewLoading(true);
     setListViewData(null);
     let cancelled = false;
-    authFetchRef.current(`${API_BASE}/api/search/lists/${viewListId}/`, {
+    authFetchRef.current(listDetailUrl(API_BASE, viewListId), {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
       .then((res) => {
@@ -176,9 +182,7 @@ export function useLists({
     const haveListsCached = lists.length > 0;
 
     const checkPromise = needCheck
-      ? authFetchRef.current(
-          `${API_BASE}/api/search/lists/items/check/?type=${encodeURIComponent(t)}&id=${encodeURIComponent(selectedItem.id)}`,
-        )
+      ? authFetchRef.current(listItemsCheckUrl(API_BASE, t, selectedItem.id))
           .then((res) => (res.ok ? res.json() : { list_ids: [] }))
           .then((d) => d.list_ids || [])
       : Promise.resolve([]);
@@ -186,7 +190,7 @@ export function useLists({
     const listType = "release";
     const listsPromise = haveListsCached
       ? Promise.resolve(lists)
-      : authFetchRef.current(`${API_BASE}/api/search/lists/?list_type=${encodeURIComponent(listType)}`)
+      : authFetchRef.current(listsIndexUrl(API_BASE, listType))
           .then((res) => {
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}`);
@@ -234,7 +238,7 @@ export function useLists({
     setListLoading(true);
     setListError(null);
     try {
-      const res = await authFetch(`${API_BASE}/api/search/lists/`, {
+      const res = await authFetch(listsIndexUrl(API_BASE), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, list_type: "release" }),
@@ -280,7 +284,7 @@ export function useLists({
     setListLoading(true);
     setListError(null);
     try {
-      const res = await authFetch(`${API_BASE}/api/search/lists/items/`, {
+      const res = await authFetch(listItemsUrl(API_BASE), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
