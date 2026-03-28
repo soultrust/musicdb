@@ -71,10 +71,12 @@ export function useLibraryListsView({
       return () => clearTimeout(id);
     }
     if (viewListId === "spotify-playlists") return;
-    const startId = setTimeout(() => {
-      setListViewLoading(true);
-      setListViewData(null);
-    }, 0);
+    // Apply loading + clear before the fetch’s microtask runs. setTimeout(0) previously raced:
+    // fetch could resolve first, then the timer cleared listViewData after load (CI + fast mocks).
+    /* eslint-disable react-hooks/set-state-in-effect -- intentional sync before starting fetch */
+    setListViewLoading(true);
+    setListViewData(null);
+    /* eslint-enable react-hooks/set-state-in-effect */
     let cancelled = false;
     authFetchRef.current(listDetailUrl(API_BASE, viewListId), {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -90,7 +92,6 @@ export function useLibraryListsView({
         if (!cancelled) setListViewLoading(false);
       });
     return () => {
-      clearTimeout(startId);
       cancelled = true;
     };
   }, [viewListId, accessToken, API_BASE]);
@@ -100,13 +101,14 @@ export function useLibraryListsView({
     if (!viewListId || !items?.length) return;
     const firstItem = items[0];
     const item = { id: firstItem.id, type: firstItem.type, title: firstItem.title };
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) handleItemClickRef.current(item);
-    });
-    return () => {
-      cancelled = true;
-    };
+    // setTimeout(0) + clearTimeout (not queueMicrotask): React Strict Mode runs effect
+    // cleanup before microtasks flush, which would skip a microtask-only open. Timers are
+    // cleared on the first mount’s cleanup and rescheduled on the real mount, so the
+    // callback still runs once in dev/CI.
+    const timeoutId = setTimeout(() => {
+      handleItemClickRef.current(item);
+    }, 0);
+    return () => clearTimeout(timeoutId);
   }, [viewListId, listViewData]);
 
   return {
