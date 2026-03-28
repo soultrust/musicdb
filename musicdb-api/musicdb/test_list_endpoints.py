@@ -111,3 +111,28 @@ class ListEndpointsTests(TestCase):
 
         res = self.client.get(f"/api/search/lists/{other_list.id}/")
         self.assertEqual(res.status_code, 404)
+
+    def test_get_lists_without_filter_returns_all_types(self):
+        self.client.post(
+            "/api/search/lists/",
+            data={"name": "R1", "list_type": "release"},
+            format="json",
+        )
+        self.client.post(
+            "/api/search/lists/",
+            data={"name": "P1", "list_type": "person"},
+            format="json",
+        )
+        res = self.client.get("/api/search/lists/")
+        self.assertEqual(res.status_code, 200)
+        names = {x["name"] for x in res.json().get("lists", [])}
+        self.assertEqual(names, {"R1", "P1"})
+
+    def test_items_invalid_resource_type_returns_400(self):
+        lst = List.objects.create(user=self.user, list_type=List.LIST_TYPE_RELEASE, name="L")
+        res = self.client.post(
+            "/api/search/lists/items/",
+            data={"type": "vinyl", "id": "1", "list_ids": [lst.id], "title": "X"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)

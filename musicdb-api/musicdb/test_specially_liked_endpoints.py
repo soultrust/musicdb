@@ -100,3 +100,25 @@ class EspeciallyLikedEndpointsTests(TestCase):
         body = res.json()
         self.assertEqual(len(body.get("tracks", [])), 0)
 
+    def test_list_requires_item_type_and_id(self):
+        res = self.client.get("/api/search/especially-liked-tracks/?item_type=release")
+        self.assertEqual(res.status_code, 400)
+
+    def test_list_rejects_invalid_item_type(self):
+        res = self.client.get(
+            "/api/search/especially-liked-tracks/?item_type=vinyl&item_id=11111111-1111-1111-1111-111111111111"
+        )
+        self.assertEqual(res.status_code, 400)
+
+    def test_post_rejects_invalid_item_type(self):
+        res = self.client.post(
+            "/api/search/especially-liked-track/",
+            data={
+                **self.post_payload,
+                "item_type": "song",
+                "especially_liked": True,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, 400)
+

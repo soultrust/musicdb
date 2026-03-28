@@ -9,4 +9,22 @@ export default defineConfig({
     port: 3000,
     historyApiFallback: true,
   },
+  test: {
+    environment: "jsdom",
+    setupFiles: ["./src/test/setup.js"],
+    include: ["src/**/*.{test,spec}.{js,jsx}"],
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      reportsDirectory: "./coverage",
+      include: ["src/**/*.{js,jsx}"],
+      exclude: ["src/test/**", "src/main.jsx"],
+      thresholds: {
+        lines: 20,
+        functions: 20,
+        statements: 20,
+        branches: 10,
+      },
+    },
+  },
 })

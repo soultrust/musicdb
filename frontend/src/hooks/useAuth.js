@@ -65,17 +65,21 @@ export function useAuth({ API_BASE, AUTH_REFRESH_KEY, onLogoutExtra }) {
     (async () => {
       const refresh = localStorage.getItem(AUTH_REFRESH_KEY);
       if (!refresh) return;
-      const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
-      });
-      if (cancelled || !res.ok) {
-        if (!res.ok) localStorage.removeItem(AUTH_REFRESH_KEY);
-        return;
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/token/refresh/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh }),
+        });
+        if (cancelled || !res?.ok) {
+          if (res && !res.ok) localStorage.removeItem(AUTH_REFRESH_KEY);
+          return;
+        }
+        const data = await res.json();
+        if (data.access) setAccessToken(data.access);
+      } catch {
+        if (!cancelled) localStorage.removeItem(AUTH_REFRESH_KEY);
       }
-      const data = await res.json();
-      if (data.access) setAccessToken(data.access);
     })();
     return () => {
       cancelled = true;
