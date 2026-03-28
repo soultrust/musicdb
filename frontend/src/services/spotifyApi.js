@@ -1,5 +1,8 @@
 const SPOTIFY_API_BASE = "https://api.spotify.com/v1";
 
+/** Spotify `/me/tracks/contains` allows up to 50 ids per request */
+const SPOTIFY_TRACKS_CONTAINS_BATCH = 50;
+
 function bearerHeaders(token) {
   return { Authorization: `Bearer ${token}` };
 }
@@ -10,6 +13,38 @@ export function spotifyTracksContains(trackIds, token) {
   return fetch(`${SPOTIFY_API_BASE}/me/tracks/contains?ids=${q}`, {
     headers: bearerHeaders(token),
   });
+}
+
+/**
+ * For each match row with a Spotify track id, asks whether the user has saved that track (batched).
+ * @param {Array<{ spotify_track?: { id?: string } }>} matches
+ * @param {string} [token]
+ * @param {{ isCancelled?: () => boolean }} [opts]
+ * @returns {Promise<Set<string>>}
+ */
+export async function fetchSpotifySavedTrackIdsForMatches(matches, token, opts = {}) {
+  const isCancelled = opts.isCancelled ?? (() => false);
+  if (!token || !matches?.length) return new Set();
+
+  const ids = matches.map((m) => m.spotify_track?.id).filter(Boolean);
+  if (ids.length === 0) return new Set();
+
+  const saved = new Set();
+  for (let i = 0; i < ids.length; i += SPOTIFY_TRACKS_CONTAINS_BATCH) {
+    if (isCancelled()) break;
+    const chunk = ids.slice(i, i + SPOTIFY_TRACKS_CONTAINS_BATCH);
+    try {
+      const res = await spotifyTracksContains(chunk, token);
+      if (!res.ok || isCancelled()) break;
+      const arr = await res.json();
+      chunk.forEach((id, idx) => {
+        if (arr[idx]) saved.add(id);
+      });
+    } catch {
+      break;
+    }
+  }
+  return saved;
 }
 
 export function spotifySaveUserTrack(trackId, token) {

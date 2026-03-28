@@ -6,11 +6,15 @@ vi.mock("../services/especiallyLikedApi", () => ({
   setEspeciallyLikedTrackApi: vi.fn(),
 }));
 
-vi.mock("../services/spotifyApi", () => ({
-  spotifyTracksContains: vi.fn(),
-  spotifySaveUserTrack: vi.fn(() => Promise.resolve({ ok: true })),
-  spotifyUnsaveUserTrack: vi.fn(() => Promise.resolve({ ok: true })),
-}));
+vi.mock("../services/spotifyApi", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    spotifyTracksContains: vi.fn(),
+    spotifySaveUserTrack: vi.fn(() => Promise.resolve({ ok: true })),
+    spotifyUnsaveUserTrack: vi.fn(() => Promise.resolve({ ok: true })),
+  };
+});
 
 import { useLikedTracks } from "./useLikedTracks";
 import {

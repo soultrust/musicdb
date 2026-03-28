@@ -4,6 +4,7 @@ import {
   detailUrl,
   listItemsCheckUrl,
   listsIndexUrl,
+  manualSpotifyMatchDeleteUrl,
   searchQueryUrl,
 } from "./searchApi";
 
@@ -46,6 +47,12 @@ describe("searchApi URL builders", () => {
     const url = listItemsCheckUrl(API_BASE, "album", "id with space");
     expect(url).toBe(
       "http://localhost:8000/api/search/lists/items/check/?type=album&id=id%20with%20space",
+    );
+  });
+
+  it("builds manual match DELETE URL with encoded release id and track title", () => {
+    expect(manualSpotifyMatchDeleteUrl(API_BASE, "rel/x", "Song & Dance")).toBe(
+      "http://localhost:8000/api/search/manual-spotify-match/?release_id=rel%2Fx&track_title=Song+%26+Dance",
     );
   });
 });

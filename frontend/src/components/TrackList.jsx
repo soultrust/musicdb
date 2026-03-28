@@ -1,5 +1,9 @@
 import TrackRow from "./TrackRow";
 import { useDetailShellContext, useDetailTracklistContext } from "../hooks/useMusicDbApp";
+import {
+  findSpotifyMatchForTrackTitle,
+  isManualSpotifyMatchRow,
+} from "../utils/spotifyTrackMatch";
 
 export default function TrackList() {
   const { detailData } = useDetailShellContext();
@@ -99,9 +103,7 @@ export default function TrackList() {
             return true;
           })
           .map((track, i) => {
-            const match = spotifyMatches.find(
-              (m) => (m.catalog_title ?? m.discogs_title) === track.title,
-            );
+            const match = findSpotifyMatchForTrackTitle(spotifyMatches, track.title);
             const spotifyTrack = match?.spotify_track;
             const isCurrentTrack =
               spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
@@ -110,7 +112,7 @@ export default function TrackList() {
             const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
             const likeState = getDisplayLikeState(track);
             const matchedDisconnected = spotifyTrack && !spotifyToken;
-            const manualSpotifyMatch = Boolean(match?.manual_match && spotifyTrack);
+            const manualSpotifyMatch = isManualSpotifyMatchRow(match);
 
             return (
               <TrackRow

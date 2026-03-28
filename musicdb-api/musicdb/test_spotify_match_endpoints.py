@@ -85,3 +85,61 @@ class ManualSpotifyMatchEndpointsTests(TestCase):
     def test_delete_manual_match_requires_params(self):
         res = self.client.delete("/api/search/manual-spotify-match/")
         self.assertEqual(res.status_code, 400)
+
+    def test_delete_manual_match_is_idempotent_when_no_row(self):
+        q = urlencode({"release_id": "no-such-release", "track_title": "Nope"})
+        res = self.client.delete(f"/api/search/manual-spotify-match/?{q}")
+        self.assertEqual(res.status_code, 204)
+        self.assertEqual(TrackSpotifyLink.objects.count(), 0)
+
+    def test_delete_manual_match_track_title_with_special_characters(self):
+        title = "Song & Dance (feat. X)"
+        payload = {
+            "release_id": "mb-release-ampersand",
+            "track_title": title,
+            "spotify_track": {
+                "id": "spotify-track-amp",
+                "uri": "spotify:track:spotify-track-amp",
+                "name": title,
+                "artists": [{"name": "Artist"}],
+            },
+        }
+        self.client.post("/api/search/manual-spotify-match/", data=payload, format="json")
+        self.assertEqual(TrackSpotifyLink.objects.count(), 1)
+
+        q = urlencode({"release_id": "mb-release-ampersand", "track_title": title})
+        res = self.client.delete(f"/api/search/manual-spotify-match/?{q}")
+        self.assertEqual(res.status_code, 204)
+        self.assertEqual(TrackSpotifyLink.objects.count(), 0)
+
+    def test_delete_manual_match_only_removes_current_users_link(self):
+        User = get_user_model()
+        other = User.objects.create_user(
+            username="spotifymatchuser2",
+            email="spotifymatchuser2@example.com",
+            password="password123",
+        )
+        payload = {
+            "release_id": "mb-shared-release",
+            "track_title": "Shared Track",
+            "spotify_track": {
+                "id": "spotify-track-1",
+                "uri": "spotify:track:spotify-track-1",
+                "name": "Shared Track",
+                "artists": [{"name": "Artist One"}],
+            },
+        }
+        self.client.post("/api/search/manual-spotify-match/", data=payload, format="json")
+        self.assertEqual(TrackSpotifyLink.objects.count(), 1)
+
+        refresh_other = RefreshToken.for_user(other)
+        client_other = APIClient()
+        client_other.credentials(HTTP_AUTHORIZATION=f"Bearer {str(refresh_other.access_token)}")
+
+        q = urlencode({"release_id": "mb-shared-release", "track_title": "Shared Track"})
+        res = client_other.delete(f"/api/search/manual-spotify-match/?{q}")
+        self.assertEqual(res.status_code, 204)
+        self.assertEqual(TrackSpotifyLink.objects.count(), 1)
+        self.assertTrue(
+            TrackSpotifyLink.objects.filter(user=self.user, release_id="mb-shared-release").exists()
+        )

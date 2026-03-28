@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { manualSpotifyMatchUrl } from "../services/searchApi";
+import { catalogOrDiscogsTitle } from "../utils/spotifyTrackMatch";
 
 export function useSpotifySearchModal({
   API_BASE,
@@ -86,7 +87,7 @@ export function useSpotifySearchModal({
       });
       setSpotifyMatches((prev) =>
         prev.map((m) =>
-          (m.catalog_title ?? m.discogs_title) === manualMatchTrackTitle
+          catalogOrDiscogsTitle(m) === manualMatchTrackTitle
             ? { ...m, spotify_track: track, manual_match: true }
             : m,
         ),

@@ -1,5 +1,9 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import {
+  useAppContextSlices as useAppContextSlicesFromBarrel,
+  useHeaderContextValue,
+} from "./appContextSlices";
 import { useAppContextSlices } from "./useAppContextSlices";
 
 const fn = () => {};
@@ -101,6 +105,16 @@ function makeArgs(overrides = {}) {
 }
 
 describe("useAppContextSlices", () => {
+  it("re-exports the same hook from appContextSlices barrel as useAppContextSlices.js", () => {
+    expect(useAppContextSlicesFromBarrel).toBe(useAppContextSlices);
+  });
+
+  it("barrel useHeaderContextValue matches header slice from useAppContextSlices", () => {
+    const fromBarrel = renderHook(() => useHeaderContextValue(makeArgs()));
+    const fromComposer = renderHook(() => useAppContextSlices(makeArgs()));
+    expect(fromBarrel.result.current).toEqual(fromComposer.result.current.header);
+  });
+
   it("returns all expected slice objects", () => {
     const { result } = renderHook(() => useAppContextSlices(makeArgs()));
     expect(Object.keys(result.current)).toEqual([

@@ -5,10 +5,11 @@ import {
   setEspeciallyLikedTrackApi,
 } from "../services/especiallyLikedApi";
 import {
-  spotifyTracksContains,
+  fetchSpotifySavedTrackIdsForMatches,
   spotifySaveUserTrack,
   spotifyUnsaveUserTrack,
 } from "../services/spotifyApi";
+import { findSpotifyMatchForTrackTitle } from "../utils/spotifyTrackMatch";
 
 const LIKED_TRACKS_KEY = "soultrust_liked_tracks";
 const ESPECIALLY_LIKED_BACKFILL_KEY = "soultrust_especially_liked_backfilled_v1";
@@ -128,22 +129,10 @@ export function useLikedTracks({
         if (!cancelled) setSpotifySavedTrackIds(new Set());
         return;
       }
-      const BATCH = 50;
-      const saved = new Set();
-      for (let i = 0; i < ids.length; i += BATCH) {
-        const chunk = ids.slice(i, i + BATCH);
-        try {
-          const res = await spotifyTracksContains(chunk, spotifyToken);
-          if (!res.ok || cancelled) break;
-          const arr = await res.json();
-          chunk.forEach((id, idx) => {
-            if (arr[idx]) saved.add(id);
-          });
-        } catch {
-          break;
-        }
-      }
-      if (!cancelled) setSpotifySavedTrackIds(new Set(saved));
+      const saved = await fetchSpotifySavedTrackIdsForMatches(spotifyMatches, spotifyToken, {
+        isCancelled: () => cancelled,
+      });
+      if (!cancelled) setSpotifySavedTrackIds(saved);
     })();
     return () => {
       cancelled = true;
@@ -155,27 +144,12 @@ export function useLikedTracks({
       if (!spotifyToken || !spotifyMatches?.length) return;
       const ids = spotifyMatches.map((m) => m.spotify_track?.id).filter(Boolean);
       if (ids.length === 0) return;
-      const BATCH = 50;
-      const saved = new Set();
       const currentDetail = detailData;
       const currentSelected = selectedItem;
 
       (async () => {
-        for (let i = 0; i < ids.length; i += BATCH) {
-          const chunk = ids.slice(i, i + BATCH);
-          try {
-            const res = await spotifyTracksContains(chunk, spotifyToken);
-            if (!res.ok) return;
-            const arr = await res.json();
-            chunk.forEach((id, idx) => {
-              if (arr[idx]) saved.add(id);
-            });
-          } catch {
-            return;
-          }
-        }
-
-        setSpotifySavedTrackIds(new Set(saved));
+        const saved = await fetchSpotifySavedTrackIdsForMatches(spotifyMatches, spotifyToken);
+        setSpotifySavedTrackIds(saved);
         if (!currentDetail?.tracklist?.length) return;
         setLikedTracks((prev) => {
           let changed = false;
@@ -183,9 +157,7 @@ export function useLikedTracks({
           for (const track of currentDetail.tracklist) {
             const key = currentSelected ? buildTrackKeyForItem(currentSelected, track) : null;
             if (!key || normalizeStoredLikeValue(prev[key]) !== 1) continue;
-            const match = spotifyMatches.find(
-              (m) => (m.catalog_title ?? m.discogs_title) === track.title,
-            );
+            const match = findSpotifyMatchForTrackTitle(spotifyMatches, track.title);
             const sid = match?.spotify_track?.id;
             if (sid && !saved.has(sid)) {
               next[key] = 0;
@@ -214,9 +186,7 @@ export function useLikedTracks({
       if (!key) return 0;
       const hasLocal = Object.prototype.hasOwnProperty.call(likedTracks, key);
       const local = normalizeStoredLikeValue(likedTracks[key]);
-      const match = spotifyMatches.find(
-        (m) => (m.catalog_title ?? m.discogs_title) === track.title,
-      );
+      const match = findSpotifyMatchForTrackTitle(spotifyMatches, track.title);
       const spotifyId = match?.spotify_track?.id;
       const spotifySaved = spotifyId && spotifySavedTrackIds.has(spotifyId);
       if (hasLocal && local === 2) return 2;
@@ -248,9 +218,7 @@ export function useLikedTracks({
   function toggleLikeTrack(track) {
     const key = getTrackKey(track);
     if (!key) return;
-    const match = spotifyMatches.find(
-      (m) => (m.catalog_title ?? m.discogs_title) === track.title,
-    );
+    const match = findSpotifyMatchForTrackTitle(spotifyMatches, track.title);
     const spotifyTrack = match?.spotify_track;
     const displayState = getDisplayLikeState(track);
     const nextState = (displayState + 1) % 3;

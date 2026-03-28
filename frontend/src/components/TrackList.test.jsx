@@ -202,4 +202,90 @@ describe("TrackList", () => {
     const bar = row.querySelector(".track-progress-bar");
     expect(bar).toHaveStyle({ width: `${40}%` });
   });
+
+  it("uses manual match styling when manual_match and spotify track are set", () => {
+    renderTrackList({
+      tracklist: [{ title: "Gamma", position: "1." }],
+      tracklistOverrides: {
+        spotifyMatches: [
+          {
+            catalog_title: "Gamma",
+            manual_match: true,
+            spotify_track: {
+              uri: "spotify:track:x",
+              name: "Gamma",
+              artists: [{ name: "Z" }],
+            },
+          },
+        ],
+      },
+    });
+    const row = screen.getByRole("listitem");
+    expect(row.querySelector(".track-spotify-search-btn--manual")).toBeTruthy();
+    expect(
+      within(row).getByRole("button", { name: /remove manual spotify match/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not use manual styling for automatic Spotify match", () => {
+    renderTrackList({
+      tracklist: [{ title: "Gamma", position: "1." }],
+      tracklistOverrides: {
+        spotifyMatches: [
+          {
+            catalog_title: "Gamma",
+            manual_match: false,
+            spotify_track: {
+              uri: "spotify:track:x",
+              name: "Gamma",
+              artists: [{ name: "Z" }],
+            },
+          },
+        ],
+      },
+    });
+    const row = screen.getByRole("listitem");
+    expect(row.querySelector(".track-spotify-search-btn--manual")).toBeNull();
+    expect(
+      within(row).getByRole("button", { name: /manually find a matching track on spotify/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("resolves manual match via discogs_title when catalog_title absent", () => {
+    renderTrackList({
+      tracklist: [{ title: "Discogs Title", position: "1." }],
+      tracklistOverrides: {
+        spotifyMatches: [
+          {
+            discogs_title: "Discogs Title",
+            manual_match: true,
+            spotify_track: {
+              uri: "spotify:track:y",
+              name: "Y",
+              artists: [{ name: "A" }],
+            },
+          },
+        ],
+      },
+    });
+    const row = screen.getByRole("listitem");
+    expect(row.querySelector(".track-spotify-search-btn--manual")).toBeTruthy();
+  });
+
+  it("does not use manual styling when manual_match but no spotify track", () => {
+    renderTrackList({
+      tracklist: [{ title: "Gamma", position: "1." }],
+      tracklistOverrides: {
+        spotifyMatches: [
+          {
+            catalog_title: "Gamma",
+            manual_match: true,
+            spotify_track: null,
+          },
+        ],
+      },
+    });
+    const row = screen.getByRole("listitem");
+    expect(row.querySelector(".track-spotify-search-btn--manual")).toBeNull();
+  });
 });

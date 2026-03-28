@@ -1,4 +1,5 @@
 import { manualSpotifyMatchesUrl } from "./searchApi";
+import { catalogOrDiscogsTitle } from "../utils/spotifyTrackMatch";
 
 // Catalog tracklist → server-side Spotify matching,
 // plus optional manual track→Spotify overrides.
@@ -33,7 +34,7 @@ export async function matchTracksToSpotifyApi({
 
       if (manRes.ok && manData.matches?.length) {
         matches = matches.map((m) => {
-          const matchTitle = m.catalog_title ?? m.discogs_title;
+          const matchTitle = catalogOrDiscogsTitle(m);
           const manual = manData.matches.find((mm) => mm.track_title === matchTitle);
           if (manual?.spotify_track) {
             return { ...m, spotify_track: manual.spotify_track, manual_match: true };
