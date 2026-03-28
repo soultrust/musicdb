@@ -100,10 +100,13 @@ export function useLibraryListsView({
     if (!viewListId || !items?.length) return;
     const firstItem = items[0];
     const item = { id: firstItem.id, type: firstItem.type, title: firstItem.title };
-    const id = requestAnimationFrame(() => {
-      handleItemClickRef.current(item);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) handleItemClickRef.current(item);
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelled = true;
+    };
   }, [viewListId, listViewData]);
 
   return {

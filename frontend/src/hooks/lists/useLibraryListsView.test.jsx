@@ -1,5 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { useLibraryListsView } from "./useLibraryListsView";
 
 function makeJsonResponse(body, ok = true) {
@@ -11,20 +11,6 @@ function makeJsonResponse(body, ok = true) {
 
 describe("useLibraryListsView", () => {
   const API_BASE = "http://localhost:8000";
-  const raf = vi.fn((cb) => {
-    cb();
-    return 1;
-  });
-
-  beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", raf);
-    vi.stubGlobal("cancelAnimationFrame", vi.fn());
-    raf.mockClear();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
 
   it("loads lists index when accessToken is present", async () => {
     const authFetch = vi.fn(() =>
