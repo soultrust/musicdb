@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -60,3 +62,26 @@ class ManualSpotifyMatchEndpointsTests(TestCase):
         match = body["matches"][0]
         self.assertEqual(match["track_title"], "Track One")
         self.assertEqual(match["spotify_track"]["id"], "spotify-track-1")
+
+    def test_delete_manual_match(self):
+        payload = {
+            "release_id": "mb-release-1",
+            "track_title": "Track One",
+            "spotify_track": {
+                "id": "spotify-track-1",
+                "uri": "spotify:track:spotify-track-1",
+                "name": "Track One (Spotify)",
+                "artists": [{"name": "Artist One"}],
+            },
+        }
+        self.client.post("/api/search/manual-spotify-match/", data=payload, format="json")
+        self.assertEqual(TrackSpotifyLink.objects.count(), 1)
+
+        q = urlencode({"release_id": "mb-release-1", "track_title": "Track One"})
+        res = self.client.delete(f"/api/search/manual-spotify-match/?{q}")
+        self.assertEqual(res.status_code, 204)
+        self.assertEqual(TrackSpotifyLink.objects.count(), 0)
+
+    def test_delete_manual_match_requires_params(self):
+        res = self.client.delete("/api/search/manual-spotify-match/")
+        self.assertEqual(res.status_code, 400)

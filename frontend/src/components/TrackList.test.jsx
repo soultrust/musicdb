@@ -21,7 +21,7 @@ function buildDefaultTracklistContext(overrides = {}) {
     getTrackKey: vi.fn((t) => t.title),
     handleTrackRowClick: vi.fn(),
     playTrack: vi.fn(),
-    openSpotifySearchModal: vi.fn(),
+    handleSpotifySearchButtonClick: vi.fn(),
     toggleLikeTrack: vi.fn(),
     spotifyToken: "tok",
     ...overrides,

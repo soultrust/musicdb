@@ -977,6 +977,14 @@
   color: #a3a3a3;
 }
 
+.track-spotify-search-btn--manual {
+  color: #1db954;
+}
+
+.track-spotify-search-btn--manual:hover {
+  color: #1ed760;
+}
+
 .track-spotify-search-btn svg {
   display: block;
 }
@@ -1491,4 +1499,33 @@
 .modal-cancel-btn:hover {
   background: #262626;
   color: #e5e5e5;
+}
+
+.unmatch-spotify-confirm-text {
+  margin: 0;
+  line-height: 1.5;
+  color: #e5e5e5;
+  font-size: 0.95rem;
+}
+
+.unmatch-spotify-confirm-remove {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  background: #7f1d1d;
+  color: #fecaca;
+  cursor: pointer;
+}
+
+.unmatch-spotify-confirm-remove:hover:not(:disabled) {
+  background: #991b1b;
+  color: #fff;
+}
+
+.unmatch-spotify-confirm-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }

@@ -3,6 +3,7 @@ import AuthGate from "./components/AuthGate";
 import AppHeader from "./components/AppHeader";
 import ListModal from "./components/ListModal";
 import SpotifySearchModal from "./components/SpotifySearchModal";
+import UnmatchSpotifyConfirmModal from "./components/UnmatchSpotifyConfirmModal";
 import SearchSidebar from "./components/SearchSidebar";
 import PlaylistDetail from "./components/PlaylistDetail";
 import SelectedItemDetail from "./components/SelectedItemDetail";
@@ -27,6 +28,10 @@ function App() {
     showListModal,
     showSpotifySearchModal,
     manualMatchTrackTitle,
+    unmatchSpotifyTrackTitle,
+    closeUnmatchSpotifyConfirm,
+    confirmUnmatchSpotify,
+    unmatchSpotifyLoading,
     selectedPlaylistId,
     playlistTracksData,
     selectedItem,
@@ -71,6 +76,14 @@ function App() {
         {showListModal && <ListModal />}
         {showSpotifySearchModal && (
           <SpotifySearchModal key={manualMatchTrackTitle ?? "spotify-search-modal"} />
+        )}
+        {unmatchSpotifyTrackTitle != null && (
+          <UnmatchSpotifyConfirmModal
+            trackTitle={unmatchSpotifyTrackTitle}
+            loading={unmatchSpotifyLoading}
+            onCancel={closeUnmatchSpotifyConfirm}
+            onConfirm={confirmUnmatchSpotify}
+          />
         )}
       </div>
     </MusicDbAppProvider>

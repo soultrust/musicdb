@@ -35,7 +35,9 @@ export async function matchTracksToSpotifyApi({
         matches = matches.map((m) => {
           const matchTitle = m.catalog_title ?? m.discogs_title;
           const manual = manData.matches.find((mm) => mm.track_title === matchTitle);
-          if (manual?.spotify_track) return { ...m, spotify_track: manual.spotify_track };
+          if (manual?.spotify_track) {
+            return { ...m, spotify_track: manual.spotify_track, manual_match: true };
+          }
           return m;
         });
       }

@@ -17,7 +17,7 @@ export default function TrackList() {
     getTrackKey,
     handleTrackRowClick,
     playTrack,
-    openSpotifySearchModal,
+    handleSpotifySearchButtonClick,
     toggleLikeTrack,
     spotifyToken,
   } = useDetailTracklistContext();
@@ -110,6 +110,7 @@ export default function TrackList() {
             const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
             const likeState = getDisplayLikeState(track);
             const matchedDisconnected = spotifyTrack && !spotifyToken;
+            const manualSpotifyMatch = Boolean(match?.manual_match && spotifyTrack);
 
             return (
               <TrackRow
@@ -118,6 +119,7 @@ export default function TrackList() {
                 index={i}
                 spotifyTrack={spotifyTrack}
                 matchExists={match !== undefined}
+                manualSpotifyMatch={manualSpotifyMatch}
                 isActive={isActive}
                 progress={progress}
                 likeState={likeState}
@@ -125,7 +127,7 @@ export default function TrackList() {
                 getTrackKey={getTrackKey}
                 handleTrackRowClick={handleTrackRowClick}
                 playTrack={playTrack}
-                openSpotifySearchModal={openSpotifySearchModal}
+                onSpotifySearchClick={handleSpotifySearchButtonClick}
                 toggleLikeTrack={toggleLikeTrack}
               />
             );

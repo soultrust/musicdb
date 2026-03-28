@@ -29,7 +29,8 @@ function renderTrackRow(overrides = {}) {
     getTrackKey: overrides.getTrackKey ?? ((t) => t.title),
     handleTrackRowClick: overrides.handleTrackRowClick ?? vi.fn(),
     playTrack: overrides.playTrack ?? vi.fn(),
-    openSpotifySearchModal: overrides.openSpotifySearchModal ?? vi.fn(),
+    onSpotifySearchClick: overrides.onSpotifySearchClick ?? vi.fn(),
+    manualSpotifyMatch: overrides.manualSpotifyMatch ?? false,
     toggleLikeTrack: overrides.toggleLikeTrack ?? vi.fn(),
     ...overrides,
   };
@@ -90,17 +91,42 @@ describe("TrackRow", () => {
     expect(screen.getByRole("button", { name: /play/i })).toBeDisabled();
   });
 
-  it("opens Spotify search modal with track title without bubbling to row", () => {
-    const openSpotifySearchModal = vi.fn();
+  it("calls onSpotifySearchClick with track title without bubbling to row", () => {
+    const onSpotifySearchClick = vi.fn();
     const handleTrackRowClick = vi.fn();
     renderTrackRow({
       track: buildTrack({ title: "Find Me" }),
-      openSpotifySearchModal,
+      onSpotifySearchClick,
       handleTrackRowClick,
     });
     fireEvent.click(screen.getByRole("button", { name: /manually find a matching track/i }));
-    expect(openSpotifySearchModal).toHaveBeenCalledWith("Find Me");
+    expect(onSpotifySearchClick).toHaveBeenCalledWith("Find Me");
     expect(handleTrackRowClick).not.toHaveBeenCalled();
+  });
+
+  it("uses green search button and remove-match label when manualSpotifyMatch", () => {
+    const { container } = render(
+      <TrackRow
+        track={buildTrack()}
+        index={0}
+        spotifyTrack={buildSpotifyTrack()}
+        matchExists
+        manualSpotifyMatch
+        isActive={false}
+        progress={0}
+        likeState={0}
+        matchedDisconnected={false}
+        getTrackKey={(t) => t.title}
+        handleTrackRowClick={vi.fn()}
+        playTrack={vi.fn()}
+        onSpotifySearchClick={vi.fn()}
+        toggleLikeTrack={vi.fn()}
+      />,
+    );
+    expect(container.querySelector(".track-spotify-search-btn--manual")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /remove manual spotify match/i }),
+    ).toBeInTheDocument();
   });
 
   it("toggles like when connected and stops propagation", () => {
@@ -141,7 +167,7 @@ describe("TrackRow", () => {
         getTrackKey={(t) => t.title}
         handleTrackRowClick={handleTrackRowClick}
         playTrack={vi.fn()}
-        openSpotifySearchModal={vi.fn()}
+        onSpotifySearchClick={vi.fn()}
         toggleLikeTrack={vi.fn()}
       />,
     );
@@ -161,7 +187,7 @@ describe("TrackRow", () => {
         getTrackKey={(t) => t.title}
         handleTrackRowClick={handleTrackRowClick}
         playTrack={vi.fn()}
-        openSpotifySearchModal={vi.fn()}
+        onSpotifySearchClick={vi.fn()}
         toggleLikeTrack={vi.fn()}
       />,
     );
@@ -183,7 +209,7 @@ describe("TrackRow", () => {
         getTrackKey={(t) => t.title}
         handleTrackRowClick={vi.fn()}
         playTrack={vi.fn()}
-        openSpotifySearchModal={vi.fn()}
+        onSpotifySearchClick={vi.fn()}
         toggleLikeTrack={vi.fn()}
       />,
     );
@@ -207,7 +233,7 @@ describe("TrackRow", () => {
         getTrackKey={(t) => t.title}
         handleTrackRowClick={vi.fn()}
         playTrack={vi.fn()}
-        openSpotifySearchModal={vi.fn()}
+        onSpotifySearchClick={vi.fn()}
         toggleLikeTrack={vi.fn()}
       />,
     );

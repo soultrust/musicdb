@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetchWithRefresh } from "../services/authFetch";
+import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
+import { manualSpotifyMatchDeleteUrl } from "../services/searchApi";
 import { useAuth } from "./useAuth";
 import { useSearchState } from "./useSearchState";
 import { useLists } from "./useLists";
@@ -29,6 +31,8 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
   const [overviewError, setOverviewError] = useState(null);
   const [spotifyMatches, setSpotifyMatches] = useState([]);
   const [spotifyMatching, setSpotifyMatching] = useState(false);
+  const [unmatchSpotifyTrackTitle, setUnmatchSpotifyTrackTitle] = useState(null);
+  const [unmatchSpotifyLoading, setUnmatchSpotifyLoading] = useState(false);
   const [albumArtReady, setAlbumArtReady] = useState(false);
   const [albumArtRetryKey, setAlbumArtRetryKey] = useState(0);
 
@@ -251,6 +255,60 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     setSpotifyMatches,
   });
 
+  const refreshSpotifyMatches = useCallback(async () => {
+    if (!detailData?.tracklist?.length || !detailData.artists?.length || !selectedItem?.id) return;
+    setSpotifyMatching(true);
+    try {
+      const matches = await matchTracksToSpotifyApi({
+        authFetch,
+        API_BASE,
+        tracklist: detailData.tracklist,
+        artists: detailData.artists,
+        releaseId: selectedItem.id,
+      });
+      setSpotifyMatches(matches);
+    } catch (err) {
+      console.error("Failed to refresh Spotify matches:", err);
+    } finally {
+      setSpotifyMatching(false);
+    }
+  }, [API_BASE, authFetch, detailData, selectedItem]);
+
+  const handleSpotifySearchButtonClick = useCallback(
+    (trackTitle) => {
+      const m = spotifyMatches.find(
+        (x) => (x.catalog_title ?? x.discogs_title) === trackTitle,
+      );
+      if (m?.manual_match && m?.spotify_track) {
+        setUnmatchSpotifyTrackTitle(trackTitle);
+      } else {
+        openSpotifySearchModal(trackTitle);
+      }
+    },
+    [spotifyMatches, openSpotifySearchModal],
+  );
+
+  const closeUnmatchSpotifyConfirm = useCallback(() => setUnmatchSpotifyTrackTitle(null), []);
+
+  const confirmUnmatchSpotify = useCallback(async () => {
+    if (!unmatchSpotifyTrackTitle || !selectedItem?.id) return;
+    setUnmatchSpotifyLoading(true);
+    try {
+      const res = await authFetch(
+        manualSpotifyMatchDeleteUrl(API_BASE, selectedItem.id, unmatchSpotifyTrackTitle),
+        { method: "DELETE" },
+      );
+      if (res.ok || res.status === 204) {
+        setUnmatchSpotifyTrackTitle(null);
+        await refreshSpotifyMatches();
+      }
+    } catch (err) {
+      console.error("Failed to remove manual Spotify match:", err);
+    } finally {
+      setUnmatchSpotifyLoading(false);
+    }
+  }, [API_BASE, authFetch, unmatchSpotifyTrackTitle, selectedItem, refreshSpotifyMatches]);
+
   const musicDbAppSlices = useAppContextSlices({
     spotifyToken,
     spotifyConnectionStatus,
@@ -333,7 +391,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     playbackPosition,
     getTrackKey,
     handleTrackRowClick,
-    openSpotifySearchModal,
+    handleSpotifySearchButtonClick,
     toggleLikeTrack,
     overviewLoading,
     overview,
@@ -362,6 +420,10 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     showListModal,
     showSpotifySearchModal,
     manualMatchTrackTitle,
+    unmatchSpotifyTrackTitle,
+    closeUnmatchSpotifyConfirm,
+    confirmUnmatchSpotify,
+    unmatchSpotifyLoading,
     selectedPlaylistId,
     playlistTracksData,
     selectedItem,

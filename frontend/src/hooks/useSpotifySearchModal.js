@@ -87,7 +87,7 @@ export function useSpotifySearchModal({
       setSpotifyMatches((prev) =>
         prev.map((m) =>
           (m.catalog_title ?? m.discogs_title) === manualMatchTrackTitle
-            ? { ...m, spotify_track: track }
+            ? { ...m, spotify_track: track, manual_match: true }
             : m,
         ),
       );

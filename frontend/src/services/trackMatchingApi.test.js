@@ -56,7 +56,11 @@ describe("matchTracksToSpotifyApi", () => {
     });
 
     expect(out).toEqual([
-      { catalog_title: "Track A", spotify_track: { id: "manual-a", uri: "spotify:track:manual-a" } },
+      {
+        catalog_title: "Track A",
+        spotify_track: { id: "manual-a", uri: "spotify:track:manual-a" },
+        manual_match: true,
+      },
     ]);
   });
 

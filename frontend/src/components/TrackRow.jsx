@@ -10,7 +10,8 @@ export default function TrackRow({
   getTrackKey,
   handleTrackRowClick,
   playTrack,
-  openSpotifySearchModal,
+  manualSpotifyMatch = false,
+  onSpotifySearchClick,
   toggleLikeTrack,
 }) {
   return (
@@ -52,13 +53,21 @@ export default function TrackRow({
       )}
       <button
         type="button"
-        className="track-spotify-search-btn"
+        className={`track-spotify-search-btn${manualSpotifyMatch ? " track-spotify-search-btn--manual" : ""}`}
         onClick={(e) => {
           e.stopPropagation();
-          openSpotifySearchModal(track.title);
+          onSpotifySearchClick(track.title);
         }}
-        title="Manually find a matching track on Spotify"
-        aria-label="Manually find a matching track on Spotify"
+        title={
+          manualSpotifyMatch
+            ? "Remove manual Spotify match (click to confirm)"
+            : "Manually find a matching track on Spotify"
+        }
+        aria-label={
+          manualSpotifyMatch
+            ? "Remove manual Spotify match"
+            : "Manually find a matching track on Spotify"
+        }
       >
         <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden>
           <path

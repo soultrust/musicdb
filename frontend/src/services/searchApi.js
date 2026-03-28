@@ -41,6 +41,15 @@ export function manualSpotifyMatchUrl(API_BASE) {
   return `${API_BASE}${SEARCH_ROOT}/manual-spotify-match/`;
 }
 
+/** DELETE manual match — query params release_id and track_title */
+export function manualSpotifyMatchDeleteUrl(API_BASE, releaseId, trackTitle) {
+  const params = new URLSearchParams({
+    release_id: String(releaseId),
+    track_title: trackTitle,
+  });
+  return `${API_BASE}${SEARCH_ROOT}/manual-spotify-match/?${params.toString()}`;
+}
+
 export function especiallyLikedTracksUrl(API_BASE, itemType, itemId) {
   return `${API_BASE}${SEARCH_ROOT}/especially-liked-tracks/?item_type=${encodeURIComponent(itemType)}&item_id=${encodeURIComponent(itemId)}`;
 }

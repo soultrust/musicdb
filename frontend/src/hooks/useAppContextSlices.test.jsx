@@ -38,7 +38,7 @@ const stableFns = {
   getDisplayLikeState: () => 0,
   getTrackKey: () => "track-key",
   handleTrackRowClick: fn,
-  openSpotifySearchModal: fn,
+  handleSpotifySearchButtonClick: fn,
   toggleLikeTrack: fn,
 };
 

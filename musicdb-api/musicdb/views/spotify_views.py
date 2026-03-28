@@ -1,3 +1,4 @@
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -75,3 +76,19 @@ class ManualSpotifyMatchView(APIView):
                 },
             }
         )
+
+    def delete(self, request):
+        """Remove a manual track→Spotify link for this release (query: release_id, track_title)."""
+        release_id = (request.query_params.get("release_id") or "").strip()
+        track_title = (request.query_params.get("track_title") or "").strip()
+        if not release_id or not track_title:
+            return Response(
+                {"error": "Query parameters release_id and track_title are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        TrackSpotifyLink.objects.filter(
+            user=request.user,
+            release_id=release_id,
+            track_title=track_title,
+        ).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
