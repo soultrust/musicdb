@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetchWithRefresh } from "../services/authFetch";
-import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
 import { useAuth } from "./useAuth";
 import { useSearchState } from "./useSearchState";
 import { useLists } from "./useLists";
@@ -13,6 +12,8 @@ import { useViewSwitchReset } from "./useViewSwitchReset";
 import { useSearchSubmit } from "./useSearchSubmit";
 import { useAppContextSlices } from "./useAppContextSlices";
 import { useManualSpotifyUnmatch } from "./useManualSpotifyUnmatch";
+import { useSpotifyMatchSync } from "./useSpotifyMatchSync";
+import { useAlbumArtReveal } from "./useAlbumArtReveal";
 
 /**
  * Wires all authenticated-app hooks: search, detail, lists, Spotify, likes, context value.
@@ -29,8 +30,6 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
   const [overview, setOverview] = useState(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState(null);
-  const [spotifyMatches, setSpotifyMatches] = useState([]);
-  const [spotifyMatching, setSpotifyMatching] = useState(false);
   const [albumArtReady, setAlbumArtReady] = useState(false);
   const [albumArtRetryKey, setAlbumArtRetryKey] = useState(0);
 
@@ -93,6 +92,14 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
       }),
     [API_BASE, AUTH_REFRESH_KEY, accessToken, logout, setAccessToken],
   );
+
+  const {
+    spotifyMatches,
+    setSpotifyMatches,
+    spotifyMatching,
+    setSpotifyMatching,
+    refreshSpotifyMatches,
+  } = useSpotifyMatchSync({ API_BASE, authFetch, detailData, selectedItem });
 
   const {
     getTrackKey,
@@ -253,25 +260,6 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     setSpotifyMatches,
   });
 
-  const refreshSpotifyMatches = useCallback(async () => {
-    if (!detailData?.tracklist?.length || !detailData.artists?.length || !selectedItem?.id) return;
-    setSpotifyMatching(true);
-    try {
-      const matches = await matchTracksToSpotifyApi({
-        authFetch,
-        API_BASE,
-        tracklist: detailData.tracklist,
-        artists: detailData.artists,
-        releaseId: selectedItem.id,
-      });
-      setSpotifyMatches(matches);
-    } catch (err) {
-      console.error("Failed to refresh Spotify matches:", err);
-    } finally {
-      setSpotifyMatching(false);
-    }
-  }, [API_BASE, authFetch, detailData, selectedItem]);
-
   const {
     unmatchSpotifyTrackTitle,
     unmatchSpotifyLoading,
@@ -376,11 +364,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     overviewError,
   });
 
-  useEffect(() => {
-    if (!detailData || detailLoading) return;
-    const id = requestAnimationFrame(() => setAlbumArtReady(true));
-    return () => cancelAnimationFrame(id);
-  }, [detailData, detailLoading]);
+  useAlbumArtReveal(detailData, detailLoading, setAlbumArtReady);
 
   return {
     accessToken,

@@ -5,6 +5,10 @@ import {
   setEspeciallyLikedTrackApi,
 } from "../services/especiallyLikedApi";
 import {
+  computeNextLikedMapForEspeciallySync,
+  especiallyLikedFingerprintSetFromApi,
+} from "../services/especiallyLikedSync";
+import {
   fetchSpotifySavedTrackIdsForMatches,
   spotifySaveUserTrack,
   spotifyUnsaveUserTrack,
@@ -283,30 +287,17 @@ export function useLikedTracks({
         itemId: item.id,
       });
       if (!likesRes.ok) return;
-      const especiallySet = new Set(
-        (likesRes.data.tracks || []).map(
-          (t) => `${String(t.track_position || "")}::${String(t.track_title || "").trim()}`,
-        ),
-      );
+      const especiallySet = especiallyLikedFingerprintSetFromApi(likesRes.data.tracks);
       setLikedTracks((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        for (const track of data.tracklist) {
-          const key = buildTrackKeyForItem(item, track);
-          if (!key) continue;
-          const fp = `${track.position != null && track.position !== "" ? String(track.position) : ""}::${String(track.title || "").trim()}`;
-          const current = normalizeStoredLikeValue(next[key]);
-          if (especiallySet.has(fp)) {
-            if (current !== 2) {
-              next[key] = 2;
-              changed = true;
-            }
-          } else if (current === 2) {
-            delete next[key];
-            changed = true;
-          }
-        }
-        return changed ? next : prev;
+        const next = computeNextLikedMapForEspeciallySync(
+          prev,
+          item,
+          data.tracklist,
+          especiallySet,
+          normalizeStoredLikeValue,
+          buildTrackKeyForItem,
+        );
+        return next ?? prev;
       });
     } catch (err) {
       console.error("Failed to load especially liked tracks:", err);
