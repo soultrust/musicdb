@@ -83,7 +83,8 @@ class MatchTracksAPIView(APIView):
 
 class SpotifySearchView(APIView):
     """
-    GET /api/spotify/search/?q=...&artist=... — search Spotify for tracks (for manual matching).
+    GET /api/spotify/search/?q=...&artist=...&album=... — search Spotify for tracks (manual matching).
+    Omit artist and/or album to search across all artists or all albums (only non-empty params are used).
     Returns raw track list; no matching algorithm.
     """
     permission_classes = [IsAuthenticated]
@@ -96,9 +97,10 @@ class SpotifySearchView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         artist = (request.GET.get("artist") or "").strip() or None
+        album = (request.GET.get("album") or "").strip() or None
         limit = min(20, max(1, int(request.GET.get("limit", 10))))
         try:
-            results = search_track(query=q, artist=artist, limit=limit)
+            results = search_track(query=q, artist=artist, album=album, limit=limit)
             return Response({"tracks": results})
         except Exception as e:
             return Response(

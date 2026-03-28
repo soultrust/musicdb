@@ -78,6 +78,19 @@ class SpotifySearchViewTests(TestCase):
         _, kwargs = mock_search.call_args
         self.assertEqual(kwargs["limit"], 20)
 
+    @patch("spotify.views.search_track")
+    def test_search_passes_album_to_spotify(self, mock_search):
+        mock_search.return_value = []
+        self.client.get(
+            "/api/spotify/search/",
+            {"q": "War Pigs", "artist": "Black Sabbath", "album": "Paranoid"},
+        )
+        mock_search.assert_called_once()
+        _, kwargs = mock_search.call_args
+        self.assertEqual(kwargs["query"], "War Pigs")
+        self.assertEqual(kwargs["artist"], "Black Sabbath")
+        self.assertEqual(kwargs["album"], "Paranoid")
+
 
 class SpotifyPlaylistsViewTests(TestCase):
     def setUp(self):

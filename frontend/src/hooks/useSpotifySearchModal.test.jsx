@@ -9,7 +9,7 @@ describe("useSpotifySearchModal", () => {
     return {
       API_BASE,
       authFetch: vi.fn(),
-      detailData: { artists: [{ name: "Black Sabbath" }] },
+      detailData: { title: "Paranoid", artists: [{ name: "Black Sabbath" }] },
       selectedItem: { id: "rel-1", type: "release", title: "Paranoid" },
       setSpotifyMatches: vi.fn(),
       ...overrides,
@@ -31,6 +31,8 @@ describe("useSpotifySearchModal", () => {
     expect(result.current.showSpotifySearchModal).toBe(false);
     expect(result.current.manualMatchTrackTitle).toBeNull();
     expect(result.current.spotifySearchQuery).toBe("");
+    expect(result.current.spotifySearchArtist).toBe("");
+    expect(result.current.spotifySearchAlbum).toBe("");
     expect(result.current.spotifySearchResults).toEqual([]);
   });
 
@@ -64,6 +66,7 @@ describe("useSpotifySearchModal", () => {
     const calledUrl = deps.authFetch.mock.calls[0][0];
     expect(calledUrl).toContain("q=War+Pigs");
     expect(calledUrl).toContain("artist=Black+Sabbath");
+    expect(calledUrl).toContain("album=Paranoid");
     expect(calledUrl).toContain("limit=15");
     expect(result.current.spotifySearchResults).toEqual([{ id: "sp1", name: "War Pigs" }]);
     expect(result.current.spotifySearchFetched).toBe(true);

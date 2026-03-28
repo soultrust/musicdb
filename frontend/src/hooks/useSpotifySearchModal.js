@@ -11,6 +11,8 @@ export function useSpotifySearchModal({
   const [showSpotifySearchModal, setShowSpotifySearchModal] = useState(false);
   const [manualMatchTrackTitle, setManualMatchTrackTitle] = useState(null);
   const [spotifySearchQuery, setSpotifySearchQuery] = useState("");
+  const [spotifySearchArtist, setSpotifySearchArtist] = useState("");
+  const [spotifySearchAlbum, setSpotifySearchAlbum] = useState("");
   const [spotifySearchResults, setSpotifySearchResults] = useState([]);
   const [spotifySearchLoading, setSpotifySearchLoading] = useState(false);
   const [spotifySearchFetched, setSpotifySearchFetched] = useState(false);
@@ -19,6 +21,10 @@ export function useSpotifySearchModal({
     const title = String(catalogTrackTitle ?? "").trim();
     setManualMatchTrackTitle(title || null);
     setSpotifySearchQuery(title);
+    const artist = String(detailData?.artists?.[0]?.name ?? "").trim();
+    setSpotifySearchArtist(artist);
+    const album = String(detailData?.title ?? "").trim();
+    setSpotifySearchAlbum(album);
     setSpotifySearchResults([]);
     setSpotifySearchFetched(false);
     setShowSpotifySearchModal(true);
@@ -28,6 +34,8 @@ export function useSpotifySearchModal({
     setShowSpotifySearchModal(false);
     setManualMatchTrackTitle(null);
     setSpotifySearchQuery("");
+    setSpotifySearchArtist("");
+    setSpotifySearchAlbum("");
     setSpotifySearchResults([]);
     setSpotifySearchFetched(false);
   }
@@ -40,9 +48,12 @@ export function useSpotifySearchModal({
     setSpotifySearchResults([]);
     setSpotifySearchFetched(false);
     try {
-      const artist = detailData?.artists?.[0]?.name;
       const params = new URLSearchParams({ q });
+      // Omit artist/album when blank so Spotify searches all artists / all albums (no field filter).
+      const artist = spotifySearchArtist.trim();
       if (artist) params.set("artist", artist);
+      const album = spotifySearchAlbum.trim();
+      if (album) params.set("album", album);
       params.set("limit", "15");
       const res = await authFetch(`${API_BASE}/api/spotify/search/?${params}`);
       const data = await res.json();
@@ -92,6 +103,10 @@ export function useSpotifySearchModal({
     manualMatchTrackTitle,
     spotifySearchQuery,
     setSpotifySearchQuery,
+    spotifySearchArtist,
+    setSpotifySearchArtist,
+    spotifySearchAlbum,
+    setSpotifySearchAlbum,
     spotifySearchResults,
     spotifySearchLoading,
     spotifySearchFetched,

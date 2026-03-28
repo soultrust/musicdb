@@ -223,33 +223,48 @@ def _get_access_token():
     return token
 
 
-def search_track(query, artist=None, limit=5):
+def _spotify_search_quoted_fragment(raw):
+    """Normalize and strip double quotes so field filters stay valid inside track:/artist:/album:."""
+    if not raw:
+        return ""
+    s = _normalize_title_quotes((raw or "").strip()).replace('"', "")
+    return s
+
+
+def search_track(query, artist=None, album=None, limit=5):
     """
     Search Spotify for a track. Returns list of matching tracks.
-    
+
     Args:
         query: Track name
         artist: Optional artist name to improve matching
+        album: Optional album name (Spotify album: filter)
         limit: Max results (default 5)
-    
+
     Returns:
         List of track objects with: id, name, artists, uri, preview_url, etc.
     """
     access_token = _get_access_token()
-    
+
     # Only strip Discogs disambiguation like " (2)" at the end, NOT part numbers like " (Pts. 1-5)"
     clean_query = re.sub(r"\s*\(\d+\)\s*$", "", query.strip()).strip()
     # Strip part designations (Pt. 1, #1, Part 1) so search returns all variants
     search_query_title = _title_base_for_search(clean_query)
     # Normalize spaces/quotes so Spotify finds the track (e.g. "Foxy\u00a0Lady" → "Foxy Lady")
     search_query_title = _normalize_title_quotes(search_query_title)
-    
-    # Build search query: "track:name artist:artist" or just "track:name"
+    search_query_title = search_query_title.replace('"', "")
+
+    # Build search query: track: … artist: … album: …
     search_query = f'track:"{search_query_title}"'
     if artist:
         clean_artist = _normalize_artist(artist)
+        clean_artist = _spotify_search_quoted_fragment(clean_artist)
         if clean_artist:
             search_query += f' artist:"{clean_artist}"'
+    if album:
+        clean_album = _spotify_search_quoted_fragment(album)
+        if clean_album:
+            search_query += f' album:"{clean_album}"'
     
     response = requests.get(
         "https://api.spotify.com/v1/search",

@@ -1298,20 +1298,23 @@
 }
 
 .spotify-search-form .spotify-search-hint {
-  margin: 0 0 0.75rem;
+  margin: 0 0 1rem;
   font-size: 0.8rem;
   line-height: 1.4;
   color: #737373;
 }
 
-.spotify-search-form .spotify-search-input-group {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+.spotify-search-form .spotify-search-field {
+  margin-bottom: 0.85rem;
 }
 
-.spotify-search-form .spotify-search-input-group input {
-  flex: 1;
+.spotify-search-form .spotify-search-field label {
+  margin-bottom: 0.35rem;
+}
+
+.spotify-search-form .spotify-search-field input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.5rem 0.75rem;
   font-size: 1rem;
   border: 1px solid #404040;
@@ -1320,9 +1323,14 @@
   color: #e5e5e5;
 }
 
-.spotify-search-form .spotify-search-input-group button {
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
+.spotify-search-form .spotify-search-submit-row {
+  margin-top: 0.25rem;
+}
+
+.spotify-search-form .spotify-search-submit {
+  width: 100%;
+  padding: 0.55rem 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   border-radius: 6px;
   border: none;
@@ -1331,7 +1339,7 @@
   cursor: pointer;
 }
 
-.spotify-search-form .spotify-search-input-group button:disabled {
+.spotify-search-form .spotify-search-submit:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
@@ -1372,6 +1380,11 @@
 .spotify-search-result-artist {
   font-size: 0.85rem;
   color: #a3a3a3;
+}
+
+.spotify-search-result-album {
+  font-size: 0.8rem;
+  color: #737373;
 }
 
 .spotify-search-select-btn {
