@@ -1297,6 +1297,13 @@
   margin-bottom: 0.5rem;
 }
 
+.spotify-search-form .spotify-search-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: #737373;
+}
+
 .spotify-search-form .spotify-search-input-group {
   display: flex;
   gap: 0.5rem;

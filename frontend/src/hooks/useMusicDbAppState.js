@@ -229,6 +229,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
 
   const {
     showSpotifySearchModal,
+    manualMatchTrackTitle,
     spotifySearchQuery,
     setSpotifySearchQuery,
     spotifySearchResults,
@@ -300,6 +301,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     handleCloseListModal,
     closeSpotifySearchModal,
     handleSpotifySearch,
+    manualMatchTrackTitle,
     spotifySearchQuery,
     setSpotifySearchQuery,
     spotifySearchLoading,
@@ -351,6 +353,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
     musicDbAppSlices,
     showListModal,
     showSpotifySearchModal,
+    manualMatchTrackTitle,
     selectedPlaylistId,
     playlistTracksData,
     selectedItem,

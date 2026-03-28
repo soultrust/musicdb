@@ -16,8 +16,9 @@ export function useSpotifySearchModal({
   const [spotifySearchFetched, setSpotifySearchFetched] = useState(false);
 
   function openSpotifySearchModal(catalogTrackTitle) {
-    setManualMatchTrackTitle(catalogTrackTitle);
-    setSpotifySearchQuery(catalogTrackTitle || "");
+    const title = String(catalogTrackTitle ?? "").trim();
+    setManualMatchTrackTitle(title || null);
+    setSpotifySearchQuery(title);
     setSpotifySearchResults([]);
     setSpotifySearchFetched(false);
     setShowSpotifySearchModal(true);
@@ -87,6 +88,8 @@ export function useSpotifySearchModal({
 
   return {
     showSpotifySearchModal,
+    /** Catalog track title for this manual match (used when saving); search field is pre-filled from this. */
+    manualMatchTrackTitle,
     spotifySearchQuery,
     setSpotifySearchQuery,
     spotifySearchResults,

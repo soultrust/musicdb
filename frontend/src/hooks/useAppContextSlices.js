@@ -79,6 +79,7 @@ function buildSpotifySearchModalContext(args) {
   return {
     closeSpotifySearchModal: args.closeSpotifySearchModal,
     handleSpotifySearch: args.handleSpotifySearch,
+    manualMatchTrackTitle: args.manualMatchTrackTitle,
     spotifySearchQuery: args.spotifySearchQuery,
     setSpotifySearchQuery: args.setSpotifySearchQuery,
     spotifySearchLoading: args.spotifySearchLoading,
@@ -328,6 +329,7 @@ export function useSpotifySearchModalContextValue(args) {
   const {
     closeSpotifySearchModal,
     handleSpotifySearch,
+    manualMatchTrackTitle,
     spotifySearchQuery,
     setSpotifySearchQuery,
     spotifySearchLoading,
@@ -340,6 +342,7 @@ export function useSpotifySearchModalContextValue(args) {
       buildSpotifySearchModalContext({
         closeSpotifySearchModal,
         handleSpotifySearch,
+        manualMatchTrackTitle,
         spotifySearchQuery,
         setSpotifySearchQuery,
         spotifySearchLoading,
@@ -350,6 +353,7 @@ export function useSpotifySearchModalContextValue(args) {
     [
       closeSpotifySearchModal,
       handleSpotifySearch,
+      manualMatchTrackTitle,
       spotifySearchQuery,
       setSpotifySearchQuery,
       spotifySearchLoading,

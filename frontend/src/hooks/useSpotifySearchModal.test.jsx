@@ -22,14 +22,24 @@ describe("useSpotifySearchModal", () => {
 
     act(() => result.current.openSpotifySearchModal("War Pigs"));
     expect(result.current.showSpotifySearchModal).toBe(true);
+    expect(result.current.manualMatchTrackTitle).toBe("War Pigs");
     expect(result.current.spotifySearchQuery).toBe("War Pigs");
     expect(result.current.spotifySearchResults).toEqual([]);
     expect(result.current.spotifySearchFetched).toBe(false);
 
     act(() => result.current.closeSpotifySearchModal());
     expect(result.current.showSpotifySearchModal).toBe(false);
+    expect(result.current.manualMatchTrackTitle).toBeNull();
     expect(result.current.spotifySearchQuery).toBe("");
     expect(result.current.spotifySearchResults).toEqual([]);
+  });
+
+  it("pre-fills track title from open() with trimming", () => {
+    const deps = makeDeps();
+    const { result } = renderHook(() => useSpotifySearchModal(deps));
+    act(() => result.current.openSpotifySearchModal("  Monk's Dream  "));
+    expect(result.current.manualMatchTrackTitle).toBe("Monk's Dream");
+    expect(result.current.spotifySearchQuery).toBe("Monk's Dream");
   });
 
   it("searches spotify with artist hint and populates results", async () => {

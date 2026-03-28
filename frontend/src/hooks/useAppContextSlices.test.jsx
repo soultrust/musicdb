@@ -71,6 +71,7 @@ const BASE_ARGS = {
   selectedListIds: [1],
   newListName: "",
   listError: null,
+  manualMatchTrackTitle: null,
   spotifySearchQuery: "",
   spotifySearchLoading: false,
   spotifySearchResults: [],

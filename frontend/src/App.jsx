@@ -26,6 +26,7 @@ function App() {
     musicDbAppSlices,
     showListModal,
     showSpotifySearchModal,
+    manualMatchTrackTitle,
     selectedPlaylistId,
     playlistTracksData,
     selectedItem,
@@ -68,7 +69,9 @@ function App() {
           )}
         </div>
         {showListModal && <ListModal />}
-        {showSpotifySearchModal && <SpotifySearchModal />}
+        {showSpotifySearchModal && (
+          <SpotifySearchModal key={manualMatchTrackTitle ?? "spotify-search-modal"} />
+        )}
       </div>
     </MusicDbAppProvider>
   );

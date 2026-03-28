@@ -18,16 +18,20 @@ export default function SpotifySearchModal() {
         </div>
         <div className="modal-body">
           <form onSubmit={s.handleSpotifySearch} className="spotify-search-form">
-            <label htmlFor="spotify-search-query">Search for a track</label>
+            <label htmlFor="spotify-search-query">Track title</label>
+            <p className="spotify-search-hint" id="spotify-search-track-hint">
+              Pre-filled with the catalog track you’re matching. Edit to refine your Spotify search.
+            </p>
             <div className="spotify-search-input-group">
               <input
                 id="spotify-search-query"
                 type="text"
                 value={s.spotifySearchQuery}
                 onChange={(e) => s.setSpotifySearchQuery(e.target.value)}
-                placeholder="Track name or artist"
+                placeholder="Track title"
                 disabled={s.spotifySearchLoading}
                 autoFocus
+                aria-describedby="spotify-search-track-hint"
               />
               <button type="submit" disabled={s.spotifySearchLoading || !s.spotifySearchQuery.trim()}>
                 {s.spotifySearchLoading ? "Searching…" : "Search"}
