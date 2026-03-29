@@ -6,13 +6,20 @@
 // For "especially liked" backfill, we parse that key back into the payload
 // expected by the backend.
 
-export function buildTrackKeyForItem(item, track) {
+import type { CatalogTrack, DetailItem } from "../types/musicDbSlices";
+
+export function buildTrackKeyForItem(item: DetailItem | null, track: CatalogTrack): string | null {
   if (!item) return null;
   const position = track.position != null && track.position !== "" ? String(track.position) : "";
   return `${item.type}-${item.id}-${position}-${track.title}`;
 }
 
-export function parseTrackKeyForEspeciallyLiked(key) {
+export function parseTrackKeyForEspeciallyLiked(key: unknown): {
+  itemType: string;
+  itemId: string;
+  trackPosition: string;
+  trackTitle: string;
+} | null {
   if (!key || typeof key !== "string") return null;
   const prefixes = ["release-", "master-", "album-"];
   const prefix = prefixes.find((p) => key.startsWith(p));
@@ -35,4 +42,3 @@ export function parseTrackKeyForEspeciallyLiked(key) {
 
   return { itemType, itemId, trackPosition, trackTitle };
 }
-

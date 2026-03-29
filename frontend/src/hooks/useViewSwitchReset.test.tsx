@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { fakeSelectChange } from "../test/helpers";
 import { useViewSwitchReset } from "./useViewSwitchReset";
 
 function makeSetters() {
@@ -17,7 +18,7 @@ describe("useViewSwitchReset", () => {
   it("clears all view state when selecting empty value", () => {
     const setters = makeSetters();
     const { result } = renderHook(() => useViewSwitchReset(setters));
-    result.current({ target: { value: "" } });
+    result.current(fakeSelectChange(""));
 
     expect(setters.setViewListId).toHaveBeenCalledWith(null);
     expect(setters.setListViewData).toHaveBeenCalledWith(null);
@@ -30,7 +31,7 @@ describe("useViewSwitchReset", () => {
   it("switches to spotify-playlists sentinel and clears detail state", () => {
     const setters = makeSetters();
     const { result } = renderHook(() => useViewSwitchReset(setters));
-    result.current({ target: { value: "spotify-playlists" } });
+    result.current(fakeSelectChange("spotify-playlists"));
 
     expect(setters.setViewListId).toHaveBeenCalledWith("spotify-playlists");
     expect(setters.setListViewData).toHaveBeenCalledWith(null);
@@ -43,7 +44,7 @@ describe("useViewSwitchReset", () => {
   it("parses numeric list ID and resets selected/detail/playlist state", () => {
     const setters = makeSetters();
     const { result } = renderHook(() => useViewSwitchReset(setters));
-    result.current({ target: { value: "42" } });
+    result.current(fakeSelectChange("42"));
 
     expect(setters.setViewListId).toHaveBeenCalledWith(42);
     expect(setters.setSelectedItem).toHaveBeenCalledWith(null);

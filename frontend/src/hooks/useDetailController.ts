@@ -1,6 +1,20 @@
+import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
 import { albumOverviewUrl, detailUrl } from "../services/searchApi";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+import type {
+  DetailData,
+  DetailItem,
+  SearchResultItem,
+  SpotifyArtist,
+  SpotifyMatchRow,
+} from "../types/musicDbSlices";
+
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 export function useDetailController({
   API_BASE,
@@ -20,10 +34,25 @@ export function useDetailController({
 
   setSpotifyMatches,
   setSpotifyMatching,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  syncEspeciallyLikedForItem: (item: DetailItem, data: DetailData) => void | Promise<void>;
+  setSelectedItem: Dispatch<SetStateAction<DetailItem | null>>;
+  setDetailData: Dispatch<SetStateAction<DetailData | null>>;
+  setDetailLoading: Dispatch<SetStateAction<boolean>>;
+  setDetailError: Dispatch<SetStateAction<string | null>>;
+  setOverview: Dispatch<SetStateAction<string | null>>;
+  setOverviewLoading: Dispatch<SetStateAction<boolean>>;
+  setOverviewError: Dispatch<SetStateAction<string | null>>;
+  setAlbumArtReady: Dispatch<SetStateAction<boolean>>;
+  setAlbumArtRetryKey: Dispatch<SetStateAction<number>>;
+  setSpotifyMatches: Dispatch<SetStateAction<SpotifyMatchRow[]>>;
+  setSpotifyMatching: Dispatch<SetStateAction<boolean>>;
 }) {
   const handleItemClick = useCallback(
-    async (item) => {
-      setSelectedItem(item);
+    async (item: SearchResultItem) => {
+      setSelectedItem(item as DetailItem);
       setDetailData(null);
       setDetailError(null);
       setOverview(null);
@@ -39,7 +68,7 @@ export function useDetailController({
       setDetailLoading(true);
       try {
         const res = await authFetch(detailUrl(API_BASE, item.type, item.id));
-        const data = await res.json();
+        const data = (await res.json()) as DetailData & { error?: string };
 
         if (!res.ok) {
           setDetailError(data.error || `Request failed: ${res.status}`);
@@ -48,7 +77,7 @@ export function useDetailController({
 
         setDetailData(data);
 
-        await syncEspeciallyLikedForItem(item, data);
+        await syncEspeciallyLikedForItem(item as DetailItem, data);
 
         // If it's a release with tracks, match them to Spotify
         if (data.tracklist && data.tracklist.length > 0 && data.artists) {
@@ -58,8 +87,8 @@ export function useDetailController({
               authFetch,
               API_BASE,
               tracklist: data.tracklist,
-              artists: data.artists,
-              releaseId: item?.id,
+              artists: data.artists as SpotifyArtist[],
+              releaseId: (item as DetailItem)?.id,
             });
             setSpotifyMatches(matches);
           } catch (err) {
@@ -74,7 +103,9 @@ export function useDetailController({
         const isAlbumType =
           item.type === "release" || item.type === "master" || item.type === "album";
         const album = data.title || "";
-        const artist = data.artists?.length ? data.artists.map((a) => a.name).join(", ") : "";
+        const artist = data.artists?.length
+          ? data.artists.map((a: SpotifyArtist) => a.name).join(", ")
+          : "";
 
         if (isAlbumType && album && artist) {
           setOverviewLoading(true);
@@ -87,7 +118,10 @@ export function useDetailController({
               setOverviewError("Overview unavailable (server error). Is the Django API running?");
             } else {
               try {
-                const ovData = JSON.parse(text);
+                const ovData = JSON.parse(text) as {
+                  data?: { overview?: string };
+                  error?: string;
+                };
                 if (ovRes.ok && ovData?.data?.overview) {
                   setOverview(ovData.data.overview);
                 } else if (!ovRes.ok && ovData?.error) {
@@ -97,14 +131,14 @@ export function useDetailController({
                 setOverviewError("Could not load overview.");
               }
             }
-          } catch (err) {
-            setOverviewError(err.message || "Failed to load overview");
+          } catch (err: unknown) {
+            setOverviewError(errorMessage(err, "Failed to load overview"));
           } finally {
             setOverviewLoading(false);
           }
         }
-      } catch (err) {
-        setDetailError(err.message || "Request failed");
+      } catch (err: unknown) {
+        setDetailError(errorMessage(err, "Request failed"));
       } finally {
         setDetailLoading(false);
       }
@@ -129,4 +163,3 @@ export function useDetailController({
 
   return { handleItemClick };
 }
-

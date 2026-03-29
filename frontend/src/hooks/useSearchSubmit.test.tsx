@@ -1,14 +1,15 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { asAuthFetch, fakeFormEvent } from "../test/helpers";
 import { useSearchSubmit } from "./useSearchSubmit";
 
 describe("useSearchSubmit", () => {
   const API_BASE = "http://localhost:8000";
 
-  function makeBase(overrides = {}) {
+  function makeBase(overrides: Record<string, unknown> = {}) {
     return {
       API_BASE,
-      authFetch: vi.fn(),
+      authFetch: asAuthFetch(vi.fn()),
       query: "nirvana",
       searchType: "album",
       filterArtist: "Nirvana",
@@ -30,7 +31,7 @@ describe("useSearchSubmit", () => {
   it("no-ops on blank query", async () => {
     const deps = makeBase({ query: "  " });
     const { result } = renderHook(() => useSearchSubmit(deps));
-    await result.current({ preventDefault: vi.fn() });
+    await result.current(fakeFormEvent());
     expect(deps.authFetch).not.toHaveBeenCalled();
     expect(deps.setLoading).not.toHaveBeenCalled();
   });
@@ -38,19 +39,21 @@ describe("useSearchSubmit", () => {
   it("search success sets results and opens first item", async () => {
     const first = { id: "1", type: "album", title: "Nevermind" };
     const deps = makeBase({
-      authFetch: vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ results: [first] }),
-      })),
+      authFetch: asAuthFetch(
+        vi.fn(async () => ({
+          ok: true,
+          json: async () => ({ results: [first] }),
+        })),
+      ),
     });
-    const raf = vi.fn((cb) => {
-      cb();
+    const raf = vi.fn((cb: FrameRequestCallback) => {
+      cb(0);
       return 1;
     });
     vi.stubGlobal("requestAnimationFrame", raf);
 
     const { result } = renderHook(() => useSearchSubmit(deps));
-    await result.current({ preventDefault: vi.fn() });
+    await result.current(fakeFormEvent());
 
     expect(deps.setLoading).toHaveBeenNthCalledWith(1, true);
     expect(deps.setError).toHaveBeenCalledWith(null);
@@ -63,13 +66,15 @@ describe("useSearchSubmit", () => {
 
   it("empty results clear selected/detail/matches", async () => {
     const deps = makeBase({
-      authFetch: vi.fn(async () => ({
-        ok: true,
-        json: async () => ({ results: [] }),
-      })),
+      authFetch: asAuthFetch(
+        vi.fn(async () => ({
+          ok: true,
+          json: async () => ({ results: [] }),
+        })),
+      ),
     });
     const { result } = renderHook(() => useSearchSubmit(deps));
-    await result.current({ preventDefault: vi.fn() });
+    await result.current(fakeFormEvent());
     expect(deps.setSelectedItem).toHaveBeenCalledWith(null);
     expect(deps.setDetailData).toHaveBeenCalledWith(null);
     expect(deps.setSpotifyMatches).toHaveBeenCalledWith([]);
@@ -77,14 +82,16 @@ describe("useSearchSubmit", () => {
 
   it("non-ok response sets server error", async () => {
     const deps = makeBase({
-      authFetch: vi.fn(async () => ({
-        ok: false,
-        status: 500,
-        json: async () => ({ error: "Boom" }),
-      })),
+      authFetch: asAuthFetch(
+        vi.fn(async () => ({
+          ok: false,
+          status: 500,
+          json: async () => ({ error: "Boom" }),
+        })),
+      ),
     });
     const { result } = renderHook(() => useSearchSubmit(deps));
-    await result.current({ preventDefault: vi.fn() });
+    await result.current(fakeFormEvent());
     expect(deps.setError).toHaveBeenCalledWith("Boom");
     expect(deps.setLoading).toHaveBeenLastCalledWith(false);
   });

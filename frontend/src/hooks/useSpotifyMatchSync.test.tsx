@@ -1,5 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi, type Mock } from "vitest";
+import { asAuthFetch } from "../test/helpers";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
 import { useSpotifyMatchSync } from "./useSpotifyMatchSync";
 
@@ -9,12 +10,12 @@ vi.mock("../services/trackMatchingApi", () => ({
 
 describe("useSpotifyMatchSync", () => {
   const API_BASE = "http://localhost:8000";
-  const authFetch = vi.fn();
+  const authFetch = asAuthFetch(vi.fn());
   const detailData = {
     tracklist: [{ title: "A" }],
     artists: [{ name: "Art" }],
   };
-  const selectedItem = { id: "rel-1" };
+  const selectedItem = { id: "rel-1", type: "release" as const };
 
   it("refreshSpotifyMatches loads matches and clears loading", async () => {
     vi.mocked(matchTracksToSpotifyApi as Mock).mockResolvedValue([

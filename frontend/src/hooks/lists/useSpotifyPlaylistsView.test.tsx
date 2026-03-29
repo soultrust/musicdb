@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { asAuthFetch } from "../../test/helpers";
 import { useSpotifyPlaylistsView } from "./useSpotifyPlaylistsView";
 
-function makeJsonResponse(body, ok = true) {
+function makeJsonResponse(body: unknown, ok = true) {
   return {
     ok,
     json: async () => body,
@@ -13,14 +14,14 @@ describe("useSpotifyPlaylistsView", () => {
   const API_BASE = "http://localhost:8000";
 
   it("resets state when not in spotify-playlists view", async () => {
-    const authFetch = vi.fn((url) => {
+    const authFetch = asAuthFetch(vi.fn((url: string) => {
       if (url.includes("/api/spotify/playlists/")) {
         return Promise.resolve(makeJsonResponse({ playlists: [{ id: "p1", name: "Playlist 1" }] }));
       }
       throw new Error(`Unexpected URL: ${url}`);
-    });
+    }));
     const { result, rerender } = renderHook(
-      (props) =>
+      (props: { viewListId: string }) =>
         useSpotifyPlaylistsView({
           API_BASE,
           accessToken: "jwt",
@@ -45,12 +46,12 @@ describe("useSpotifyPlaylistsView", () => {
   });
 
   it("fetches spotify playlists for sentinel view with tokens", async () => {
-    const authFetch = vi.fn((url) => {
+    const authFetch = asAuthFetch(vi.fn((url: string) => {
       if (url.includes("/api/spotify/playlists/")) {
         return Promise.resolve(makeJsonResponse({ playlists: [{ id: "p1", name: "Playlist 1" }] }));
       }
       throw new Error(`Unexpected URL: ${url}`);
-    });
+    }));
 
     const { result } = renderHook(() =>
       useSpotifyPlaylistsView({
@@ -68,7 +69,7 @@ describe("useSpotifyPlaylistsView", () => {
   });
 
   it("fetches selected playlist tracks when playlist is chosen", async () => {
-    const authFetch = vi.fn((url) => {
+    const authFetch = asAuthFetch(vi.fn((url: string) => {
       if (url.includes("/api/spotify/playlists/") && !url.includes("/tracks/")) {
         return Promise.resolve(makeJsonResponse({ playlists: [{ id: "p1", name: "Playlist 1" }] }));
       }
@@ -76,7 +77,7 @@ describe("useSpotifyPlaylistsView", () => {
         return Promise.resolve(makeJsonResponse({ id: "p1", tracks: [{ id: "t1" }] }));
       }
       throw new Error(`Unexpected URL: ${url}`);
-    });
+    }));
 
     const { result } = renderHook(() =>
       useSpotifyPlaylistsView({

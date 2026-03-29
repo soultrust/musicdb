@@ -1,8 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { asAuthFetch, fakeFormEvent } from "../../test/helpers";
 import { useListModalActions } from "./useListModalActions";
 
-function makeJsonResponse(body, ok = true, status = 200) {
+function makeJsonResponse(body: unknown, ok = true, status = 200) {
   return {
     ok,
     status,
@@ -15,11 +16,11 @@ describe("useListModalActions", () => {
   const API_BASE = "http://localhost:8000";
 
   it("opens modal only for release/master/album", () => {
-    const authFetch = vi.fn((url) => {
+    const authFetch = asAuthFetch(vi.fn((url: string) => {
       if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [] }));
       if (url.includes("/lists/")) return Promise.resolve(makeJsonResponse({ lists: [] }));
       throw new Error(`Unexpected URL: ${url}`);
-    });
+    }));
     const { result, rerender } = renderHook(
       (props) =>
         useListModalActions({
@@ -42,11 +43,11 @@ describe("useListModalActions", () => {
   });
 
   it("loads lists and existing membership when modal opens", async () => {
-    const authFetch = vi.fn((url) => {
+    const authFetch = asAuthFetch(vi.fn((url: string) => {
       if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [1] }));
       if (url.includes("/lists/")) return Promise.resolve(makeJsonResponse({ lists: [{ id: 1, name: "Favs", list_type: "release" }] }));
       throw new Error(`Unexpected URL: ${url}`);
-    });
+    }));
 
     const { result } = renderHook(() =>
       useListModalActions({
@@ -70,16 +71,18 @@ describe("useListModalActions", () => {
 
   it("creates a new list and updates selected IDs + dropdown source", async () => {
     const setAllListsForView = vi.fn();
-    const authFetch = vi.fn((url, options) => {
-      if (options?.method === "POST" && url.includes("/lists/")) {
-        return Promise.resolve(
-          makeJsonResponse({ id: 99, name: "Roadtrip", list_type: "release" }),
-        );
-      }
-      if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [] }));
-      if (url.includes("/lists/")) return Promise.resolve(makeJsonResponse({ lists: [] }));
-      throw new Error(`Unexpected URL: ${url}`);
-    });
+    const authFetch = asAuthFetch(
+      vi.fn((url: string, options?: RequestInit) => {
+        if (options?.method === "POST" && url.includes("/lists/")) {
+          return Promise.resolve(
+            makeJsonResponse({ id: 99, name: "Roadtrip", list_type: "release" }),
+          );
+        }
+        if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [] }));
+        if (url.includes("/lists/")) return Promise.resolve(makeJsonResponse({ lists: [] }));
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
 
     const { result } = renderHook(() =>
       useListModalActions({
@@ -97,7 +100,7 @@ describe("useListModalActions", () => {
     });
 
     await act(async () => {
-      await result.current.handleCreateList({ preventDefault() {} });
+      await result.current.handleCreateList(fakeFormEvent());
     });
 
     expect(result.current.lists[0].id).toBe(99);
@@ -107,7 +110,7 @@ describe("useListModalActions", () => {
   });
 
   it("posts selected list IDs with artist-prefixed title and closes modal", async () => {
-    const authFetch = vi.fn((url, options) => {
+    const authFetchMock = vi.fn((url: string, options?: RequestInit) => {
       if (options?.method === "POST" && url.includes("/lists/items/")) {
         return Promise.resolve(makeJsonResponse({ ok: true }));
       }
@@ -115,6 +118,7 @@ describe("useListModalActions", () => {
       if (url.includes("/lists/")) return Promise.resolve(makeJsonResponse({ lists: [{ id: 1 }, { id: 2 }] }));
       throw new Error(`Unexpected URL: ${url}`);
     });
+    const authFetch = asAuthFetch(authFetchMock);
 
     const { result } = renderHook(() =>
       useListModalActions({
@@ -134,11 +138,14 @@ describe("useListModalActions", () => {
       await result.current.handleAddToLists();
     });
 
-    const postCall = authFetch.mock.calls.find(
+    const postCall = authFetchMock.mock.calls.find(
       ([url, options]) => url.includes("/lists/items/") && options?.method === "POST",
     );
-    expect(postCall).toBeTruthy();
-    const payload = JSON.parse(postCall[1].body);
+    expect(postCall).toBeDefined();
+    if (!postCall) throw new Error("expected POST to /lists/items/");
+    const options = postCall[1];
+    if (options?.body == null) throw new Error("expected JSON body");
+    const payload = JSON.parse(String(options.body));
     expect(payload).toEqual({
       type: "release",
       id: "rel-1",

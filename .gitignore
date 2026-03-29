@@ -11,5 +11,13 @@ __pycache__/
 
 node_modules/
 
+# Frontend (Vite / Vitest coverage HTML)
+frontend/coverage/
+
+# Python / Django (coverage.py)
+musicdb-api/htmlcov/
+musicdb-api/.coverage
+.coverage
+
 .env
 *.env

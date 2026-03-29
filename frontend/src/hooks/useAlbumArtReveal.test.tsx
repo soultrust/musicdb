@@ -4,8 +4,8 @@ import { useAlbumArtReveal } from "./useAlbumArtReveal";
 
 describe("useAlbumArtReveal", () => {
   beforeEach(() => {
-    vi.stubGlobal("requestAnimationFrame", (fn) => {
-      fn();
+    vi.stubGlobal("requestAnimationFrame", (fn: FrameRequestCallback) => {
+      fn(0);
       return 1;
     });
     vi.stubGlobal("cancelAnimationFrame", vi.fn());

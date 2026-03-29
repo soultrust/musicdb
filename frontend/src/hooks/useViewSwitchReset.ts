@@ -1,4 +1,11 @@
+import type { ChangeEvent, Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
+import type {
+  DetailData,
+  DetailItem,
+  ListViewData,
+  PlaylistTracksData,
+} from "../types/musicDbSlices";
 
 export function useViewSwitchReset({
   setViewListId,
@@ -7,9 +14,16 @@ export function useViewSwitchReset({
   setDetailData,
   setSelectedPlaylistId,
   setPlaylistTracksData,
+}: {
+  setViewListId: Dispatch<SetStateAction<string | number | null>>;
+  setListViewData: Dispatch<SetStateAction<ListViewData | null>>;
+  setSelectedItem: Dispatch<SetStateAction<DetailItem | null>>;
+  setDetailData: Dispatch<SetStateAction<DetailData | null>>;
+  setSelectedPlaylistId: Dispatch<SetStateAction<string | null>>;
+  setPlaylistTracksData: Dispatch<SetStateAction<PlaylistTracksData | null>>;
 }) {
   return useCallback(
-    (e) => {
+    (e: ChangeEvent<HTMLSelectElement>) => {
       const v = e.target.value;
       if (v === "") {
         setViewListId(null);
@@ -47,4 +61,3 @@ export function useViewSwitchReset({
     ],
   );
 }
-

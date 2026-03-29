@@ -1,5 +1,13 @@
+import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useCallback } from "react";
 import { searchQueryUrl } from "../services/searchApi";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+import type { DetailData, DetailItem, SearchResultItem, SpotifyMatchRow } from "../types/musicDbSlices";
+
+function errorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 export function useSearchSubmit({
   API_BASE,
@@ -18,10 +26,27 @@ export function useSearchSubmit({
   setSelectedItem,
   setDetailData,
   setSpotifyMatches,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  query: string;
+  searchType: string;
+  filterArtist: string;
+  filterYear: string;
+  filterYearFrom: string;
+  filterYearTo: string;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+  setError: Dispatch<SetStateAction<string | null>>;
+  setResults: Dispatch<SetStateAction<SearchResultItem[]>>;
+  setViewListId: Dispatch<SetStateAction<string | number | null>>;
+  handleItemClick: (item: SearchResultItem) => void | Promise<void>;
+  setSelectedItem: Dispatch<SetStateAction<DetailItem | null>>;
+  setDetailData: Dispatch<SetStateAction<DetailData | null>>;
+  setSpotifyMatches: Dispatch<SetStateAction<SpotifyMatchRow[]>>;
 }) {
   return useCallback(
-    async (e) => {
-      e.preventDefault();
+    async (e?: FormEvent<Element>) => {
+      e?.preventDefault();
       if (!query.trim()) return;
       setLoading(true);
       setError(null);
@@ -37,7 +62,7 @@ export function useSearchSubmit({
           if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
         }
         const searchRes = await authFetch(searchQueryUrl(API_BASE, params));
-        const data = await searchRes.json();
+        const data = (await searchRes.json()) as { error?: string; results?: SearchResultItem[] };
         if (!searchRes.ok) {
           setError(data.error || `Request failed: ${searchRes.status}`);
           return;
@@ -46,14 +71,16 @@ export function useSearchSubmit({
         setViewListId(null);
         if (data.results?.length) {
           const first = data.results[0];
-          requestAnimationFrame(() => handleItemClick(first));
+          requestAnimationFrame(() => {
+            void handleItemClick(first);
+          });
         } else {
           setSelectedItem(null);
           setDetailData(null);
           setSpotifyMatches([]);
         }
-      } catch (err) {
-        setError(err.message || "Request failed");
+      } catch (err: unknown) {
+        setError(errorMessage(err, "Request failed"));
       } finally {
         setLoading(false);
       }

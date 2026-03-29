@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fakeSyntheticEvent } from "../test/helpers";
 import { useSpotifyAuth } from "./useSpotifyAuth";
 
 describe("useSpotifyAuth", () => {
@@ -36,7 +37,7 @@ describe("useSpotifyAuth", () => {
     );
 
     act(() => {
-      result.current.handleSpotifyLogin({ preventDefault: vi.fn() });
+      result.current.handleSpotifyLogin(fakeSyntheticEvent());
     });
 
     expect(openSpy).not.toHaveBeenCalled();
@@ -59,7 +60,7 @@ describe("useSpotifyAuth", () => {
     );
 
     act(() => {
-      result.current.handleSpotifyLogin({ preventDefault: vi.fn() });
+      result.current.handleSpotifyLogin(fakeSyntheticEvent());
     });
 
     expect(openSpy).toHaveBeenCalledTimes(1);

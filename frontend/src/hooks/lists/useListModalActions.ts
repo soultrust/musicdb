@@ -1,18 +1,20 @@
+import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useEffect, useRef, useState } from "react";
 import { listItemsCheckUrl, listItemsUrl, listsIndexUrl } from "../../services/searchApi";
+import type { AuthFetchFn } from "../../services/especiallyLikedApi";
+import type { DetailData, DetailItem, ListForView } from "../../types/musicDbSlices";
+
+type ListRow = { id: number; name: string; list_type?: string; [key: string]: unknown };
+
+function listErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 /**
  * "Add to list" modal: opens for release / master / album items, fetches list index
  * (cached after first load), pre-selects lists that already contain the item, and handles
  * create-list plus batch add with `title` derived from `detailData` when available.
- *
- * @param {object} args
- * @param {string} args.API_BASE
- * @param {function} args.authFetch
- * @param {string|null} args.accessToken
- * @param {object|null} args.selectedItem Sidebar / search selection
- * @param {object|null} args.detailData Detail panel payload (artists, title) for saved label
- * @param {function} args.setAllListsForView Updates header dropdown after creating a list
  */
 export function useListModalActions({
   API_BASE,
@@ -21,15 +23,25 @@ export function useListModalActions({
   selectedItem,
   detailData,
   setAllListsForView,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  accessToken: string | null;
+  selectedItem: DetailItem | null;
+  detailData: DetailData | null;
+  setAllListsForView: Dispatch<SetStateAction<ListForView[]>>;
 }) {
   const [showListModal, setShowListModal] = useState(false);
-  const [lists, setLists] = useState([]);
-  const [selectedListIds, setSelectedListIds] = useState([]);
+  const [lists, setLists] = useState<ListRow[]>([]);
+  const [selectedListIds, setSelectedListIds] = useState<number[]>([]);
   const [newListName, setNewListName] = useState("");
   const [listLoading, setListLoading] = useState(false);
-  const [listError, setListError] = useState(null);
+  const [listError, setListError] = useState<string | null>(null);
 
-  const listModalItemRef = useRef({ id: null, type: null });
+  const listModalItemRef = useRef<{ id: string | null; type: string | null }>({
+    id: null,
+    type: null,
+  });
   const authFetchRef = useRef(authFetch);
 
   useEffect(() => {
@@ -46,26 +58,31 @@ export function useListModalActions({
 
     const normalizedItemType = selectedItem ? (selectedItem.type || "").toLowerCase() : "";
     const shouldFetchListMembership =
-      selectedItem && (normalizedItemType === "release" || normalizedItemType === "master" || normalizedItemType === "album");
+      selectedItem &&
+      (normalizedItemType === "release" ||
+        normalizedItemType === "master" ||
+        normalizedItemType === "album");
     const hasListsCache = lists.length > 0;
 
     const checkPromise = shouldFetchListMembership
-      ? authFetchRef.current(listItemsCheckUrl(API_BASE, normalizedItemType, selectedItem.id))
+      ? authFetchRef
+          .current(listItemsCheckUrl(API_BASE, normalizedItemType, selectedItem.id))
           .then((res) => (res.ok ? res.json() : { list_ids: [] }))
-          .then((d) => d.list_ids || [])
-      : Promise.resolve([]);
+          .then((d: { list_ids?: number[] }) => d.list_ids || [])
+      : Promise.resolve<number[]>([]);
 
     const listType = "release";
     const listsPromise = hasListsCache
       ? Promise.resolve(lists)
-      : authFetchRef.current(listsIndexUrl(API_BASE, listType))
+      : authFetchRef
+          .current(listsIndexUrl(API_BASE, listType))
           .then((res) => {
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}`);
             }
             return res.json();
           })
-          .then((data) => data.lists || []);
+          .then((data: { lists?: ListRow[] }) => data.lists || []);
 
     Promise.all([listsPromise, checkPromise])
       .then(([allLists, checkedIds]) => {
@@ -75,8 +92,8 @@ export function useListModalActions({
         if (!hasListsCache) setLists(allLists);
         setSelectedListIds(checkedIds);
       })
-      .catch((err) => {
-        setListError(err.message || "Failed to load lists");
+      .catch((err: unknown) => {
+        setListError(listErrorMessage(err, "Failed to load lists"));
       })
       .finally(() => setListLoading(false));
   }, [showListModal, accessToken, selectedItem, API_BASE, lists]);
@@ -84,7 +101,8 @@ export function useListModalActions({
   function handleAddToList() {
     if (!selectedItem) return;
     const normalizedItemType = (selectedItem.type || "").toLowerCase();
-    if (normalizedItemType !== "release" && normalizedItemType !== "master" && normalizedItemType !== "album") return;
+    if (normalizedItemType !== "release" && normalizedItemType !== "master" && normalizedItemType !== "album")
+      return;
     setShowListModal(true);
   }
 
@@ -95,12 +113,14 @@ export function useListModalActions({
     setListError(null);
   }
 
-  function toggleListSelection(listId) {
-    setSelectedListIds((prev) => (prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId]));
+  function toggleListSelection(listId: number) {
+    setSelectedListIds((prev) =>
+      prev.includes(listId) ? prev.filter((id) => id !== listId) : [...prev, listId],
+    );
   }
 
-  async function handleCreateList(e) {
-    e.preventDefault();
+  async function handleCreateList(e?: FormEvent) {
+    e?.preventDefault();
     const name = newListName.trim();
     if (!name) return;
     setListLoading(true);
@@ -116,7 +136,7 @@ export function useListModalActions({
         let errorMessage = `HTTP ${res.status}`;
         if (contentType.includes("application/json")) {
           try {
-            const errorData = await res.json();
+            const errorData = (await res.json()) as { error?: string; detail?: string };
             errorMessage = errorData.error || errorData.detail || errorMessage;
           } catch {
             // ignore
@@ -126,22 +146,26 @@ export function useListModalActions({
         }
         throw new Error(errorMessage);
       }
-      const data = await res.json();
+      const data = (await res.json()) as ListRow;
       setLists((prev) => [data, ...prev]);
       setSelectedListIds((prev) => [...prev, data.id]);
       setNewListName("");
-      setAllListsForView((prev) => [{ id: data.id, list_type: data.list_type, name: data.name }, ...prev]);
-    } catch (err) {
-      setListError(err.message || "Failed to create list");
+      setAllListsForView((prev) => [
+        { id: data.id, list_type: data.list_type, name: data.name },
+        ...prev,
+      ]);
+    } catch (err: unknown) {
+      setListError(listErrorMessage(err, "Failed to create list"));
     } finally {
       setListLoading(false);
     }
   }
 
-  async function handleAddToLists() {
+  async function handleAddToLists(_e?: FormEvent) {
     if (!selectedItem) return;
     const normalizedItemType = (selectedItem.type || "").toLowerCase();
-    if (normalizedItemType !== "release" && normalizedItemType !== "master" && normalizedItemType !== "album") return;
+    if (normalizedItemType !== "release" && normalizedItemType !== "master" && normalizedItemType !== "album")
+      return;
 
     const titleToSave = (
       detailData?.artists?.length && detailData?.title
@@ -167,7 +191,7 @@ export function useListModalActions({
         let errorMessage = `HTTP ${res.status}`;
         if (contentType.includes("application/json")) {
           try {
-            const errorData = await res.json();
+            const errorData = (await res.json()) as { error?: string; detail?: string };
             errorMessage = errorData.error || errorData.detail || errorMessage;
           } catch {
             // ignore
@@ -178,8 +202,8 @@ export function useListModalActions({
         throw new Error(errorMessage);
       }
       handleCloseListModal();
-    } catch (err) {
-      setListError(err.message || "Failed to update lists");
+    } catch (err: unknown) {
+      setListError(listErrorMessage(err, "Failed to update lists"));
     } finally {
       setListLoading(false);
     }

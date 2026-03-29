@@ -1,3 +1,4 @@
+import type { SyntheticEvent } from "react";
 import { useEffect } from "react";
 
 export function useSpotifyAuth({
@@ -6,8 +7,14 @@ export function useSpotifyAuth({
   SPOTIFY_REDIRECT_URI,
   setSpotifyToken,
   resetPlayerState,
+}: {
+  API_BASE: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_REDIRECT_URI: string;
+  setSpotifyToken: (token: string | null) => void;
+  resetPlayerState: () => void;
 }) {
-  function handleSpotifyLogin(e) {
+  function handleSpotifyLogin(e?: SyntheticEvent) {
     e?.preventDefault?.();
 
     if (!SPOTIFY_CLIENT_ID) {
@@ -109,14 +116,15 @@ export function useSpotifyAuth({
             window.close();
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
           console.error("Spotify token exchange error:", err);
+          const msg = err instanceof Error ? err.message : String(err);
           if (isPopup && window.opener) {
             const storedOrigin = sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
-            window.opener.postMessage({ type: "spotify-auth-error", error: err.message }, storedOrigin);
+            window.opener.postMessage({ type: "spotify-auth-error", error: msg }, storedOrigin);
             if (storedOrigin !== window.location.origin) {
               window.opener.postMessage(
-                { type: "spotify-auth-error", error: err.message },
+                { type: "spotify-auth-error", error: msg },
                 window.location.origin,
               );
             }
@@ -135,7 +143,7 @@ export function useSpotifyAuth({
   }, [API_BASE, SPOTIFY_REDIRECT_URI, resetPlayerState, setSpotifyToken]);
 
   useEffect(() => {
-    function onMessage(e) {
+    function onMessage(e: MessageEvent) {
       if (!e.data || typeof e.data !== "object" || !e.data.type) return;
       if (e.data.type !== "spotify-token" && e.data.type !== "spotify-auth-error") return;
 

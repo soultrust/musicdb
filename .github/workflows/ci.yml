@@ -28,6 +28,12 @@ jobs:
       - name: Lint
         run: npm run lint -- --max-warnings 0
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
       - name: Unit tests
         run: npm run test
 

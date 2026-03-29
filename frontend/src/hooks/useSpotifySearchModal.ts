@@ -1,14 +1,13 @@
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useState } from "react";
 import { manualSpotifyMatchUrl } from "../services/searchApi";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import type { DetailData, DetailItem, SpotifyMatchRow, SpotifyTrackRef } from "../types/musicDbSlices";
 import { catalogOrDiscogsTitle } from "../utils/spotifyTrackMatch";
 
-type AuthFetch = (input: string, init?: RequestInit) => Promise<Response>;
-
 interface UseSpotifySearchModalParams {
   API_BASE: string;
-  authFetch: AuthFetch;
+  authFetch: AuthFetchFn;
   detailData: DetailData | null;
   selectedItem: DetailItem | null;
   setSpotifyMatches: Dispatch<SetStateAction<SpotifyMatchRow[]>>;
@@ -53,8 +52,8 @@ export function useSpotifySearchModal({
     setSpotifySearchFetched(false);
   }
 
-  async function handleSpotifySearch(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function handleSpotifySearch(e?: FormEvent<Element>) {
+    e?.preventDefault();
     const q = spotifySearchQuery.trim();
     if (!q) return;
     setSpotifySearchLoading(true);

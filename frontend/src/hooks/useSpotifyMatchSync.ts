@@ -1,11 +1,23 @@
 import { useCallback, useState } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+import type { DetailData, DetailItem, SpotifyMatchRow } from "../types/musicDbSlices";
 
 /**
  * Spotify match rows for the current detail release + loading flag for match / refresh.
  */
-export function useSpotifyMatchSync({ API_BASE, authFetch, detailData, selectedItem }) {
-  const [spotifyMatches, setSpotifyMatches] = useState([]);
+export function useSpotifyMatchSync({
+  API_BASE,
+  authFetch,
+  detailData,
+  selectedItem,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  detailData: DetailData | null;
+  selectedItem: DetailItem | null;
+}) {
+  const [spotifyMatches, setSpotifyMatches] = useState<SpotifyMatchRow[]>([]);
   const [spotifyMatching, setSpotifyMatching] = useState(false);
 
   const refreshSpotifyMatches = useCallback(async () => {

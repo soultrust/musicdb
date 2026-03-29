@@ -13,6 +13,14 @@ function headersObject(headers: RequestInit["headers"]): Record<string, string> 
   return { ...headers };
 }
 
+export type AuthFetchDeps = {
+  API_BASE: string;
+  AUTH_REFRESH_KEY: string;
+  accessToken: string | null;
+  setAccessToken: (token: string) => void;
+  logout: () => void;
+};
+
 export async function authFetchWithRefresh(
   url: string,
   options: RequestInit = {},
@@ -22,8 +30,8 @@ export async function authFetchWithRefresh(
     accessToken,
     setAccessToken,
     logout,
-  },
-) {
+  }: AuthFetchDeps,
+): Promise<Response> {
   const headers = { ...headersObject(options.headers) };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
 
@@ -37,7 +45,7 @@ export async function authFetchWithRefresh(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ refresh }),
       });
-      const refreshData = await refreshRes.json();
+      const refreshData = (await refreshRes.json()) as { access?: string };
       if (refreshData.access) {
         setAccessToken(refreshData.access);
         const retryHeaders = {
@@ -53,4 +61,3 @@ export async function authFetchWithRefresh(
 
   return res;
 }
-

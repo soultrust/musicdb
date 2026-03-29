@@ -2,14 +2,20 @@
  * Pure helpers for reconciling server "especially liked" tracks with local liked-track map state.
  */
 
+import type { CatalogTrack, DetailItem } from "../types/musicDbSlices";
+
 /** Same shape as API list keys: `position::title` */
-export function especiallyLikedFingerprintForTrack(track) {
+export function especiallyLikedFingerprintForTrack(track: CatalogTrack): string {
   const pos = track.position != null && track.position !== "" ? String(track.position) : "";
   return `${pos}::${String(track.title || "").trim()}`;
 }
 
+export type ApiEspeciallyLikedTrackRow = { track_position?: string; track_title?: string };
+
 /** Build a set of fingerprints from GET especially-liked response `tracks`. */
-export function especiallyLikedFingerprintSetFromApi(tracks) {
+export function especiallyLikedFingerprintSetFromApi(
+  tracks: ApiEspeciallyLikedTrackRow[] | undefined,
+): Set<string> {
   return new Set(
     (tracks || []).map(
       (t) => `${String(t.track_position || "")}::${String(t.track_title || "").trim()}`,
@@ -19,23 +25,16 @@ export function especiallyLikedFingerprintSetFromApi(tracks) {
 
 /**
  * Apply server especially-liked state to a copy of `prev` map (0–2 per track key).
- * @param {Record<string, unknown>} prev
- * @param {object} item — selected release/master/album (must work with buildTrackKeyForItem)
- * @param {object[]} tracklist
- * @param {Set<string>} especiallySet — fingerprints from {@link especiallyLikedFingerprintSetFromApi}
- * @param {(v: unknown) => number | null} normalizeStoredLikeValue
- * @param {(item: object, track: object) => string | null} buildTrackKeyForItem
- * @returns {Record<string, number> | null} `next` if changed, else `null`
  */
 export function computeNextLikedMapForEspeciallySync(
-  prev,
-  item,
-  tracklist,
-  especiallySet,
-  normalizeStoredLikeValue,
-  buildTrackKeyForItem,
-) {
-  const next = { ...prev };
+  prev: Record<string, number>,
+  item: DetailItem,
+  tracklist: CatalogTrack[],
+  especiallySet: Set<string>,
+  normalizeStoredLikeValue: (v: unknown) => number | null,
+  buildTrackKeyForItem: (item: DetailItem, track: CatalogTrack) => string | null,
+): Record<string, number> | null {
+  const next: Record<string, number> = { ...prev };
   let changed = false;
   for (const track of tracklist) {
     const key = buildTrackKeyForItem(item, track);

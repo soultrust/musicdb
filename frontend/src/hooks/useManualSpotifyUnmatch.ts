@@ -4,6 +4,8 @@ import {
   findSpotifyMatchForTrackTitle,
   isManualSpotifyMatchRow,
 } from "../utils/spotifyTrackMatch";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+import type { DetailItem, SpotifyMatchRow } from "../types/musicDbSlices";
 
 /**
  * Manual-match Spotify row: green search control opens confirm to DELETE the link;
@@ -16,14 +18,21 @@ export function useManualSpotifyUnmatch({
   spotifyMatches,
   openSpotifySearchModal,
   refreshSpotifyMatches,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  selectedItem: DetailItem | null;
+  spotifyMatches: SpotifyMatchRow[];
+  openSpotifySearchModal: (title: string) => void;
+  refreshSpotifyMatches: () => Promise<void>;
 }) {
-  const [unmatchSpotifyTrackTitle, setUnmatchSpotifyTrackTitle] = useState(null);
+  const [unmatchSpotifyTrackTitle, setUnmatchSpotifyTrackTitle] = useState<string | null>(null);
   const [unmatchSpotifyLoading, setUnmatchSpotifyLoading] = useState(false);
 
   const handleSpotifySearchButtonClick = useCallback(
-    (trackTitle) => {
+    (trackTitle: string) => {
       const m = findSpotifyMatchForTrackTitle(spotifyMatches, trackTitle);
-      if (isManualSpotifyMatchRow(m)) {
+      if (m && isManualSpotifyMatchRow(m)) {
         setUnmatchSpotifyTrackTitle(trackTitle);
       } else {
         openSpotifySearchModal(trackTitle);

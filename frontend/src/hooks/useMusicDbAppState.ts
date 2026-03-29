@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { DetailData, DetailItem } from "../types/musicDbSlices";
 import { authFetchWithRefresh } from "../services/authFetch";
 import { useAuth } from "./useAuth";
 import { useSearchState } from "./useSearchState";
@@ -19,17 +20,27 @@ import { useAlbumArtReveal } from "./useAlbumArtReveal";
  * Wires all authenticated-app hooks: search, detail, lists, Spotify, likes, context value.
  * Keeps `App.jsx` focused on layout and the auth gate.
  */
-export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_ID, SPOTIFY_REDIRECT_URI }) {
-  const resetPlayerStateRef = useRef(() => {});
+export function useMusicDbAppState({
+  API_BASE,
+  AUTH_REFRESH_KEY,
+  SPOTIFY_CLIENT_ID,
+  SPOTIFY_REDIRECT_URI,
+}: {
+  API_BASE: string;
+  AUTH_REFRESH_KEY: string;
+  SPOTIFY_CLIENT_ID: string;
+  SPOTIFY_REDIRECT_URI: string;
+}) {
+  const resetPlayerStateRef = useRef<() => void>(() => {});
 
-  const [spotifyToken, setSpotifyToken] = useState(null);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [detailData, setDetailData] = useState(null);
+  const [spotifyToken, setSpotifyToken] = useState<string | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DetailItem | null>(null);
+  const [detailData, setDetailData] = useState<DetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [, setDetailError] = useState(null);
-  const [overview, setOverview] = useState(null);
+  const [, setDetailError] = useState<string | null>(null);
+  const [overview, setOverview] = useState<string | null>(null);
   const [overviewLoading, setOverviewLoading] = useState(false);
-  const [overviewError, setOverviewError] = useState(null);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
   const [albumArtReady, setAlbumArtReady] = useState(false);
   const [albumArtRetryKey, setAlbumArtRetryKey] = useState(0);
 
@@ -82,7 +93,7 @@ export function useMusicDbAppState({ API_BASE, AUTH_REFRESH_KEY, SPOTIFY_CLIENT_
   } = useSearchState();
 
   const authFetch = useCallback(
-    (url, options = {}) =>
+    (url: string, options: RequestInit = {}) =>
       authFetchWithRefresh(url, options, {
         API_BASE,
         AUTH_REFRESH_KEY,

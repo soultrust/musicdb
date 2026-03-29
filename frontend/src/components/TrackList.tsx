@@ -105,14 +105,17 @@ export default function TrackList() {
           .map((track, i) => {
             const match = findSpotifyMatchForTrackTitle(spotifyMatches, track.title);
             const spotifyTrack = match?.spotify_track;
-            const isCurrentTrack =
-              spotifyTrack?.uri && currentTrack?.uri && spotifyTrack.uri === currentTrack.uri;
+            const isCurrentTrack = Boolean(
+              spotifyTrack?.uri &&
+                currentTrack?.uri &&
+                spotifyTrack.uri === currentTrack.uri,
+            );
             const isTrackFinished = playbackDuration > 0 && playbackPosition >= playbackDuration;
-            const isActive = isCurrentTrack && !isTrackFinished;
+            const isActive = Boolean(isCurrentTrack && !isTrackFinished);
             const progress = playbackDuration > 0 ? (playbackPosition / playbackDuration) * 100 : 0;
             const likeState = getDisplayLikeState(track);
-            const matchedDisconnected = spotifyTrack && !spotifyToken;
-            const manualSpotifyMatch = isManualSpotifyMatchRow(match);
+            const matchedDisconnected = Boolean(spotifyTrack && !spotifyToken);
+            const manualSpotifyMatch = match ? isManualSpotifyMatchRow(match) : false;
 
             return (
               <TrackRow

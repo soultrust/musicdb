@@ -89,7 +89,7 @@ export type ListViewData = {
 };
 
 export interface SearchSidebarSliceValue {
-  handleSubmit: (e: FormEvent) => void;
+  handleSubmit: (e?: FormEvent<Element>) => void | Promise<void>;
   searchType: string;
   setSearchType: (v: string) => void;
   query: string;
@@ -154,17 +154,17 @@ export interface ListModalSliceValue {
   lists: Array<{ id: number; name: string; [key: string]: unknown }>;
   selectedListIds: number[];
   toggleListSelection: (id: number) => void;
-  handleCreateList: (e?: FormEvent) => void;
+  handleCreateList: (e?: FormEvent) => void | Promise<void>;
   newListName: string;
   setNewListName: (v: string) => void;
   listError: string | null;
-  handleAddToLists: (e?: FormEvent) => void;
+  handleAddToLists: (e?: FormEvent) => void | Promise<void>;
   handleCloseListModal: () => void;
 }
 
 export interface SpotifySearchModalSliceValue {
   closeSpotifySearchModal: () => void;
-  handleSpotifySearch: (e: FormEvent) => void | Promise<void>;
+  handleSpotifySearch: (e?: FormEvent<Element>) => void | Promise<void>;
   manualMatchTrackTitle: string | null;
   spotifySearchQuery: string;
   setSpotifySearchQuery: (v: string) => void;
@@ -184,7 +184,7 @@ export interface DetailShellSliceValue {
   selectedItem: DetailItem | null;
   albumArtReady: boolean;
   albumArtRetryKey: number;
-  setAlbumArtRetryKey: (n: number | ((k: number) => number)) => void;
+  setAlbumArtRetryKey: Dispatch<SetStateAction<number>>;
   handleAddToList: () => void;
 }
 

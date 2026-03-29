@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
@@ -26,7 +27,9 @@ function baseCtx() {
     setFilterYearFrom: vi.fn(),
     filterYearTo: "",
     setFilterYearTo: vi.fn(),
-    allowDigitsOnly: (setter) => (e) => setter(e.target.value.replace(/\D/g, "").slice(0, 4)),
+    allowDigitsOnly:
+      (setter: (v: string) => void) => (e: ChangeEvent<HTMLInputElement>) =>
+        setter(e.target.value.replace(/\D/g, "").slice(0, 4)),
     error: null,
     spotifyPlaylistsLoading: false,
     spotifyToken: null,

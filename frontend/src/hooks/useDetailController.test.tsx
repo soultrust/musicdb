@@ -1,5 +1,6 @@
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi, type Mock } from "vitest";
+import { asAuthFetch } from "../test/helpers";
 import { useDetailController } from "./useDetailController";
 
 vi.mock("../services/trackMatchingApi", () => ({
@@ -34,18 +35,20 @@ describe("useDetailController", () => {
       artists: [{ name: "Black Sabbath" }],
       tracklist: [{ title: "War Pigs" }],
     };
-    const authFetch = vi.fn(async (url) => {
-      if (url.includes("/detail/")) {
-        return { ok: true, json: async () => detailPayload };
-      }
-      if (url.includes("/album-overview/")) {
-        return {
-          ok: true,
-          text: async () => JSON.stringify({ data: { overview: "Classic heavy metal landmark." } }),
-        };
-      }
-      throw new Error(`Unexpected URL: ${url}`);
-    });
+    const authFetch = asAuthFetch(
+      vi.fn(async (url: string) => {
+        if (url.includes("/detail/")) {
+          return { ok: true, json: async () => detailPayload };
+        }
+        if (url.includes("/album-overview/")) {
+          return {
+            ok: true,
+            text: async () => JSON.stringify({ data: { overview: "Classic heavy metal landmark." } }),
+          };
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
     const syncEspeciallyLikedForItem = vi.fn(async () => {});
     vi.mocked(matchTracksToSpotifyApi as Mock).mockResolvedValue([
       { catalog_title: "War Pigs", spotify_track: { id: "sp1" } },
@@ -78,7 +81,7 @@ describe("useDetailController", () => {
     const { result } = renderHook(() =>
       useDetailController({
         API_BASE,
-        authFetch: vi.fn(),
+        authFetch: asAuthFetch(vi.fn()),
         syncEspeciallyLikedForItem: vi.fn(),
         ...setters,
       }),
@@ -90,25 +93,27 @@ describe("useDetailController", () => {
 
   it("sets overview html error when overview endpoint returns html", async () => {
     const setters = makeSetters();
-    const authFetch = vi.fn(async (url) => {
-      if (url.includes("/detail/")) {
-        return {
-          ok: true,
-          json: async () => ({
-            title: "Album",
-            artists: [{ name: "Artist" }],
-            tracklist: [],
-          }),
-        };
-      }
-      if (url.includes("/album-overview/")) {
-        return {
-          ok: true,
-          text: async () => "<!doctype html><html>Error</html>",
-        };
-      }
-      throw new Error(`Unexpected URL: ${url}`);
-    });
+    const authFetch = asAuthFetch(
+      vi.fn(async (url: string) => {
+        if (url.includes("/detail/")) {
+          return {
+            ok: true,
+            json: async () => ({
+              title: "Album",
+              artists: [{ name: "Artist" }],
+              tracklist: [],
+            }),
+          };
+        }
+        if (url.includes("/album-overview/")) {
+          return {
+            ok: true,
+            text: async () => "<!doctype html><html>Error</html>",
+          };
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
     const { result } = renderHook(() =>
       useDetailController({
         API_BASE,

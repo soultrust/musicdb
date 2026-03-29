@@ -1,12 +1,29 @@
+import type { MouseEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { spotifyPlayerPlayUris } from "../services/spotifyApi";
+import type {
+  CatalogTrack,
+  DetailData,
+  SpotifyMatchRow,
+  SpotifyTrackRef,
+} from "../types/musicDbSlices";
+import type { SpotifyWebPlayer } from "../vite-env";
 
 /** Narrow SDK `player_state_changed` payload enough for this hook */
 type SpotifyPlaybackState = {
   paused?: boolean;
   position?: number;
   duration?: number;
-  track_window?: { current_track?: { uri?: string; [key: string]: unknown } };
+  track_window?: { current_track?: SpotifyTrackRef | null; [key: string]: unknown };
+};
+
+export type UseSpotifyPlayerParams = {
+  spotifyToken: string | null;
+  detailData: DetailData | null;
+  spotifyMatches: SpotifyMatchRow[];
+  visibleTracklist: CatalogTrack[];
+  isTrackVisible: (track: CatalogTrack) => boolean;
+  tracklistFilter: string | null;
 };
 
 export function useSpotifyPlayer({
@@ -16,21 +33,21 @@ export function useSpotifyPlayer({
   visibleTracklist,
   isTrackVisible,
   tracklistFilter,
-}) {
-  const reconnectTimeoutRef = useRef(null);
-  const playerRef = useRef(null);
-  const attemptSpotifyReconnectRef = useRef(null);
+}: UseSpotifyPlayerParams) {
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playerRef = useRef<SpotifyWebPlayer | null>(null);
+  const attemptSpotifyReconnectRef = useRef<((n: number) => void) | null>(null);
   const autoplayTriggeredRef = useRef(false);
-  const lastPlayedTrackRef = useRef(null);
+  const lastPlayedTrackRef = useRef<SpotifyTrackRef | null>(null);
 
   const [spotifyConnectionStatus, setSpotifyConnectionStatus] = useState("disconnected");
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(null);
+  const [currentTrack, setCurrentTrack] = useState<SpotifyTrackRef | null>(null);
   const [playbackPosition, setPlaybackPosition] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
-  const [deviceId, setDeviceId] = useState(null);
+  const [deviceId, setDeviceId] = useState<string | null>(null);
   const [autoplay, setAutoplay] = useState(true);
-  const [trackJustEndedUri, setTrackJustEndedUri] = useState(null);
+  const [trackJustEndedUri, setTrackJustEndedUri] = useState<string | null>(null);
 
   const resetPlayerState = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -73,11 +90,12 @@ export function useSpotifyPlayer({
 
         const newPlayer = new window.Spotify.Player({
           name: "Discogs Music DB",
-          getOAuthToken: (cb) => cb(spotifyToken),
+          getOAuthToken: (cb: (token: string) => void) => cb(spotifyToken),
           volume: 0.5,
         });
 
-        newPlayer.addListener("ready", ({ device_id }) => {
+        newPlayer.addListener("ready", (p: unknown) => {
+          const { device_id } = p as { device_id: string };
           setDeviceId(device_id);
           setSpotifyConnectionStatus("connected");
           if (reconnectTimeoutRef.current) {
@@ -91,7 +109,8 @@ export function useSpotifyPlayer({
           attemptSpotifyReconnectRef.current?.(attemptNumber + 1);
         });
 
-        newPlayer.addListener("authentication_error", ({ message }) => {
+        newPlayer.addListener("authentication_error", (p: unknown) => {
+          const { message } = p as { message: string };
           console.error("Spotify authentication error:", message);
           if (playerRef.current) {
             playerRef.current.disconnect();
@@ -101,7 +120,8 @@ export function useSpotifyPlayer({
           attemptSpotifyReconnectRef.current?.(attemptNumber + 1);
         });
 
-        newPlayer.addListener("account_error", ({ message }) => {
+        newPlayer.addListener("account_error", (p: unknown) => {
+          const { message } = p as { message: string };
           console.error("Spotify account error:", message);
           if (playerRef.current) {
             playerRef.current.disconnect();
@@ -114,7 +134,7 @@ export function useSpotifyPlayer({
         newPlayer.addListener("player_state_changed", (raw) => {
           const state = raw as SpotifyPlaybackState | null;
           if (state) {
-            lastPlayedTrackRef.current = state.track_window?.current_track;
+            lastPlayedTrackRef.current = state.track_window?.current_track ?? null;
             setIsPlaying(!state.paused);
             setCurrentTrack(state.track_window?.current_track ?? null);
             setPlaybackPosition(state.position || 0);
@@ -129,11 +149,13 @@ export function useSpotifyPlayer({
           }
         });
 
-        newPlayer.addListener("playback_error", ({ message }) => {
+        newPlayer.addListener("playback_error", (p: unknown) => {
+          const { message } = p as { message: string };
           console.error("Spotify playback error:", message);
         });
 
-        newPlayer.addListener("initialization_error", ({ message }) => {
+        newPlayer.addListener("initialization_error", (p: unknown) => {
+          const { message } = p as { message: string };
           console.error("Spotify initialization error:", message);
           attemptSpotifyReconnectRef.current?.(attemptNumber + 1);
         });
@@ -149,11 +171,12 @@ export function useSpotifyPlayer({
     if (!window.Spotify || playerRef.current) return;
     const newPlayer = new window.Spotify.Player({
       name: "Discogs Music DB",
-      getOAuthToken: (cb) => cb(spotifyToken),
+      getOAuthToken: (cb: (token: string) => void) => cb(spotifyToken ?? ""),
       volume: 0.5,
     });
 
-    newPlayer.addListener("ready", ({ device_id }) => {
+    newPlayer.addListener("ready", (p: unknown) => {
+      const { device_id } = p as { device_id: string };
       setDeviceId(device_id);
       setSpotifyConnectionStatus("connected");
       if (reconnectTimeoutRef.current) {
@@ -170,7 +193,7 @@ export function useSpotifyPlayer({
     newPlayer.addListener("player_state_changed", (raw) => {
       const state = raw as SpotifyPlaybackState | null;
       if (state) {
-        lastPlayedTrackRef.current = state.track_window?.current_track;
+        lastPlayedTrackRef.current = state.track_window?.current_track ?? null;
         setIsPlaying(!state.paused);
         setCurrentTrack(state.track_window?.current_track ?? null);
         setPlaybackPosition(state.position || 0);
@@ -185,7 +208,8 @@ export function useSpotifyPlayer({
       }
     });
 
-    newPlayer.addListener("authentication_error", ({ message }) => {
+    newPlayer.addListener("authentication_error", (p: unknown) => {
+      const { message } = p as { message: string };
       console.error("Spotify authentication error:", message);
       if (playerRef.current) {
         playerRef.current.disconnect();
@@ -196,7 +220,8 @@ export function useSpotifyPlayer({
       attemptSpotifyReconnect(1);
     });
 
-    newPlayer.addListener("account_error", ({ message }) => {
+    newPlayer.addListener("account_error", (p: unknown) => {
+      const { message } = p as { message: string };
       console.error("Spotify account error:", message);
       if (playerRef.current) {
         playerRef.current.disconnect();
@@ -207,11 +232,13 @@ export function useSpotifyPlayer({
       attemptSpotifyReconnect(1);
     });
 
-    newPlayer.addListener("playback_error", ({ message }) => {
+    newPlayer.addListener("playback_error", (p: unknown) => {
+      const { message } = p as { message: string };
       console.error("Spotify playback error:", message);
     });
 
-    newPlayer.addListener("initialization_error", ({ message }) => {
+    newPlayer.addListener("initialization_error", (p: unknown) => {
+      const { message } = p as { message: string };
       console.error("Spotify initialization error:", message);
       setSpotifyConnectionStatus("connecting");
       attemptSpotifyReconnect(1);
@@ -265,7 +292,7 @@ export function useSpotifyPlayer({
   }, [isPlaying, currentTrack?.uri]);
 
   const playTrack = useCallback(
-    async (spotifyUri) => {
+    async (spotifyUri: string) => {
       if (!playerRef.current || !spotifyToken) return;
       if (!deviceId) return;
       try {
@@ -282,7 +309,7 @@ export function useSpotifyPlayer({
   }, []);
 
   const seekTrack = useCallback(
-    (positionMs) => {
+    (positionMs: number) => {
       if (!playerRef.current || !playbackDuration) return;
       const clamped = Math.max(0, Math.min(Math.round(positionMs), playbackDuration));
       playerRef.current.seek(clamped);
@@ -292,9 +319,10 @@ export function useSpotifyPlayer({
   );
 
   const handleTrackRowClick = useCallback(
-    (e, isActive) => {
+    (e: MouseEvent<Element>, isActive: boolean) => {
       if (!isActive || playbackDuration <= 0) return;
-      if (e.target.closest("button")) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("button")) return;
       const rect = e.currentTarget.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const fraction = Math.max(0, Math.min(1, x / rect.width));
@@ -337,6 +365,7 @@ export function useSpotifyPlayer({
     if (matchIndex < 0) return;
 
     const fullList = detailData.tracklist;
+    if (!fullList?.length) return;
     let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (matchIndex + j) % fullList.length;
@@ -344,10 +373,11 @@ export function useSpotifyPlayer({
       const nextTrack = fullList[nextFullIndex];
       if (!nextTrack || !isTrackVisible(nextTrack)) continue;
       const nextMatch = spotifyMatches[nextFullIndex];
-      if (nextMatch?.spotify_track?.uri) {
+      const uri = nextMatch?.spotify_track?.uri;
+      if (uri) {
         foundNext = true;
         autoplayTriggeredRef.current = true;
-        playTrack(nextMatch.spotify_track.uri);
+        playTrack(uri);
         break;
       }
     }
@@ -385,6 +415,7 @@ export function useSpotifyPlayer({
     const matchIndex = spotifyMatches.findIndex((m) => m.spotify_track?.uri === currentTrack.uri);
     if (matchIndex < 0) return;
     const fullList = detailData.tracklist;
+    if (!fullList?.length) return;
     let foundNext = false;
     for (let j = 1; j <= fullList.length; j++) {
       const nextFullIndex = (matchIndex + j) % fullList.length;
@@ -392,10 +423,11 @@ export function useSpotifyPlayer({
       const nextTrack = fullList[nextFullIndex];
       if (!nextTrack || !isTrackVisible(nextTrack)) continue;
       const nextMatch = spotifyMatches[nextFullIndex];
-      if (nextMatch?.spotify_track?.uri) {
+      const uri = nextMatch?.spotify_track?.uri;
+      if (uri) {
         foundNext = true;
         autoplayTriggeredRef.current = true;
-        playTrack(nextMatch.spotify_track.uri);
+        playTrack(uri);
         break;
       }
     }

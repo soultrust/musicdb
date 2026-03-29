@@ -1,27 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { listDetailUrl, listsIndexUrl } from "../../services/searchApi";
+import type { AuthFetchFn } from "../../services/especiallyLikedApi";
+import type { ListForView, ListViewData, SearchResultItem } from "../../types/musicDbSlices";
 
 /**
  * MusicDB "library lists" sidebar: fetches the list index for the header dropdown,
  * loads the selected list’s detail (items), and auto-opens the first item so the
  * detail panel stays in sync. Skips detail fetch when `viewListId` is the Spotify
  * playlists sentinel (`"spotify-playlists"`).
- *
- * @param {object} args
- * @param {string} args.API_BASE MusicDB API origin
- * @param {string|null} args.accessToken JWT for MusicDB
- * @param {function} args.authFetch fetch wrapper (cookies / auth)
- * @param {function} args.handleItemClick Opens a row in the main UI (id, type, title)
  */
 export function useLibraryListsView({
   API_BASE,
   accessToken,
   authFetch,
   handleItemClick,
+}: {
+  API_BASE: string;
+  accessToken: string | null;
+  authFetch: AuthFetchFn;
+  handleItemClick: (item: SearchResultItem) => void;
 }) {
-  const [allListsForView, setAllListsForView] = useState([]);
-  const [viewListId, setViewListId] = useState(null);
-  const [listViewData, setListViewData] = useState(null);
+  const [allListsForView, setAllListsForView] = useState<ListForView[]>([]);
+  const [viewListId, setViewListId] = useState<string | number | null>(null);
+  const [listViewData, setListViewData] = useState<ListViewData | null>(null);
   const [listViewLoading, setListViewLoading] = useState(false);
 
   const authFetchRef = useRef(authFetch);
@@ -47,11 +48,12 @@ export function useLibraryListsView({
     }
     fetchListsInFlightRef.current = true;
 
-    authFetchRef.current(listsIndexUrl(API_BASE), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    authFetchRef
+      .current(listsIndexUrl(API_BASE), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
       .then((res) => (res.ok ? res.json() : { lists: [] }))
-      .then((data) => {
+      .then((data: { lists?: ListForView[] }) => {
         if (!cancelled) setAllListsForView(data.lists || []);
       })
       .catch(() => {
@@ -71,21 +73,20 @@ export function useLibraryListsView({
       return () => clearTimeout(id);
     }
     if (viewListId === "spotify-playlists") return;
-    // Apply loading + clear before the fetch’s microtask runs. setTimeout(0) previously raced:
-    // fetch could resolve first, then the timer cleared listViewData after load (CI + fast mocks).
     /* eslint-disable react-hooks/set-state-in-effect -- intentional sync before starting fetch */
     setListViewLoading(true);
     setListViewData(null);
     /* eslint-enable react-hooks/set-state-in-effect */
     let cancelled = false;
-    authFetchRef.current(listDetailUrl(API_BASE, viewListId), {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    })
+    authFetchRef
+      .current(listDetailUrl(API_BASE, viewListId), {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
       .then((res) => {
         if (!res.ok) return null;
         return res.json();
       })
-      .then((data) => {
+      .then((data: ListViewData | null) => {
         if (!cancelled && data) setListViewData(data);
       })
       .finally(() => {
@@ -100,11 +101,7 @@ export function useLibraryListsView({
     const items = listViewData?.items;
     if (!viewListId || !items?.length) return;
     const firstItem = items[0];
-    const item = { id: firstItem.id, type: firstItem.type, title: firstItem.title };
-    // setTimeout(0) + clearTimeout (not queueMicrotask): React Strict Mode runs effect
-    // cleanup before microtasks flush, which would skip a microtask-only open. Timers are
-    // cleared on the first mount’s cleanup and rescheduled on the real mount, so the
-    // callback still runs once in dev/CI.
+    const item: SearchResultItem = { id: firstItem.id, type: firstItem.type, title: firstItem.title };
     const timeoutId = setTimeout(() => {
       handleItemClickRef.current(item);
     }, 0);

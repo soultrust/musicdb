@@ -1,3 +1,5 @@
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+import type { DetailData, DetailItem, SearchResultItem } from "../types/musicDbSlices";
 import { useLibraryListsView } from "./lists/useLibraryListsView";
 import { useSpotifyPlaylistsView } from "./lists/useSpotifyPlaylistsView";
 import { useListModalActions } from "./lists/useListModalActions";
@@ -5,17 +7,6 @@ import { useListModalActions } from "./lists/useListModalActions";
 /**
  * Composes list-related UI state: MusicDB library lists, Spotify playlists pseudo-view,
  * and the add-to-list modal (create list, membership, batch add).
- *
- * Returned shape is stable for `App.jsx` and other consumers.
- *
- * @param {object} args
- * @param {string} args.API_BASE
- * @param {function} args.authFetch
- * @param {string|null} args.accessToken
- * @param {string|null} args.spotifyToken
- * @param {object|null} args.selectedItem
- * @param {object|null} args.detailData
- * @param {function} args.handleItemClick
  */
 export function useLists({
   API_BASE,
@@ -25,6 +16,14 @@ export function useLists({
   selectedItem,
   detailData,
   handleItemClick,
+}: {
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  accessToken: string | null;
+  spotifyToken: string | null;
+  selectedItem: DetailItem | null;
+  detailData: DetailData | null;
+  handleItemClick: (item: SearchResultItem) => void | Promise<void>;
 }) {
   const {
     allListsForView,
@@ -109,4 +108,3 @@ export function useLists({
     handleAddToLists,
   };
 }
-

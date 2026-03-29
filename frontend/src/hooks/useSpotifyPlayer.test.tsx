@@ -1,3 +1,4 @@
+import type { MouseEvent } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -120,9 +121,11 @@ describe("useSpotifyPlayer", () => {
 
     const event = {
       target: { closest: () => null },
-      currentTarget: { getBoundingClientRect: () => ({ left: 0, width: 200 }) },
+      currentTarget: {
+        getBoundingClientRect: () => ({ left: 0, width: 200 } as DOMRect),
+      },
       clientX: 100,
-    };
+    } as unknown as MouseEvent<Element>;
     act(() => {
       result.current.handleTrackRowClick(event, true);
     });
