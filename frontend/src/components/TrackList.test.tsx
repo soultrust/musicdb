@@ -4,50 +4,29 @@ import {
   DetailShellSliceContext,
   DetailTracklistSliceContext,
 } from "../context/musicDbSliceContexts";
+import { buildDetailShellSliceValue, buildDetailTracklistSliceValue } from "../test/sliceFixtures";
 import type { CatalogTrack } from "../types/musicDbSlices";
 import type { DetailShellSliceValue, DetailTracklistSliceValue } from "../types/musicDbSlices";
 import TrackList from "./TrackList";
 
-function buildDefaultTracklistContext(
-  overrides: Partial<DetailTracklistSliceValue> = {},
-): DetailTracklistSliceValue {
-  return {
-    spotifyMatching: false,
-    autoplay: false,
-    setAutoplay: vi.fn(),
-    tracklistFilter: null,
-    setTracklistFilter: vi.fn(),
-    getDisplayLikeState: vi.fn(() => 0),
-    spotifyMatches: [],
-    currentTrack: null,
-    playbackDuration: 0,
-    playbackPosition: 0,
-    getTrackKey: vi.fn((t: CatalogTrack) => t.title),
-    handleTrackRowClick: vi.fn(),
-    playTrack: vi.fn(),
-    handleSpotifySearchButtonClick: vi.fn(),
-    toggleLikeTrack: vi.fn(),
-    spotifyToken: "tok",
-    ...overrides,
-  };
-}
-
-function renderTrackList({
-  tracklist = [] as CatalogTrack[],
-  shellOverrides = {},
-  tracklistOverrides = {},
-} = {}) {
-  const tracklistCtx = buildDefaultTracklistContext(tracklistOverrides);
-  const shellValue = {
+function renderTrackList(
+  {
+    tracklist = [] as CatalogTrack[],
+    shellOverrides = {},
+    tracklistOverrides = {},
+  }: {
+    tracklist?: CatalogTrack[];
+    shellOverrides?: Partial<DetailShellSliceValue>;
+    tracklistOverrides?: Partial<DetailTracklistSliceValue>;
+  } = {},
+) {
+  const tracklistCtx = buildDetailTracklistSliceValue(tracklistOverrides);
+  const shellValue = buildDetailShellSliceValue({
     detailLoading: false,
     selectedItem: { id: "test-item", type: "release" },
-    albumArtReady: true,
-    albumArtRetryKey: 0,
-    setAlbumArtRetryKey: vi.fn(),
-    handleAddToList: vi.fn(),
     detailData: { tracklist },
     ...shellOverrides,
-  } as DetailShellSliceValue;
+  });
   render(
     <DetailShellSliceContext.Provider value={shellValue}>
       <DetailTracklistSliceContext.Provider value={tracklistCtx}>

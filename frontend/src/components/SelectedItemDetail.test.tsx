@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { DetailShellSliceContext } from "../context/musicDbSliceContexts";
+import { buildDetailShellSliceValue } from "../test/sliceFixtures";
 import type { DetailData, DetailItem, DetailShellSliceValue } from "../types/musicDbSlices";
 import SelectedItemDetail from "./SelectedItemDetail";
 
@@ -11,21 +12,8 @@ vi.mock("./DetailOverview", () => ({
   default: () => <div data-testid="detail-overview" />,
 }));
 
-function buildShellValue(overrides: Partial<DetailShellSliceValue> = {}): DetailShellSliceValue {
-  return {
-    detailLoading: false,
-    detailData: null,
-    selectedItem: null,
-    albumArtReady: true,
-    albumArtRetryKey: 0,
-    setAlbumArtRetryKey: vi.fn(),
-    handleAddToList: vi.fn(),
-    ...overrides,
-  };
-}
-
 function renderSelectedItemDetail(overrides: Partial<DetailShellSliceValue> = {}) {
-  const value = buildShellValue(overrides);
+  const value = buildDetailShellSliceValue(overrides);
   render(
     <DetailShellSliceContext.Provider value={value}>
       <SelectedItemDetail />
@@ -183,7 +171,7 @@ describe("SelectedItemDetail", () => {
     for (const type of types) {
       const { unmount } = render(
         <DetailShellSliceContext.Provider
-          value={buildShellValue({
+          value={buildDetailShellSliceValue({
             detailData: { title: "T" } as DetailData,
             selectedItem: { id: "1", type, title: "T" } as DetailItem,
           })}

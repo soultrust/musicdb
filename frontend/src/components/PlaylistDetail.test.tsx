@@ -1,22 +1,12 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PlaylistDetailSliceContext } from "../context/musicDbSliceContexts";
+import { buildPlaylistDetailSliceValue } from "../test/sliceFixtures";
 import type { PlaylistDetailSliceValue, PlaylistTracksData } from "../types/musicDbSlices";
 import PlaylistDetail from "./PlaylistDetail";
 
-function buildPlaylistValue(overrides: Partial<PlaylistDetailSliceValue> = {}): PlaylistDetailSliceValue {
-  return {
-    playlistTracksLoading: false,
-    playlistTracksData: null,
-    deviceId: null,
-    spotifyToken: null,
-    playTrack: vi.fn(),
-    ...overrides,
-  };
-}
-
 function renderPlaylistDetail(overrides: Partial<PlaylistDetailSliceValue> = {}) {
-  const value = buildPlaylistValue(overrides);
+  const value = buildPlaylistDetailSliceValue(overrides);
   render(
     <PlaylistDetailSliceContext.Provider value={value}>
       <PlaylistDetail />

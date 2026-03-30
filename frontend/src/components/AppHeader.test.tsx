@@ -2,28 +2,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { HeaderSliceContext } from "../context/musicDbSliceContexts";
 import { fakeSelectChange } from "../test/helpers";
+import { buildHeaderSliceValue } from "../test/sliceFixtures";
 import type { HeaderSliceValue } from "../types/musicDbSlices";
 import AppHeader from "./AppHeader";
 
-function buildHeaderValue(overrides: Partial<HeaderSliceValue> = {}): HeaderSliceValue {
-  return {
-    spotifyToken: null,
-    spotifyConnectionStatus: "disconnected",
-    deviceId: null,
-    isPlaying: false,
-    currentTrack: null,
-    togglePlayback: vi.fn(),
-    handleSpotifyLogin: vi.fn(),
-    viewListId: null,
-    onViewListChange: vi.fn(),
-    allListsForView: [],
-    logout: vi.fn(),
-    ...overrides,
-  };
-}
-
 function renderAppHeader(overrides: Partial<HeaderSliceValue> = {}) {
-  const value = buildHeaderValue(overrides);
+  const value = buildHeaderSliceValue(overrides);
   render(
     <HeaderSliceContext.Provider value={value}>
       <AppHeader />
@@ -105,7 +89,7 @@ describe("AppHeader", () => {
 
   it("adds Shared Playlists option when Spotify is linked", () => {
     const { container } = render(
-      <HeaderSliceContext.Provider value={buildHeaderValue({ spotifyToken: "sp" })}>
+      <HeaderSliceContext.Provider value={buildHeaderSliceValue({ spotifyToken: "sp" })}>
         <AppHeader />
       </HeaderSliceContext.Provider>,
     );

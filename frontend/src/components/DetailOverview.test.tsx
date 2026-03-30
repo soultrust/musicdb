@@ -1,22 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DetailOverviewSliceContext } from "../context/musicDbSliceContexts";
+import { buildDetailOverviewSliceValue } from "../test/sliceFixtures";
 import type { DetailData, DetailItem, DetailOverviewSliceValue } from "../types/musicDbSlices";
 import DetailOverview from "./DetailOverview";
 
-function buildOverviewValue(overrides: Partial<DetailOverviewSliceValue> = {}): DetailOverviewSliceValue {
-  return {
-    detailData: null,
-    selectedItem: null,
-    overviewLoading: false,
-    overview: null,
-    overviewError: null,
-    ...overrides,
-  };
-}
-
 function renderDetailOverview(overrides: Partial<DetailOverviewSliceValue> = {}) {
-  const value = buildOverviewValue(overrides);
+  const value = buildDetailOverviewSliceValue(overrides);
   render(
     <DetailOverviewSliceContext.Provider value={value}>
       <DetailOverview />
