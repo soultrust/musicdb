@@ -201,8 +201,6 @@ export function useMusicDbAppState({
     searchType,
     filterArtist,
     filterYear,
-    filterYearFrom,
-    filterYearTo,
     setLoading,
     setError,
     setResults,

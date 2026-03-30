@@ -14,8 +14,6 @@ describe("useSearchSubmit", () => {
       searchType: "album",
       filterArtist: "Nirvana",
       filterYear: "1991",
-      filterYearFrom: "",
-      filterYearTo: "",
       setLoading: vi.fn(),
       setError: vi.fn(),
       setResults: vi.fn(),

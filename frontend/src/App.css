@@ -206,27 +206,40 @@
   cursor: not-allowed;
 }
 
-.search-year-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
+.search-album-filters {
   padding: 0.5rem 0;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 0.25rem;
 }
 
-.search-year-label {
+.search-album-filters-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.search-album-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.search-album-filter-artist {
+  flex: 4;
+}
+
+.search-album-filter-year {
+  flex: 1;
+}
+
+.search-album-filter-label {
   font-size: 0.8rem;
   color: #a3a3a3;
 }
 
-.search-artist-input {
-  max-width: none;
-}
-
-.search-year-input {
+.search-album-filter-input {
   width: 100%;
-  max-width: 5rem;
   box-sizing: border-box;
   padding: 0.4rem 0.5rem;
   font-size: 0.95rem;
@@ -236,25 +249,9 @@
   color: #e5e5e5;
 }
 
-.search-year-input:focus {
+.search-album-filter-input:focus {
   outline: none;
   border-color: #22c55e;
-}
-
-.search-year-range {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.search-year-range .search-year-input {
-  flex: 1;
-  max-width: none;
-}
-
-.search-year-range-sep {
-  color: #737373;
-  font-weight: 600;
 }
 
 .search-submit-btn {

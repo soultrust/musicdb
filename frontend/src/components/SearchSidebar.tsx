@@ -30,53 +30,39 @@ export default function SearchSidebar() {
           autoFocus={s.viewListId == null}
         />
         {s.searchType === "album" && (
-          <div className="search-year-filter" aria-label="Album filters">
-            <label className="search-year-label">Artist</label>
-            <input
-              type="text"
-              value={s.filterArtist}
-              onChange={(e) => s.setFilterArtist(e.target.value)}
-              placeholder="Filter by artist"
-              className="search-year-input search-artist-input"
-              aria-label="Artist filter"
-            />
-            <label className="search-year-label">Release year</label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={4}
-              value={s.filterYear}
-              onChange={s.allowDigitsOnly(s.setFilterYear)}
-              placeholder="Year"
-              className="search-year-input"
-              aria-label="Single year"
-            />
-            <label className="search-year-label">Year range</label>
-            <div className="search-year-range">
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={s.filterYearFrom}
-                onChange={s.allowDigitsOnly(s.setFilterYearFrom)}
-                placeholder="From"
-                className="search-year-input"
-                aria-label="From year"
-              />
-              <span className="search-year-range-sep">–</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={4}
-                value={s.filterYearTo}
-                onChange={s.allowDigitsOnly(s.setFilterYearTo)}
-                placeholder="To"
-                className="search-year-input"
-                aria-label="To year"
-              />
+          <div className="search-album-filters" aria-label="Album filters">
+            <div className="search-album-filters-row">
+              <div className="search-album-filter-field search-album-filter-artist">
+                <label className="search-album-filter-label" htmlFor="search-album-artist">
+                  Artist
+                </label>
+                <input
+                  id="search-album-artist"
+                  type="text"
+                  value={s.filterArtist}
+                  onChange={(e) => s.setFilterArtist(e.target.value)}
+                  placeholder="Filter by artist"
+                  className="search-album-filter-input"
+                  aria-label="Artist filter"
+                />
+              </div>
+              <div className="search-album-filter-field search-album-filter-year">
+                <label className="search-album-filter-label" htmlFor="search-album-year">
+                  Release year
+                </label>
+                <input
+                  id="search-album-year"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={4}
+                  value={s.filterYear}
+                  onChange={s.allowDigitsOnly(s.setFilterYear)}
+                  placeholder="Year"
+                  className="search-album-filter-input"
+                  aria-label="Release year"
+                />
+              </div>
             </div>
           </div>
         )}

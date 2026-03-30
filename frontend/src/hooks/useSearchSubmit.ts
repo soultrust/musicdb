@@ -16,8 +16,6 @@ export function useSearchSubmit({
   searchType,
   filterArtist,
   filterYear,
-  filterYearFrom,
-  filterYearTo,
   setLoading,
   setError,
   setResults,
@@ -33,8 +31,6 @@ export function useSearchSubmit({
   searchType: string;
   filterArtist: string;
   filterYear: string;
-  filterYearFrom: string;
-  filterYearTo: string;
   setLoading: Dispatch<SetStateAction<boolean>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setResults: Dispatch<SetStateAction<SearchResultItem[]>>;
@@ -58,8 +54,6 @@ export function useSearchSubmit({
         if (searchType === "album") {
           if (filterArtist.trim()) params.set("artist", filterArtist.trim());
           if (filterYear.trim()) params.set("year", filterYear.trim());
-          if (filterYearFrom.trim()) params.set("year_from", filterYearFrom.trim());
-          if (filterYearTo.trim()) params.set("year_to", filterYearTo.trim());
         }
         const searchRes = await authFetch(searchQueryUrl(API_BASE, params));
         const data = (await searchRes.json()) as { error?: string; results?: SearchResultItem[] };
@@ -92,8 +86,6 @@ export function useSearchSubmit({
       searchType,
       filterArtist,
       filterYear,
-      filterYearFrom,
-      filterYearTo,
       setLoading,
       setError,
       setResults,
