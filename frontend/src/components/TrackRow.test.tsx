@@ -21,6 +21,7 @@ function renderTrackRow(overrides: Partial<TrackRowProps> = {}) {
     index: 0,
     spotifyTrack: null,
     matchExists: false,
+    isCurrentTrack: false,
     isActive: false,
     progress: 0,
     likeState: 0,
@@ -28,8 +29,10 @@ function renderTrackRow(overrides: Partial<TrackRowProps> = {}) {
     getTrackKey: (t) => t.title,
     handleTrackRowClick: vi.fn(),
     playTrack: vi.fn(),
+    isPlaying: false,
     onSpotifySearchClick: vi.fn(),
     toggleLikeTrack: vi.fn(),
+    togglePlayback: vi.fn(),
     ...overrides,
     track,
   };
@@ -63,7 +66,6 @@ describe("TrackRow", () => {
   });
 
   it("plays via Spotify URI and disables play when matched but disconnected", () => {
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const playTrack = vi.fn();
     renderTrackRow({
       spotifyTrack: buildSpotifyTrack(),
@@ -74,9 +76,6 @@ describe("TrackRow", () => {
     expect(playBtn).not.toBeDisabled();
     fireEvent.click(playBtn);
     expect(playTrack).toHaveBeenCalledWith("spotify:track:abc");
-    expect(logSpy).toHaveBeenCalled();
-
-    logSpy.mockRestore();
   });
 
   it("disables play when matchedDisconnected", () => {
@@ -86,6 +85,21 @@ describe("TrackRow", () => {
       matchedDisconnected: true,
     });
     expect(screen.getByRole("button", { name: /play/i })).toBeDisabled();
+  });
+
+  it("shows pause label and toggles playback when current track is playing", () => {
+    const togglePlayback = vi.fn();
+    renderTrackRow({
+      spotifyTrack: buildSpotifyTrack(),
+      matchExists: true,
+      isCurrentTrack: true,
+      isActive: true,
+      isPlaying: true,
+      togglePlayback,
+    });
+    const pauseBtn = screen.getByRole("button", { name: /pause/i });
+    fireEvent.click(pauseBtn);
+    expect(togglePlayback).toHaveBeenCalledTimes(1);
   });
 
   it("calls onSpotifySearchClick with track title without bubbling to row", () => {
@@ -108,6 +122,7 @@ describe("TrackRow", () => {
         index={0}
         spotifyTrack={buildSpotifyTrack()}
         matchExists
+        isCurrentTrack={false}
         manualSpotifyMatch
         isActive={false}
         progress={0}
@@ -116,8 +131,10 @@ describe("TrackRow", () => {
         getTrackKey={(t) => t.title}
         handleTrackRowClick={vi.fn()}
         playTrack={vi.fn()}
+        isPlaying={false}
         onSpotifySearchClick={vi.fn()}
         toggleLikeTrack={vi.fn()}
+        togglePlayback={vi.fn()}
       />,
     );
     expect(container.querySelector(".track-spotify-search-btn--manual")).toBeTruthy();

@@ -6,6 +6,8 @@ export interface TrackRowProps {
   index: number;
   spotifyTrack: SpotifyTrackRef | null | undefined;
   matchExists: boolean;
+  /** True when this row's Spotify track matches current playback track URI */
+  isCurrentTrack: boolean;
   isActive: boolean;
   progress: number;
   likeState: number;
@@ -13,9 +15,12 @@ export interface TrackRowProps {
   getTrackKey: (track: CatalogTrack) => string | null;
   handleTrackRowClick: (e: MouseEvent, isActive: boolean) => void;
   playTrack: (uri: string) => void;
+  /** Global Spotify playback state, from header slice */
+  isPlaying: boolean;
   manualSpotifyMatch?: boolean;
   onSpotifySearchClick: (trackTitle: string) => void;
   toggleLikeTrack: (track: CatalogTrack) => void;
+  togglePlayback: () => void;
 }
 
 export default function TrackRow({
@@ -23,6 +28,7 @@ export default function TrackRow({
   index,
   spotifyTrack,
   matchExists,
+  isCurrentTrack,
   isActive,
   progress,
   likeState,
@@ -30,11 +36,16 @@ export default function TrackRow({
   getTrackKey,
   handleTrackRowClick,
   playTrack,
+  isPlaying,
   manualSpotifyMatch = false,
   onSpotifySearchClick,
   toggleLikeTrack,
+  togglePlayback,
 }: TrackRowProps) {
   const artists = spotifyTrack?.artists ?? [];
+  const isPlayingThisTrack = Boolean(isCurrentTrack && isPlaying);
+  const canPlay = Boolean(spotifyTrack && !matchedDisconnected);
+
   return (
     <li
       key={getTrackKey(track) || `track-${index}`}
@@ -54,18 +65,25 @@ export default function TrackRow({
       {spotifyTrack ? (
         <button
           className="play-track-btn"
-          onClick={() => {
-            console.log("Play button clicked for:", spotifyTrack.uri);
-            if (spotifyTrack.uri) playTrack(spotifyTrack.uri);
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!spotifyTrack.uri || !canPlay) return;
+            if (isCurrentTrack) {
+              togglePlayback();
+            } else {
+              playTrack(spotifyTrack.uri);
+            }
           }}
           title={
             matchedDisconnected
               ? "Connect to Spotify to play"
-              : `Play ${spotifyTrack.name} by ${artists.map((a: SpotifyArtist) => a.name).join(", ")}`
+              : isPlayingThisTrack
+                ? `Pause ${spotifyTrack.name} by ${artists.map((a: SpotifyArtist) => a.name).join(", ")}`
+                : `Play ${spotifyTrack.name} by ${artists.map((a: SpotifyArtist) => a.name).join(", ")}`
           }
           disabled={matchedDisconnected}
         >
-          ▶ Play
+          {isPlayingThisTrack ? "⏸ Pause" : "▶ Play"}
         </button>
       ) : matchExists ? (
         <span className="no-match">No match</span>

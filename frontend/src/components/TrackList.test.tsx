@@ -9,6 +9,30 @@ import type { CatalogTrack } from "../types/musicDbSlices";
 import type { DetailShellSliceValue, DetailTracklistSliceValue } from "../types/musicDbSlices";
 import TrackList from "./TrackList";
 
+const mockHeaderContext = vi.fn(() => ({
+  spotifyToken: null,
+  spotifyConnectionStatus: "disconnected",
+  deviceId: null,
+  isPlaying: false,
+  currentTrack: null,
+  togglePlayback: vi.fn(),
+  handleSpotifyLogin: vi.fn(),
+  viewListId: null,
+  onViewListChange: vi.fn(),
+  allListsForView: [],
+  logout: vi.fn(),
+}));
+
+vi.mock("../hooks/useMusicDbApp", async () => {
+  const actual = await vi.importActual<typeof import("../hooks/useMusicDbApp")>(
+    "../hooks/useMusicDbApp",
+  );
+  return {
+    ...actual,
+    useHeaderContext: () => mockHeaderContext(),
+  };
+});
+
 function renderTrackList(
   {
     tracklist = [] as CatalogTrack[],
@@ -174,6 +198,11 @@ describe("TrackList", () => {
   it("binds Spotify match by track title and passes play state to rows", () => {
     const handleTrackRowClick = vi.fn();
     const playTrack = vi.fn();
+    const headerValue = {
+      ...mockHeaderContext(),
+      togglePlayback: vi.fn(),
+    };
+    mockHeaderContext.mockReturnValue(headerValue);
     renderTrackList({
       tracklist: [{ title: "Gamma", position: "1." }],
       tracklistOverrides: {
@@ -193,7 +222,7 @@ describe("TrackList", () => {
     const row = screen.getByRole("listitem");
     expect(within(row).getByRole("button", { name: /play/i })).toBeInTheDocument();
     fireEvent.click(within(row).getByRole("button", { name: /play/i }));
-    expect(playTrack).toHaveBeenCalledWith("spotify:track:x");
+    expect(headerValue.togglePlayback).toHaveBeenCalledTimes(1);
 
     const bar = row.querySelector(".track-progress-bar");
     expect(bar).toHaveStyle({ width: `${40}%` });

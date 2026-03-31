@@ -1,11 +1,12 @@
 import TrackRow from "./TrackRow";
-import { useDetailShellContext, useDetailTracklistContext } from "../hooks/useMusicDbApp";
+import { useDetailShellContext, useDetailTracklistContext, useHeaderContext } from "../hooks/useMusicDbApp";
 import {
   findSpotifyMatchForTrackTitle,
   isManualSpotifyMatchRow,
 } from "../utils/spotifyTrackMatch";
 
 export default function TrackList() {
+  const { isPlaying, togglePlayback } = useHeaderContext();
   const { detailData } = useDetailShellContext();
   const {
     spotifyMatching,
@@ -124,6 +125,7 @@ export default function TrackList() {
                 index={i}
                 spotifyTrack={spotifyTrack}
                 matchExists={match !== undefined}
+                isCurrentTrack={isCurrentTrack}
                 manualSpotifyMatch={manualSpotifyMatch}
                 isActive={isActive}
                 progress={progress}
@@ -132,8 +134,10 @@ export default function TrackList() {
                 getTrackKey={getTrackKey}
                 handleTrackRowClick={handleTrackRowClick}
                 playTrack={playTrack}
+                isPlaying={isPlaying}
                 onSpotifySearchClick={handleSpotifySearchButtonClick}
                 toggleLikeTrack={toggleLikeTrack}
+                togglePlayback={togglePlayback}
               />
             );
           })}
