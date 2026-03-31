@@ -65,6 +65,7 @@ export default function TrackRow({
       {spotifyTrack ? (
         <button
           className="play-track-btn"
+          aria-label={isPlayingThisTrack ? "Pause track" : "Play track"}
           onClick={(e) => {
             e.stopPropagation();
             if (!spotifyTrack.uri || !canPlay) return;
@@ -83,7 +84,7 @@ export default function TrackRow({
           }
           disabled={matchedDisconnected}
         >
-          {isPlayingThisTrack ? "⏸ Pause" : "▶ Play"}
+          {isPlayingThisTrack ? "⏸" : "▶"}
         </button>
       ) : matchExists ? (
         <span className="no-match">No match</span>

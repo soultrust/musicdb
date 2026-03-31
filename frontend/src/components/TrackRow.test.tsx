@@ -72,7 +72,7 @@ describe("TrackRow", () => {
       matchExists: true,
       playTrack,
     });
-    const playBtn = screen.getByRole("button", { name: /play/i });
+    const playBtn = screen.getByRole("button", { name: /play track/i });
     expect(playBtn).not.toBeDisabled();
     fireEvent.click(playBtn);
     expect(playTrack).toHaveBeenCalledWith("spotify:track:abc");
@@ -84,7 +84,7 @@ describe("TrackRow", () => {
       matchExists: true,
       matchedDisconnected: true,
     });
-    expect(screen.getByRole("button", { name: /play/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /play track/i })).toBeDisabled();
   });
 
   it("shows pause label and toggles playback when current track is playing", () => {
@@ -97,7 +97,7 @@ describe("TrackRow", () => {
       isPlaying: true,
       togglePlayback,
     });
-    const pauseBtn = screen.getByRole("button", { name: /pause/i });
+    const pauseBtn = screen.getByRole("button", { name: /pause track/i });
     fireEvent.click(pauseBtn);
     expect(togglePlayback).toHaveBeenCalledTimes(1);
   });

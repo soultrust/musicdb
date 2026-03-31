@@ -220,8 +220,8 @@ describe("TrackList", () => {
       },
     });
     const row = screen.getByRole("listitem");
-    expect(within(row).getByRole("button", { name: /play/i })).toBeInTheDocument();
-    fireEvent.click(within(row).getByRole("button", { name: /play/i }));
+    expect(within(row).getByRole("button", { name: /play track/i })).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: /play track/i }));
     expect(headerValue.togglePlayback).toHaveBeenCalledTimes(1);
 
     const bar = row.querySelector(".track-progress-bar");
