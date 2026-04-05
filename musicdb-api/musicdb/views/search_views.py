@@ -1,3 +1,6 @@
+import json
+import time
+
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.permissions import IsAuthenticated
@@ -18,6 +21,31 @@ from .common import (
     _validate_choice,
     _validate_required,
 )
+
+_DEBUG_LOG_PATH = "/Users/soultrust/dev/personal-projects/musicdb/.cursor/debug-c43793.log"
+
+
+def _agent_debug_log(location, message, data, hypothesis_id="A"):
+    # region agent log
+    try:
+        line = (
+            json.dumps(
+                {
+                    "sessionId": "c43793",
+                    "location": location,
+                    "message": message,
+                    "data": data,
+                    "timestamp": int(time.time() * 1000),
+                    "hypothesisId": hypothesis_id,
+                }
+            )
+            + "\n"
+        )
+        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as _f:
+            _f.write(line)
+    except Exception:
+        pass
+    # endregion
 
 
 class SearchAPIView(APIView):
@@ -166,14 +194,73 @@ class DetailAPIView(APIView):
         if type_error:
             return type_error
         if resource_type == "artist":
+            # region agent log
+            t_artist0 = time.perf_counter()
+            _agent_debug_log(
+                "search_views.DetailAPIView.get",
+                "artist_detail_start",
+                {"artist_id": resource_id},
+                "B",
+            )
+            # endregion
             response = mb.get_artist(resource_id)
+            # region agent log
+            t_after_ga = time.perf_counter()
+            _agent_debug_log(
+                "search_views.DetailAPIView.get",
+                "after_get_artist",
+                {
+                    "status": response.status_code,
+                    "ms": round((t_after_ga - t_artist0) * 1000, 2),
+                },
+                "B",
+            )
+            # endregion
             if response.status_code != 200:
                 return _upstream_error("MusicBrainz", response.status_code)
             artist_data = response.json()
             albums = []
             browse = mb.browse_releases_by_artist(resource_id)
+            # region agent log
+            t_after_br = time.perf_counter()
+            br_payload = browse.json() if browse.status_code == 200 else {}
+            _agent_debug_log(
+                "search_views.DetailAPIView.get",
+                "after_browse_releases",
+                {
+                    "status": browse.status_code,
+                    "ms": round((t_after_br - t_after_ga) * 1000, 2),
+                    "raw_release_count": len((br_payload.get("releases") or [])),
+                },
+                "B",
+            )
+            # endregion
             if browse.status_code == 200:
-                albums = _build_artist_albums_from_browse(browse.json())
+                # region agent log
+                t_build0 = time.perf_counter()
+                # endregion
+                albums = _build_artist_albums_from_browse(br_payload)
+                # region agent log
+                t_build1 = time.perf_counter()
+                _agent_debug_log(
+                    "search_views.DetailAPIView.get",
+                    "after_build_artist_albums",
+                    {
+                        "ms": round((t_build1 - t_build0) * 1000, 2),
+                        "albums_len": len(albums),
+                    },
+                    "A",
+                )
+                # endregion
+            # region agent log
+            t_done = time.perf_counter()
+            _agent_debug_log(
+                "search_views.DetailAPIView.get",
+                "artist_detail_total_ms",
+                {"ms": round((t_done - t_artist0) * 1000, 2)},
+                "A",
+            )
+            # endregion
             return Response(_normalize_mb_artist(artist_data, albums=albums))
         if resource_type == "album":
             response = mb.get_release(resource_id)
