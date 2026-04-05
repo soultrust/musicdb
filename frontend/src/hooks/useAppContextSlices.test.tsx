@@ -97,6 +97,9 @@ const BASE_ARGS = {
   overviewLoading: false,
   overview: "Overview text",
   overviewError: null,
+  API_BASE: "http://localhost",
+  authFetch: vi.fn(() => Promise.resolve(new Response("{}", { status: 200 }))),
+  refreshDetail: vi.fn(() => Promise.resolve()),
   ...stableFns,
 };
 

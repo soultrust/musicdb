@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { DetailData, DetailItem } from "../types/musicDbSlices";
+import type { DetailData, DetailItem, SearchResultItem } from "../types/musicDbSlices";
 import { authFetchWithRefresh } from "../services/authFetch";
 import { useAuth } from "./useAuth";
 import { useSearchState } from "./useSearchState";
@@ -148,6 +148,11 @@ export function useMusicDbAppState({
     setSpotifyMatches,
     setSpotifyMatching,
   });
+
+  const refreshDetail = useCallback(async () => {
+    if (!selectedItem?.id || !selectedItem?.type) return;
+    await handleItemClick(selectedItem as SearchResultItem);
+  }, [selectedItem, handleItemClick]);
 
   const {
     showListModal,
@@ -371,6 +376,9 @@ export function useMusicDbAppState({
     overviewLoading,
     overview,
     overviewError,
+    API_BASE,
+    authFetch,
+    refreshDetail,
   });
 
   useAlbumArtReveal(detailData, detailLoading, setAlbumArtReady);

@@ -8,7 +8,13 @@ from .search_views import (
     DetailAPIView,
     SearchAPIView,
 )
-from .spotify_views import ManualSpotifyMatchView, ManualSpotifyMatchesView
+from .spotify_views import (
+    ManualSpotifyArtistImageView,
+    ManualSpotifyMatchView,
+    ManualSpotifyMatchesView,
+    SpotifyArtistImagesView,
+    SpotifyArtistSearchView,
+)
 
 __all__ = [
     "ConsumedAlbumView",
@@ -22,7 +28,10 @@ __all__ = [
     "ListItemsCheckView",
     "ListItemsView",
     "ListsView",
+    "ManualSpotifyArtistImageView",
     "ManualSpotifyMatchView",
     "ManualSpotifyMatchesView",
+    "SpotifyArtistImagesView",
+    "SpotifyArtistSearchView",
     "SearchAPIView",
 ]

@@ -95,6 +95,9 @@ export type DetailShellSliceDeps = Pick<
   | "setAlbumArtRetryKey"
   | "handleAddToList"
   | "handleItemClick"
+  | "API_BASE"
+  | "authFetch"
+  | "refreshDetail"
 >;
 
 export type DetailTracklistSliceDeps = Pick<

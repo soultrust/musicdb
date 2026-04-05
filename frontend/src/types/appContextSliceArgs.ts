@@ -6,6 +6,7 @@ import type {
   SetStateAction,
   SyntheticEvent,
 } from "react";
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import type {
   CatalogTrack,
   DetailData,
@@ -109,4 +110,7 @@ export interface AppContextSliceArgs {
   overviewLoading: boolean;
   overview: string | null;
   overviewError: string | null;
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  refreshDetail: () => Promise<void>;
 }

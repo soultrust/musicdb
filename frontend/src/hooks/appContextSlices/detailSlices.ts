@@ -16,6 +16,9 @@ function buildDetailShellContext(fields: DetailShellSliceDeps) {
     setAlbumArtRetryKey: fields.setAlbumArtRetryKey,
     handleAddToList: fields.handleAddToList,
     handleItemClick: fields.handleItemClick,
+    API_BASE: fields.API_BASE,
+    authFetch: fields.authFetch,
+    refreshDetail: fields.refreshDetail,
   };
 }
 
@@ -60,6 +63,9 @@ export function useDetailShellContextValue(args: AppContextSliceArgs) {
     setAlbumArtRetryKey,
     handleAddToList,
     handleItemClick,
+    API_BASE,
+    authFetch,
+    refreshDetail,
   } = args;
   return useMemo(
     () =>
@@ -72,6 +78,9 @@ export function useDetailShellContextValue(args: AppContextSliceArgs) {
         setAlbumArtRetryKey,
         handleAddToList,
         handleItemClick,
+        API_BASE,
+        authFetch,
+        refreshDetail,
       }),
     [
       detailLoading,
@@ -82,6 +91,9 @@ export function useDetailShellContextValue(args: AppContextSliceArgs) {
       setAlbumArtRetryKey,
       handleAddToList,
       handleItemClick,
+      API_BASE,
+      authFetch,
+      refreshDetail,
     ],
   );
 }

@@ -7,6 +7,8 @@ import type {
   SyntheticEvent,
 } from "react";
 
+import type { AuthFetchFn } from "../services/especiallyLikedApi";
+
 /** Loose catalog / search result shapes flowing through the app */
 export type DetailItem = {
   id: string;
@@ -48,6 +50,8 @@ export type DetailData = {
   disambiguation?: string | null;
   /** Artist releases (deduped), for sidebar + main panel */
   albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null }>;
+  /** True when thumb comes from user's saved Spotify image pick */
+  manual_spotify_artist_image?: boolean;
   [key: string]: unknown;
 };
 
@@ -192,6 +196,9 @@ export interface DetailShellSliceValue {
   setAlbumArtRetryKey: Dispatch<SetStateAction<number>>;
   handleAddToList: () => void;
   handleItemClick: (item: SearchResultItem) => void;
+  API_BASE: string;
+  authFetch: AuthFetchFn;
+  refreshDetail: () => Promise<void>;
 }
 
 export interface DetailTracklistSliceValue {

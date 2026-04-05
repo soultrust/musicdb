@@ -226,12 +226,13 @@ describe("SelectedItemDetail", () => {
     }
   });
 
-  it("hides Manage Lists for artist selection", () => {
+  it("hides Manage Lists for artist selection but shows Spotify image picker", () => {
     renderSelectedItemDetail({
       detailData: { title: "T" } as DetailData,
       selectedItem: { id: "1", type: "artist", title: "T" },
     });
     expect(screen.queryByRole("button", { name: "Manage Lists" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose Spotify image" })).toBeInTheDocument();
   });
 
   it("calls handleAddToList when Manage Lists is clicked", () => {

@@ -60,6 +60,33 @@ class AuthSmokeEndpointsTests(TestCase):
         )
         self.assertNoAuth(res)
 
+    def test_spotify_artist_image_endpoints_require_auth(self):
+        res = self.noauth_client.get("/api/search/spotify-artist-search/?q=test")
+        self.assertNoAuth(res)
+
+        res = self.noauth_client.get("/api/search/spotify-artist-images/?spotify_artist_id=abc")
+        self.assertNoAuth(res)
+
+        res = self.noauth_client.get(
+            "/api/search/manual-spotify-artist-image/?musicbrainz_artist_id=mbid"
+        )
+        self.assertNoAuth(res)
+
+        res = self.noauth_client.post(
+            "/api/search/manual-spotify-artist-image/",
+            data={
+                "musicbrainz_artist_id": "mbid",
+                "image_url": "https://i.scdn.co/image/x",
+            },
+            format="json",
+        )
+        self.assertNoAuth(res)
+
+        res = self.noauth_client.delete(
+            "/api/search/manual-spotify-artist-image/?musicbrainz_artist_id=mbid"
+        )
+        self.assertNoAuth(res)
+
     def test_especially_liked_endpoints_require_auth(self):
         res = self.noauth_client.get(
             "/api/search/especially-liked-tracks/?item_type=release&item_id=11111111-1111-1111-1111-111111111111"

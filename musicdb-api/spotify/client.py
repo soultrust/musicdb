@@ -422,3 +422,62 @@ def artist_image_url_for_musicbrainz_name(musicbrainz_name):
                 return url.strip()
         return None
     return None
+
+
+def search_artists(query, limit=10):
+    """
+    Search Spotify for artists by name. Returns list of artist objects (id, name, images, ...).
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        access_token = _get_access_token()
+    except ValueError:
+        return []
+
+    try:
+        response = requests.get(
+            "https://api.spotify.com/v1/search",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={
+                "q": q,
+                "type": "artist",
+                "limit": min(max(1, int(limit)), 50),
+            },
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        logger.debug("Spotify artist search failed: %s", e)
+        return []
+
+    if response.status_code != 200:
+        return []
+    return (response.json() or {}).get("artists", {}).get("items") or []
+
+
+def get_spotify_artist(spotify_artist_id):
+    """
+    GET /v1/artists/{id}. Returns parsed JSON dict or None on failure.
+    """
+    sid = (spotify_artist_id or "").strip()
+    if not sid:
+        return None
+    try:
+        access_token = _get_access_token()
+    except ValueError:
+        return None
+
+    try:
+        response = requests.get(
+            f"https://api.spotify.com/v1/artists/{sid}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        logger.debug("Spotify get artist failed: %s", e)
+        return None
+
+    if response.status_code != 200:
+        return None
+    return response.json()

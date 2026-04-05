@@ -1557,3 +1557,178 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.detail-artist-image-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  align-items: stretch;
+}
+
+.detail-remove-manual-artist-image-btn {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  border: 1px solid #525252;
+  border-radius: 6px;
+  background: transparent;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.detail-remove-manual-artist-image-btn:hover:not(:disabled) {
+  background: #262626;
+  color: #e5e5e5;
+}
+
+.artist-spotify-image-modal.modal-content {
+  max-width: 560px;
+}
+
+.artist-spotify-image-intro {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #a3a3a3;
+  line-height: 1.45;
+}
+
+.artist-spotify-image-search label {
+  display: block;
+  font-size: 0.85rem;
+  color: #a3a3a3;
+  margin-bottom: 0.35rem;
+}
+
+.artist-spotify-image-search-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.artist-spotify-image-search-row input {
+  flex: 1;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #404040;
+  background: #0a0a0a;
+  color: #e5e5e5;
+}
+
+.artist-spotify-image-search-row button {
+  padding: 0.5rem 0.85rem;
+  border-radius: 6px;
+  border: 1px solid #525252;
+  background: #262626;
+  color: #e5e5e5;
+  cursor: pointer;
+}
+
+.artist-spotify-image-search-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.artist-spotify-image-section {
+  margin-top: 1.25rem;
+}
+
+.artist-spotify-image-section h3 {
+  font-size: 1rem;
+  margin: 0 0 0.65rem;
+  font-weight: 600;
+}
+
+.artist-spotify-artist-picks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.artist-spotify-artist-pick {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #333;
+  background: #111;
+  color: #e5e5e5;
+  cursor: pointer;
+}
+
+.artist-spotify-artist-pick.is-active {
+  border-color: #3b82f6;
+  background: #1e293b;
+}
+
+.artist-spotify-artist-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.artist-spotify-artist-thumb-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: #262626;
+  font-size: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #737373;
+}
+
+.artist-spotify-artist-name {
+  font-size: 0.95rem;
+}
+
+.artist-spotify-image-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.65rem;
+}
+
+.artist-spotify-image-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  border: 2px solid #333;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #0a0a0a;
+  cursor: pointer;
+}
+
+.artist-spotify-image-tile:hover:not(:disabled) {
+  border-color: #3b82f6;
+}
+
+.artist-spotify-image-tile img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.artist-spotify-image-meta {
+  font-size: 0.7rem;
+  color: #a3a3a3;
+  padding: 0.25rem 0.35rem;
+  text-align: center;
+}
+
+.form-error {
+  color: #f87171;
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}

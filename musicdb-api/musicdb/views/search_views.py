@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from spotify.client import artist_image_url_for_musicbrainz_name
 
 from .. import musicbrainz_client as mb
-from ..models import ConsumedAlbum
+from ..models import ArtistSpotifyImageLink, ConsumedAlbum
 from .common import (
     _bad_request,
     build_artist_album_list_from_browse,
@@ -184,6 +184,16 @@ class DetailAPIView(APIView):
                 if spotify_url:
                     normalized["thumb"] = spotify_url
                     normalized["images"] = [{"uri": spotify_url}]
+            link = ArtistSpotifyImageLink.objects.filter(
+                user=request.user,
+                musicbrainz_artist_id=resource_id,
+            ).first()
+            if link:
+                normalized["thumb"] = link.image_url
+                normalized["images"] = [{"uri": link.image_url}]
+                normalized["manual_spotify_artist_image"] = True
+            else:
+                normalized["manual_spotify_artist_image"] = False
             return Response(normalized)
         if resource_type == "album":
             response = mb.get_release(resource_id)

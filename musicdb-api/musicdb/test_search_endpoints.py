@@ -5,6 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from musicdb.models import ArtistSpotifyImageLink
 from musicdb.views.common import _is_usable_artist_image_url
 
 
@@ -75,6 +76,7 @@ class SearchEndpointsTests(TestCase):
             body = res.json()
             self.assertEqual(body.get("title"), "The Artist")
             self.assertEqual(body.get("albums"), [])
+            self.assertIs(body.get("manual_spotify_artist_image"), False)
 
         with patch("musicdb.views.search_views.mb.get_artist", return_value=Mock(status_code=500)):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "artist-id"})
@@ -101,6 +103,7 @@ class SearchEndpointsTests(TestCase):
         self.assertEqual(body.get("thumb"), spotify_url)
         self.assertEqual(body.get("images"), [{"uri": spotify_url}])
         mock_spotify_img.assert_called_once_with("Test Artist")
+        self.assertIs(body.get("manual_spotify_artist_image"), False)
 
     def test_artist_detail_mb_image_skips_spotify(self):
         """Direct CDN / normal URLs are kept; Spotify is not called."""
@@ -128,6 +131,7 @@ class SearchEndpointsTests(TestCase):
         body = res.json()
         self.assertEqual(body.get("thumb"), mb_url)
         mock_spotify_img.assert_not_called()
+        self.assertIs(body.get("manual_spotify_artist_image"), False)
 
     def test_artist_detail_commons_wiki_page_triggers_spotify_fallback(self):
         """Wikimedia Commons File: page URLs are HTML — ignore for thumb and use Spotify if available."""
@@ -158,6 +162,35 @@ class SearchEndpointsTests(TestCase):
         body = res.json()
         self.assertEqual(body.get("thumb"), spotify_url)
         mock_spotify_img.assert_called_once_with("Pink Floyd")
+        self.assertIs(body.get("manual_spotify_artist_image"), False)
+
+    def test_artist_detail_manual_image_override_wins(self):
+        user = get_user_model().objects.get(username="searchuser")
+        mbid = "artist-id"
+        override_url = "https://i.scdn.co/image/manual-chosen"
+        ArtistSpotifyImageLink.objects.create(
+            user=user,
+            musicbrainz_artist_id=mbid,
+            image_url=override_url,
+            spotify_artist_id="sp1",
+        )
+        mock_artist_res = Mock(status_code=200)
+        mock_artist_res.json.return_value = {
+            "name": "The Artist",
+            "id": mbid,
+        }
+        mock_browse = Mock(status_code=200)
+        mock_browse.json.return_value = {"releases": []}
+        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
+            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+        ), patch(
+            "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
+        ):
+            res = self.client.get("/api/search/detail/", {"type": "artist", "id": mbid})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(body.get("thumb"), override_url)
+        self.assertIs(body.get("manual_spotify_artist_image"), True)
 
 
 class ArtistImageUrlUsabilityTests(TestCase):

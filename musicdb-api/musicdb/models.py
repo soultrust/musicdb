@@ -108,6 +108,30 @@ class TrackSpotifyLink(models.Model):
         return f"{self.release_id} / {self.track_title} → {self.spotify_track_id}"
 
 
+class ArtistSpotifyImageLink(models.Model):
+    """
+    User's chosen Spotify image URL for a MusicBrainz artist (detail page thumb).
+    Overrides automatic MusicBrainz / Spotify search image for that artist.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="artist_spotify_image_links",
+    )
+    musicbrainz_artist_id = models.CharField(max_length=64)
+    image_url = models.TextField()
+    spotify_artist_id = models.CharField(max_length=64, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "musicbrainz_artist_id")
+        ordering = ["musicbrainz_artist_id"]
+
+    def __str__(self):
+        return f"{self.musicbrainz_artist_id} → {self.image_url[:48]}…"
+
+
 class TrackEspeciallyLiked(models.Model):
     """
     User's "especially liked" track preference (state 2) for a specific item track.

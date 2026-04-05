@@ -72,3 +72,19 @@ export function especiallyLikedTracksUrl(
 export function especiallyLikedTrackUrl(API_BASE: string): string {
   return `${API_BASE}${SEARCH_ROOT}/especially-liked-track/`;
 }
+
+export function spotifyArtistSearchUrl(API_BASE: string, q: string, limit?: number): string {
+  const params = new URLSearchParams({ q });
+  if (limit != null) params.set("limit", String(limit));
+  return `${API_BASE}${SEARCH_ROOT}/spotify-artist-search/?${params.toString()}`;
+}
+
+export function spotifyArtistImagesUrl(API_BASE: string, spotifyArtistId: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/spotify-artist-images/?spotify_artist_id=${encodeURIComponent(spotifyArtistId)}`;
+}
+
+export function manualSpotifyArtistImageUrl(API_BASE: string, musicbrainzArtistId?: string): string {
+  const base = `${API_BASE}${SEARCH_ROOT}/manual-spotify-artist-image/`;
+  if (musicbrainzArtistId == null || musicbrainzArtistId === "") return base;
+  return `${base}?musicbrainz_artist_id=${encodeURIComponent(musicbrainzArtistId)}`;
+}

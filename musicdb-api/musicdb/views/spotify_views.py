@@ -3,9 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from ..models import TrackSpotifyLink
-from ..serializers import ManualSpotifyMatchSerializer
-from .common import _validate_required, _validation_error_response
+from spotify.client import get_spotify_artist, search_artists
+
+from ..models import ArtistSpotifyImageLink, TrackSpotifyLink
+from ..serializers import ManualSpotifyArtistImageSerializer, ManualSpotifyMatchSerializer
+from .common import _bad_request, _validate_required, _validation_error_response
 
 
 class ManualSpotifyMatchesView(APIView):
@@ -91,4 +93,147 @@ class ManualSpotifyMatchView(APIView):
             release_id=release_id,
             track_title=track_title,
         ).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SpotifyArtistSearchView(APIView):
+    """
+    GET /api/search/spotify-artist-search/?q=... — search Spotify artists by name (manual image picker).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        q = (request.GET.get("q") or "").strip()
+        if not q:
+            return Response(
+                {"error": "Missing query parameter: q"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        limit = min(20, max(1, int(request.GET.get("limit", 10))))
+        items = search_artists(q, limit=limit)
+        artists = []
+        for a in items:
+            artists.append(
+                {
+                    "id": a.get("id"),
+                    "name": a.get("name"),
+                    "images": a.get("images") or [],
+                }
+            )
+        return Response({"artists": artists})
+
+
+class SpotifyArtistImagesView(APIView):
+    """
+    GET /api/search/spotify-artist-images/?spotify_artist_id=...
+    Returns all image sizes for that Spotify artist.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        spotify_artist_id = (request.GET.get("spotify_artist_id") or "").strip()
+        if not spotify_artist_id:
+            return Response(
+                {"error": "Missing query parameter: spotify_artist_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = get_spotify_artist(spotify_artist_id)
+        if not data:
+            return Response(
+                {"error": "Spotify artist not found or unavailable"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        images = data.get("images") or []
+        out = []
+        for img in images:
+            if not isinstance(img, dict):
+                continue
+            url = (img.get("url") or "").strip()
+            if url:
+                out.append(
+                    {
+                        "url": url,
+                        "width": img.get("width"),
+                        "height": img.get("height"),
+                    }
+                )
+        return Response(
+            {
+                "spotify_artist_id": data.get("id"),
+                "name": data.get("name"),
+                "images": out,
+            }
+        )
+
+
+class ManualSpotifyArtistImageView(APIView):
+    """
+    GET — current user's manual image for a MusicBrainz artist (if any).
+    POST — save manual image URL (+ optional spotify_artist_id).
+    DELETE — remove manual override.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        mbid = (request.GET.get("musicbrainz_artist_id") or "").strip()
+        required_error = _validate_required({"musicbrainz_artist_id": mbid})
+        if required_error:
+            return required_error
+        link = ArtistSpotifyImageLink.objects.filter(
+            user=request.user,
+            musicbrainz_artist_id=mbid,
+        ).first()
+        if not link:
+            return Response(
+                {
+                    "manual_match": False,
+                    "image_url": None,
+                    "spotify_artist_id": None,
+                }
+            )
+        return Response(
+            {
+                "manual_match": True,
+                "image_url": link.image_url,
+                "spotify_artist_id": link.spotify_artist_id or None,
+            }
+        )
+
+    def post(self, request):
+        ser = ManualSpotifyArtistImageSerializer(data=request.data)
+        if not ser.is_valid():
+            return _validation_error_response(ser)
+        mbid = ser.validated_data["musicbrainz_artist_id"]
+        image_url = ser.validated_data["image_url"]
+        sid = (ser.validated_data.get("spotify_artist_id") or "").strip()
+
+        link, _ = ArtistSpotifyImageLink.objects.update_or_create(
+            user=request.user,
+            musicbrainz_artist_id=mbid,
+            defaults={
+                "image_url": image_url,
+                "spotify_artist_id": sid[:64] if sid else "",
+            },
+        )
+        return Response(
+            {
+                "manual_match": True,
+                "image_url": link.image_url,
+                "spotify_artist_id": link.spotify_artist_id or None,
+            }
+        )
+
+    def delete(self, request):
+        mbid = (request.query_params.get("musicbrainz_artist_id") or "").strip()
+        if not mbid:
+            return _bad_request("Query parameter musicbrainz_artist_id is required")
+        deleted, _ = ArtistSpotifyImageLink.objects.filter(
+            user=request.user,
+            musicbrainz_artist_id=mbid,
+        ).delete()
+        if deleted == 0:
+            return Response(status=status.HTTP_404_NOT_FOUND)
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -69,6 +69,9 @@ export function buildDetailShellSliceValue(
     setAlbumArtRetryKey: vi.fn(),
     handleAddToList: vi.fn(),
     handleItemClick: vi.fn(),
+    API_BASE: "http://localhost:8000",
+    authFetch: vi.fn(() => Promise.resolve(new Response("{}", { status: 200 }))),
+    refreshDetail: vi.fn(() => Promise.resolve()),
     ...overrides,
   };
 }

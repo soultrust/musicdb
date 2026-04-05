@@ -1,7 +1,9 @@
-import { Fragment } from "react";
+import { Fragment, useState } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
+import ArtistSpotifyImageModal from "./ArtistSpotifyImageModal";
 import { useDetailShellContext } from "../hooks/useMusicDbApp";
+import { manualSpotifyArtistImageUrl } from "../services/searchApi";
 
 /** Title case for display (MusicBrainz often returns ALL CAPS). */
 function titleCaseDisplay(value: string): string {
@@ -12,6 +14,25 @@ function titleCaseDisplay(value: string): string {
 
 export default function SelectedItemDetail() {
   const s = useDetailShellContext();
+  const [showArtistImageModal, setShowArtistImageModal] = useState(false);
+  const [removeManualImageLoading, setRemoveManualImageLoading] = useState(false);
+
+  const isArtist = s.selectedItem?.type === "artist";
+  const mbArtistId = isArtist ? String(s.selectedItem?.id ?? "") : "";
+
+  const handleRemoveManualArtistImage = async () => {
+    if (!mbArtistId) return;
+    setRemoveManualImageLoading(true);
+    try {
+      const res = await s.authFetch(manualSpotifyArtistImageUrl(s.API_BASE, mbArtistId), {
+        method: "DELETE",
+      });
+      if (res.ok || res.status === 404) await s.refreshDetail();
+    } finally {
+      setRemoveManualImageLoading(false);
+    }
+  };
+
   return (
     <div className="detail">
       {s.detailLoading && <p className="detail-loading">Loading details…</p>}
@@ -48,6 +69,27 @@ export default function SelectedItemDetail() {
                   <button onClick={s.handleAddToList} className="add-to-list-btn">
                     Manage Lists
                   </button>
+                )}
+                {isArtist && mbArtistId && (
+                  <div className="detail-artist-image-actions">
+                    <button
+                      type="button"
+                      className="add-to-list-btn"
+                      onClick={() => setShowArtistImageModal(true)}
+                    >
+                      Choose Spotify image
+                    </button>
+                    {s.detailData?.manual_spotify_artist_image ? (
+                      <button
+                        type="button"
+                        className="detail-remove-manual-artist-image-btn"
+                        onClick={() => void handleRemoveManualArtistImage()}
+                        disabled={removeManualImageLoading}
+                      >
+                        {removeManualImageLoading ? "Removing…" : "Remove manual image"}
+                      </button>
+                    ) : null}
+                  </div>
                 )}
               </div>
               <div className="detail-content">
@@ -179,6 +221,16 @@ export default function SelectedItemDetail() {
             <DetailOverview />
           </div>
         </div>
+      )}
+      {showArtistImageModal && isArtist && mbArtistId && (
+        <ArtistSpotifyImageModal
+          API_BASE={s.API_BASE}
+          authFetch={s.authFetch}
+          musicbrainzArtistId={mbArtistId}
+          artistTitle={s.detailData?.title || s.selectedItem?.title || ""}
+          onClose={() => setShowArtistImageModal(false)}
+          onSaved={s.refreshDetail}
+        />
       )}
     </div>
   );

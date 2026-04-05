@@ -11,9 +11,12 @@ from .views import (
     ListItemsCheckView,
     ListItemsView,
     ListsView,
+    ManualSpotifyArtistImageView,
     ManualSpotifyMatchView,
     ManualSpotifyMatchesView,
     SearchAPIView,
+    SpotifyArtistImagesView,
+    SpotifyArtistSearchView,
 )
 
 urlpatterns = [
@@ -29,6 +32,13 @@ urlpatterns = [
     path("lists/items/check/", ListItemsCheckView.as_view(), name="list-items-check"),
     path("manual-spotify-matches/", ManualSpotifyMatchesView.as_view(), name="manual-spotify-matches"),
     path("manual-spotify-match/", ManualSpotifyMatchView.as_view(), name="manual-spotify-match"),
+    path(
+        "manual-spotify-artist-image/",
+        ManualSpotifyArtistImageView.as_view(),
+        name="manual-spotify-artist-image",
+    ),
+    path("spotify-artist-search/", SpotifyArtistSearchView.as_view(), name="spotify-artist-search"),
+    path("spotify-artist-images/", SpotifyArtistImagesView.as_view(), name="spotify-artist-images"),
     path("especially-liked-tracks/", EspeciallyLikedTracksView.as_view(), name="especially-liked-tracks"),
     path("especially-liked-track/", EspeciallyLikedTrackView.as_view(), name="especially-liked-track"),
 ]
