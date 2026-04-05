@@ -196,7 +196,7 @@ def build_artist_album_list_from_browse(browse_data):
     """
     rows = _dedupe_releases_for_artist_albums(browse_data)
     rows.sort(key=_album_year_sort_key, reverse=True)
-    max_albums = 80
+    max_albums = 100  # matches MusicBrainz browse limit per request
     out = []
     for row in rows[:max_albums]:
         out.append(

@@ -3,6 +3,13 @@ import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
 import { useDetailShellContext } from "../hooks/useMusicDbApp";
 
+/** Title case for display (MusicBrainz often returns ALL CAPS). */
+function titleCaseDisplay(value: string): string {
+  const t = value.trim();
+  if (!t) return value;
+  return t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function SelectedItemDetail() {
   const s = useDetailShellContext();
   return (
@@ -45,9 +52,7 @@ export default function SelectedItemDetail() {
               </div>
               <div className="detail-content">
                 <h2 className="detail-title">
-                  {(s.detailData.title || s.selectedItem?.title || "")
-                    .toLowerCase()
-                    .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  {titleCaseDisplay(s.detailData.title || s.selectedItem?.title || "")}
                 </h2>
                 <div className="detail-meta">
                   {s.detailData.artists && s.detailData.artists.length > 0 && (
@@ -77,10 +82,10 @@ export default function SelectedItemDetail() {
                                     })
                                   }
                                 >
-                                  {name}
+                                  {titleCaseDisplay(name)}
                                 </button>
                               ) : (
-                                <span>{name}</span>
+                                <span>{titleCaseDisplay(name)}</span>
                               )}
                             </Fragment>
                           );
@@ -155,7 +160,7 @@ export default function SelectedItemDetail() {
                           }
                         >
                           {al.year ? `${al.year} — ` : ""}
-                          {al.title ?? al.id}
+                          {al.title ? titleCaseDisplay(al.title) : al.id}
                         </button>
                       </li>
                     ))}

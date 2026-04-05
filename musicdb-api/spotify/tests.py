@@ -1,16 +1,70 @@
 """
 Tests for Spotify track matching logic. Unit tests that don't require API calls.
 """
+from unittest.mock import Mock, patch
+
 from django.test import TestCase
 
 from spotify.client import (
     _normalize_artist,
+    _normalize_artist_name_for_exact_match,
     _normalize_title_for_match,
     _normalize_title_quotes,
     _trailing_part_designation,
     _title_base_for_search,
+    artist_image_url_for_musicbrainz_name,
     find_best_match,
 )
+
+
+class ArtistImageUrlForMusicBrainzNameTests(TestCase):
+    """Spotify fallback for artist photos (exact name match only)."""
+
+    def test_returns_none_without_credentials(self):
+        with patch("spotify.client._get_access_token", side_effect=ValueError("no creds")):
+            self.assertIsNone(artist_image_url_for_musicbrainz_name("Anyone"))
+
+    @patch("spotify.client.requests.get")
+    @patch("spotify.client._get_access_token", return_value="tok")
+    def test_returns_image_when_name_matches_exactly(self, _mock_token, mock_get):
+        mock_get.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "artists": {
+                    "items": [
+                        {
+                            "name": "Pink Floyd",
+                            "images": [{"url": "https://i.scdn.co/image/large"}],
+                        }
+                    ]
+                }
+            },
+        )
+        url = artist_image_url_for_musicbrainz_name("Pink Floyd")
+        self.assertEqual(url, "https://i.scdn.co/image/large")
+
+    @patch("spotify.client.requests.get")
+    @patch("spotify.client._get_access_token", return_value="tok")
+    def test_returns_none_when_no_exact_name_match(self, _mock_token, mock_get):
+        mock_get.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "artists": {
+                    "items": [
+                        {
+                            "name": "Pink Floyd Tribute",
+                            "images": [{"url": "https://i.scdn.co/image/wrong"}],
+                        }
+                    ]
+                }
+            },
+        )
+        self.assertIsNone(artist_image_url_for_musicbrainz_name("Pink Floyd"))
+
+    def test_normalize_artist_name_matches_apostrophe_variants(self):
+        a = _normalize_artist_name_for_exact_match("I Don\u2019t")
+        b = _normalize_artist_name_for_exact_match("I Don't")
+        self.assertEqual(a, b)
 
 
 class NormalizeArtistTests(TestCase):

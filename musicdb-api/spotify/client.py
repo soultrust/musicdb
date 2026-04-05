@@ -2,11 +2,14 @@
 Spotify API client. Uses Client Credentials flow for search (no user login needed).
 """
 import base64
+import logging
 import re
 import unicodedata
 import requests
 from django.conf import settings
 from django.core.cache import cache
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_artist(name):
@@ -358,3 +361,64 @@ def find_best_match(discogs_title, discogs_artists, spotify_results):
         if discogs_part is not None and spotify_part is not None and discogs_part != spotify_part:
             return None
     return best_match
+
+
+def _normalize_artist_name_for_exact_match(name):
+    """Lowercase NFC string for safe MB ↔ Spotify artist name equality (quotes, spaces)."""
+    if not name:
+        return ""
+    s = unicodedata.normalize("NFC", (name or "").strip())
+    s = _normalize_title_quotes(s.lower())
+    s = re.sub(r"\s+", " ", s).strip()
+    return s
+
+
+def artist_image_url_for_musicbrainz_name(musicbrainz_name):
+    """
+    Fallback artist image when MusicBrainz has no image URL.
+
+    Searches Spotify by artist name and returns the largest image URL only when
+    a result's artist name matches exactly after normalization (safest default).
+    Returns None if credentials are missing, on API errors, or when no exact match.
+    """
+    name = (musicbrainz_name or "").strip()
+    if not name:
+        return None
+    try:
+        access_token = _get_access_token()
+    except ValueError:
+        return None
+
+    fragment = _spotify_search_quoted_fragment(name)
+    if not fragment:
+        return None
+
+    search_query = f'artist:"{fragment}"'
+    try:
+        response = requests.get(
+            "https://api.spotify.com/v1/search",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={"q": search_query, "type": "artist", "limit": 10},
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        logger.debug("Spotify artist search failed: %s", e)
+        return None
+
+    if response.status_code != 200:
+        return None
+
+    target = _normalize_artist_name_for_exact_match(name)
+    items = (response.json() or {}).get("artists", {}).get("items") or []
+    for artist in items:
+        spotify_name = (artist.get("name") or "").strip()
+        if not spotify_name:
+            continue
+        if _normalize_artist_name_for_exact_match(spotify_name) != target:
+            continue
+        for img in artist.get("images") or []:
+            url = (img or {}).get("url")
+            if url:
+                return url.strip()
+        return None
+    return None

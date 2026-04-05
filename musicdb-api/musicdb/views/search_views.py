@@ -4,6 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from spotify.client import artist_image_url_for_musicbrainz_name
+
 from .. import musicbrainz_client as mb
 from ..models import ConsumedAlbum
 from .common import (
@@ -33,7 +35,7 @@ class SearchAPIView(APIView):
         if type_error:
             return type_error
         page = max(1, int(request.GET.get("page", 1)))
-        per_page = 20
+        per_page = 100  # MusicBrainz search max per request
         offset = (page - 1) * per_page
         year = _parse_optional_int((request.GET.get("year") or "").strip())
         year_from = _parse_optional_int((request.GET.get("year_from") or "").strip())
@@ -174,7 +176,15 @@ class DetailAPIView(APIView):
             browse = mb.browse_releases_by_artist(resource_id)
             if browse.status_code == 200:
                 albums = build_artist_album_list_from_browse(browse.json())
-            return Response(_normalize_mb_artist(artist_data, albums=albums))
+            normalized = _normalize_mb_artist(artist_data, albums=albums)
+            if not normalized.get("thumb"):
+                spotify_url = artist_image_url_for_musicbrainz_name(
+                    normalized.get("title") or (artist_data.get("name") or "")
+                )
+                if spotify_url:
+                    normalized["thumb"] = spotify_url
+                    normalized["images"] = [{"uri": spotify_url}]
+            return Response(normalized)
         if resource_type == "album":
             response = mb.get_release(resource_id)
             if response.status_code != 200:
