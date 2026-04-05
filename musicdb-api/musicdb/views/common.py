@@ -1,6 +1,4 @@
-import json
 import logging
-import time
 
 from django.conf import settings
 from rest_framework import status
@@ -10,31 +8,6 @@ from .. import musicbrainz_client as mb
 from ..client import get_master, get_release
 
 logger = logging.getLogger(__name__)
-
-_DEBUG_LOG_PATH = "/Users/soultrust/dev/personal-projects/musicdb/.cursor/debug-c43793.log"
-
-
-def _agent_debug_log_common(location, message, data, hypothesis_id="A"):
-    # region agent log
-    try:
-        line = (
-            json.dumps(
-                {
-                    "sessionId": "c43793",
-                    "location": location,
-                    "message": message,
-                    "data": data,
-                    "timestamp": int(time.time() * 1000),
-                    "hypothesisId": hypothesis_id,
-                }
-            )
-            + "\n"
-        )
-        with open(_DEBUG_LOG_PATH, "a", encoding="utf-8") as _f:
-            _f.write(line)
-    except Exception:
-        pass
-    # endregion
 
 
 def _bad_request(message):
@@ -228,25 +201,20 @@ def _dedupe_releases_for_artist_albums(browse_data):
 
 def _build_artist_albums_from_browse(browse_data):
     """Dedupe releases, sort by year (newest first), attach Cover Art Archive thumbs (capped)."""
-    t_build_start = time.perf_counter()
     rows = _dedupe_releases_for_artist_albums(browse_data)
     rows.sort(key=_album_year_sort_key, reverse=True)
     max_albums = 80
     max_thumbs = 24
     rows = rows[:max_albums]
     out = []
-    t_loop_start = time.perf_counter()
-    caa_calls = 0
     for i, row in enumerate(rows):
         rid = row["id"]
         rg_id = row.get("release_group_id")
         thumb = None
         if i < max_thumbs:
             cover = mb.get_cover_art(rid) if rid else None
-            caa_calls += 1
             if not cover and rg_id:
                 cover = mb.get_cover_art_release_group(rg_id)
-                caa_calls += 1
             thumb = cover.get("thumb") if cover else None
         out.append(
             {
@@ -256,21 +224,6 @@ def _build_artist_albums_from_browse(browse_data):
                 "thumb": thumb,
             }
         )
-    t_end = time.perf_counter()
-    # region agent log
-    _agent_debug_log_common(
-        "common._build_artist_albums_from_browse",
-        "cover_phase_complete",
-        {
-            "dedupe_and_sort_ms": round((t_loop_start - t_build_start) * 1000, 2),
-            "caa_http_calls": caa_calls,
-            "cover_loop_ms": round((t_end - t_loop_start) * 1000, 2),
-            "total_ms": round((t_end - t_build_start) * 1000, 2),
-            "row_count": len(rows),
-        },
-        "A",
-    )
-    # endregion
     return out
 
 
