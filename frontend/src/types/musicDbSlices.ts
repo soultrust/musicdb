@@ -43,6 +43,11 @@ export type DetailData = {
   labels?: Array<{ name?: string; catno?: string; [key: string]: unknown }>;
   tracklist?: CatalogTrack[];
   profile?: string;
+  /** MusicBrainz annotation (artist detail) */
+  description?: string | null;
+  disambiguation?: string | null;
+  /** Artist releases (deduped), for sidebar + main panel */
+  albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null }>;
   [key: string]: unknown;
 };
 
@@ -121,6 +126,8 @@ export interface SearchSidebarSliceValue {
   handleItemClick: (item: SearchResultItem) => void;
   results: SearchResultItem[];
   selectedItem: DetailItem | null;
+  detailLoading: boolean;
+  detailData: DetailData | null;
 }
 
 export type PlaylistTrackRow = {

@@ -61,11 +61,16 @@ class SearchEndpointsTests(TestCase):
             "id": "artist-id",
             "disambiguation": "",
         }
-        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res):
+        mock_browse = Mock(status_code=200)
+        mock_browse.json.return_value = {"releases": []}
+        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
+            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+        ):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "artist-id"})
             self.assertEqual(res.status_code, 200)
             body = res.json()
             self.assertEqual(body.get("title"), "The Artist")
+            self.assertEqual(body.get("albums"), [])
 
         with patch("musicdb.views.search_views.mb.get_artist", return_value=Mock(status_code=500)):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "artist-id"})

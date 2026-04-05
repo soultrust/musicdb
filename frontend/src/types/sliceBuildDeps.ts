@@ -47,6 +47,8 @@ export type SearchSidebarSliceDeps = Pick<
   | "handleItemClick"
   | "results"
   | "selectedItem"
+  | "detailLoading"
+  | "detailData"
 >;
 
 export type PlaylistDetailSliceDeps = Pick<

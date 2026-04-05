@@ -135,14 +135,127 @@ def _normalize_mb_release(data):
     return out
 
 
-def _normalize_mb_artist(data):
-    """Convert MusicBrainz artist JSON to frontend-friendly shape."""
+def _extract_mb_annotation_text(data):
+    ann = data.get("annotation")
+    if isinstance(ann, dict):
+        return (ann.get("text") or "").strip()
+    if isinstance(ann, str):
+        return ann.strip()
+    return ""
+
+
+def _extract_artist_image_url(data):
+    for rel in data.get("relations") or []:
+        if rel.get("type") == "image":
+            resource = (rel.get("url") or {}).get("resource")
+            if resource:
+                return resource.strip()
+    return ""
+
+
+def _album_year_sort_key(row):
+    y = row.get("year") or ""
+    try:
+        return int(y[:4])
+    except (TypeError, ValueError):
+        return -1
+
+
+def _dedupe_releases_for_artist_albums(browse_data):
+    """One entry per release group when present, else per release."""
+    releases = browse_data.get("releases") or []
+    by_key = {}
+    order = []
+    for rel in releases:
+        rg = rel.get("release-group") or {}
+        rg_id = rg.get("id")
+        rel_id = rel.get("id")
+        if not rel_id:
+            continue
+        key = rg_id or rel_id
+        title = (rg.get("title") or rel.get("title") or "").strip() or rel_id
+        date = (rel.get("date") or "")[:4]
+        if key not in by_key:
+            by_key[key] = {
+                "id": rel_id,
+                "title": title,
+                "year": date if date else None,
+                "release_group_id": rg_id,
+            }
+            order.append(key)
+        else:
+            cur = by_key[key]
+            if date and (not cur["year"] or date < cur["year"]):
+                cur["year"] = date
+                cur["id"] = rel_id
+    return [by_key[k] for k in order]
+
+
+def _build_artist_albums_from_browse(browse_data):
+    """Dedupe releases, sort by year (newest first), attach Cover Art Archive thumbs (capped)."""
+    rows = _dedupe_releases_for_artist_albums(browse_data)
+    rows.sort(key=_album_year_sort_key, reverse=True)
+    max_albums = 80
+    max_thumbs = 24
+    rows = rows[:max_albums]
+    out = []
+    for i, row in enumerate(rows):
+        rid = row["id"]
+        rg_id = row.get("release_group_id")
+        thumb = None
+        if i < max_thumbs:
+            cover = mb.get_cover_art(rid) if rid else None
+            if not cover and rg_id:
+                cover = mb.get_cover_art_release_group(rg_id)
+            thumb = cover.get("thumb") if cover else None
+        out.append(
+            {
+                "id": rid,
+                "title": row["title"],
+                "year": row.get("year"),
+                "thumb": thumb,
+            }
+        )
+    return out
+
+
+def _normalize_mb_artist(data, albums=None):
+    """Convert MusicBrainz artist JSON to frontend-friendly shape (bio, image, albums)."""
     name = (data.get("name") or "").strip()
     mbid = data.get("id") or ""
     uri = f"https://musicbrainz.org/artist/{mbid}" if mbid else ""
     disambiguation = (data.get("disambiguation") or "").strip()
-    profile = f"({disambiguation})" if disambiguation else ""
-    return {"title": name, "artists": [], "profile": profile, "uri": uri}
+    description = _extract_mb_annotation_text(data)
+    image_url = _extract_artist_image_url(data)
+
+    if description:
+        profile = description
+    elif disambiguation:
+        profile = f"({disambiguation})"
+    else:
+        profile = ""
+
+    albums = albums or []
+    out = {
+        "title": name,
+        "artists": [],
+        "uri": uri,
+        "disambiguation": disambiguation or None,
+        "description": description or None,
+        "profile": profile,
+        "albums": albums,
+    }
+    if image_url:
+        out["thumb"] = image_url
+        out["images"] = [{"uri": image_url}]
+    elif albums:
+        for al in albums:
+            t = al.get("thumb")
+            if t:
+                out["thumb"] = t
+                out["images"] = [{"uri": t}]
+                break
+    return out
 
 
 def _normalize_mb_recording(data):

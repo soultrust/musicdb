@@ -123,6 +123,49 @@ export default function SearchSidebar() {
             <p className="list-view-empty">This list is empty.</p>
           )}
         </>
+      ) : s.selectedItem?.type === "artist" ? (
+        <>
+          <div className="list-view-header">
+            <span className="list-view-title">
+              Albums
+              {s.detailData?.title
+                ? ` — ${s.detailData.title}`
+                : s.selectedItem?.title
+                  ? ` — ${s.selectedItem.title}`
+                  : ""}
+            </span>
+          </div>
+          {s.detailLoading && <p className="detail-loading">Loading albums…</p>}
+          <ul className="results">
+            {(s.detailData?.albums ?? []).map((album, i) => (
+              <li
+                key={album.id != null ? `album-${album.id}` : i}
+                className={
+                  s.selectedItem &&
+                  String(s.selectedItem.id) === String(album.id) &&
+                  s.selectedItem?.type === "album"
+                    ? "selected"
+                    : ""
+                }
+                onClick={() =>
+                  s.handleItemClick({
+                    id: String(album.id),
+                    type: "album",
+                    title: album.title ?? "",
+                  })
+                }
+              >
+                {album.year ? `${album.year} — ` : ""}
+                {album.title ?? album.id}
+              </li>
+            ))}
+          </ul>
+          {!s.detailLoading &&
+            s.detailData &&
+            (s.detailData.albums ?? []).length === 0 && (
+              <p className="list-view-empty">No albums found for this artist.</p>
+            )}
+        </>
       ) : (
         <>
           {s.loading && <p className="detail-loading">Loading…</p>}

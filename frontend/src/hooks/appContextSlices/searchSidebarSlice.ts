@@ -33,6 +33,8 @@ function buildSearchSidebarContext(args: SearchSidebarSliceDeps) {
     handleItemClick: args.handleItemClick,
     results: args.results,
     selectedItem: args.selectedItem,
+    detailLoading: args.detailLoading,
+    detailData: args.detailData,
   };
 }
 
@@ -67,6 +69,8 @@ export function useSearchSidebarContextValue(args: AppContextSliceArgs) {
     handleItemClick,
     results,
     selectedItem,
+    detailLoading,
+    detailData,
   } = args;
   return useMemo(
     () =>
@@ -100,6 +104,8 @@ export function useSearchSidebarContextValue(args: AppContextSliceArgs) {
         handleItemClick,
         results,
         selectedItem,
+        detailLoading,
+        detailData,
       }),
     [
       handleSubmit,
@@ -131,6 +137,8 @@ export function useSearchSidebarContextValue(args: AppContextSliceArgs) {
       handleItemClick,
       results,
       selectedItem,
+      detailLoading,
+      detailData,
     ],
   );
 }
