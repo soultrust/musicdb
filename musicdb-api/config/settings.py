@@ -195,9 +195,6 @@ DISCOGS_API_BASE_URL = "https://api.discogs.com"
 # MusicBrainz API (search and detail)
 MUSICBRAINZ_USER_AGENT = env("MUSICBRAINZ_USER_AGENT")
 
-# Gemini API (optional; for AI overviews)
-GEMINI_API_KEY = env("GEMINI_API_KEY")
-
 # Spotify API
 SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = env("SPOTIFY_CLIENT_SECRET")

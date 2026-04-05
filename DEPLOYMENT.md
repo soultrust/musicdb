@@ -65,7 +65,6 @@ In Render dashboard, go to your service → Environment → Add the following:
 ### Optional Variables:
 
 - `DISCOGS_TOKEN`: Your Discogs API token (if you have one)
-- `GEMINI_API_KEY`: Your Google Gemini API key (for AI overviews)
 - `SPOTIFY_CLIENT_ID`: Your Spotify client ID
 - `SPOTIFY_CLIENT_SECRET`: Your Spotify client secret
 - `CORS_ALLOW_ALL_ORIGINS`: `False` (for production)
@@ -213,7 +212,6 @@ In Railway dashboard, go to your service → Variables → Add:
 
 **Optional Variables:**
 - `DISCOGS_TOKEN`: Your Discogs API token (if you have one)
-- `GEMINI_API_KEY`: Your Google Gemini API key (for AI overviews)
 - `SPOTIFY_CLIENT_ID`: Your Spotify client ID
 - `SPOTIFY_CLIENT_SECRET`: Your Spotify client secret
 - `CORS_ALLOW_ALL_ORIGINS`: `False` (for production)
