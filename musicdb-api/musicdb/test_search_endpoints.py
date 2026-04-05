@@ -5,6 +5,8 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from musicdb.views.common import _is_usable_artist_image_url
+
 
 class SearchEndpointsTests(TestCase):
     def setUp(self):
@@ -101,6 +103,8 @@ class SearchEndpointsTests(TestCase):
         mock_spotify_img.assert_called_once_with("Test Artist")
 
     def test_artist_detail_mb_image_skips_spotify(self):
+        """Direct CDN / normal URLs are kept; Spotify is not called."""
+        mb_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Direct.jpg/220px-Direct.jpg"
         mock_artist_res = Mock(status_code=200)
         mock_artist_res.json.return_value = {
             "name": "Test Artist",
@@ -108,13 +112,12 @@ class SearchEndpointsTests(TestCase):
             "relations": [
                 {
                     "type": "image",
-                    "url": {"resource": "https://commons.wikimedia.org/wiki/File:Photo.jpg"},
+                    "url": {"resource": mb_url},
                 }
             ],
         }
         mock_browse = Mock(status_code=200)
         mock_browse.json.return_value = {"releases": []}
-        mb_url = "https://commons.wikimedia.org/wiki/File:Photo.jpg"
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
             "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
         ), patch(
@@ -125,3 +128,59 @@ class SearchEndpointsTests(TestCase):
         body = res.json()
         self.assertEqual(body.get("thumb"), mb_url)
         mock_spotify_img.assert_not_called()
+
+    def test_artist_detail_commons_wiki_page_triggers_spotify_fallback(self):
+        """Wikimedia Commons File: page URLs are HTML — ignore for thumb and use Spotify if available."""
+        mock_artist_res = Mock(status_code=200)
+        mock_artist_res.json.return_value = {
+            "name": "Pink Floyd",
+            "id": "mbid-pf",
+            "relations": [
+                {
+                    "type": "image",
+                    "url": {
+                        "resource": "https://commons.wikimedia.org/wiki/File:PinkFloyd1973_retouched.jpg",
+                    },
+                }
+            ],
+        }
+        mock_browse = Mock(status_code=200)
+        mock_browse.json.return_value = {"releases": []}
+        spotify_url = "https://i.scdn.co/image/spotify123"
+        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
+            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+        ), patch(
+            "musicdb.views.search_views.artist_image_url_for_musicbrainz_name",
+            return_value=spotify_url,
+        ) as mock_spotify_img:
+            res = self.client.get("/api/search/detail/", {"type": "artist", "id": "mbid-pf"})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(body.get("thumb"), spotify_url)
+        mock_spotify_img.assert_called_once_with("Pink Floyd")
+
+
+class ArtistImageUrlUsabilityTests(TestCase):
+    """Unit tests for wiki-vs-direct URL heuristic."""
+
+    def test_commons_file_page_not_usable(self):
+        self.assertFalse(
+            _is_usable_artist_image_url(
+                "https://commons.wikimedia.org/wiki/File:PinkFloyd1973_retouched.jpg"
+            )
+        )
+
+    def test_upload_wikimedia_usable(self):
+        self.assertTrue(
+            _is_usable_artist_image_url(
+                "https://upload.wikimedia.org/wikipedia/commons/b/be/PinkFloyd1973_retouched.jpg"
+            )
+        )
+
+    def test_wikipedia_article_not_usable(self):
+        self.assertFalse(
+            _is_usable_artist_image_url("https://en.wikipedia.org/wiki/Pink_Floyd")
+        )
+
+    def test_other_https_usable(self):
+        self.assertTrue(_is_usable_artist_image_url("https://i.scdn.co/image/abc"))

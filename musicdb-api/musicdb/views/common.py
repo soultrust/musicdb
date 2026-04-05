@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 from django.conf import settings
 from rest_framework import status
@@ -143,12 +144,44 @@ def _normalize_mb_release(data):
     return out
 
 
+def _is_usable_artist_image_url(url):
+    """
+    True if the URL can be used as <img src>. MusicBrainz often links Wikimedia Commons
+    *file description pages* (HTML), e.g. commons.wikimedia.org/wiki/File:....jpg — those
+    are not direct image bytes. upload.wikimedia.org URLs are the real CDN files.
+    """
+    if not url or not isinstance(url, str):
+        return False
+    url = url.strip()
+    if not url.lower().startswith(("http://", "https://")):
+        return False
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    host = (parsed.netloc or "").lower()
+    path = parsed.path or ""
+    if host == "upload.wikimedia.org" or host.endswith(".upload.wikimedia.org"):
+        return True
+    # HTML wiki pages (not embeddable as image)
+    if "/wiki/" in path and (
+        host.endswith("commons.wikimedia.org")
+        or host.endswith("wikipedia.org")
+        or host.endswith("wikimedia.org")
+        or host.endswith("wikidata.org")
+    ):
+        return False
+    return True
+
+
 def _extract_artist_image_url(data):
     for rel in data.get("relations") or []:
         if rel.get("type") == "image":
             resource = (rel.get("url") or {}).get("resource")
             if resource:
-                return resource.strip()
+                raw = resource.strip()
+                if raw and _is_usable_artist_image_url(raw):
+                    return raw
     return ""
 
 
