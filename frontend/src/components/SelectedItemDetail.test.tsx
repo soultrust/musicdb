@@ -59,6 +59,28 @@ describe("SelectedItemDetail", () => {
     });
   });
 
+  it("lists clickable albums on artist detail", () => {
+    const handleItemClick = vi.fn();
+    renderSelectedItemDetail({
+      handleItemClick,
+      detailData: {
+        title: "The Artist",
+        albums: [
+          { id: "rel-1", title: "First Album", year: "2020" },
+          { id: "rel-2", title: "Second", year: null },
+        ],
+      } as DetailData,
+      selectedItem: { id: "art-1", type: "artist", title: "The Artist" },
+    });
+    expect(screen.getByRole("heading", { name: "Albums" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "2020 — First Album" }));
+    expect(handleItemClick).toHaveBeenCalledWith({
+      id: "rel-1",
+      type: "album",
+      title: "First Album",
+    });
+  });
+
   it("renders meta rows for artists, year, format, country, genre, style, label", () => {
     renderSelectedItemDetail({
       detailData: {

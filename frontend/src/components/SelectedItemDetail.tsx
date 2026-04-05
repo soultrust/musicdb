@@ -135,6 +135,33 @@ export default function SelectedItemDetail() {
                 </div>
               </div>
             </div>
+            {s.selectedItem?.type === "artist" &&
+              Array.isArray(s.detailData.albums) &&
+              s.detailData.albums.length > 0 && (
+                <div className="detail-artist-albums">
+                  <h3>Albums</h3>
+                  <ul className="detail-artist-albums-list">
+                    {s.detailData.albums.map((al) => (
+                      <li key={al.id}>
+                        <button
+                          type="button"
+                          className="detail-link"
+                          onClick={() =>
+                            void s.handleItemClick({
+                              id: String(al.id),
+                              type: "album",
+                              title: al.title ?? "",
+                            })
+                          }
+                        >
+                          {al.year ? `${al.year} — ` : ""}
+                          {al.title ?? al.id}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             {s.detailData.tracklist && s.detailData.tracklist.length > 0 && <TrackList />}
             {s.detailData.profile && (
               <div className="detail-profile">

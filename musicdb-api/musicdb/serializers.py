@@ -1,12 +1,6 @@
 from rest_framework import serializers
 
-from .models import AlbumOverview, List
-
-
-class AlbumOverviewSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AlbumOverview
-        fields = ("artist", "album", "overview", "source")
+from .models import List
 
 
 class ListCreateSerializer(serializers.Serializer):

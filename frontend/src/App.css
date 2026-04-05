@@ -1009,6 +1009,29 @@
   font-style: italic;
 }
 
+.detail-artist-albums {
+  margin-top: 2rem;
+}
+
+.detail-artist-albums h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.detail-artist-albums-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-artist-albums-list li {
+  margin: 0;
+}
+
 .detail-profile {
   margin-top: 2rem;
 }

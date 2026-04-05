@@ -15,7 +15,6 @@ env = environ.Env(
     DISCOGS_USER_AGENT=(str, ""),
     DISCOGS_TOKEN=(str, ""),
     MUSICBRAINZ_USER_AGENT=(str, "SoulTrustMusicDB/1.0"),
-    GEMINI_API_KEY=(str, ""),
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
 )

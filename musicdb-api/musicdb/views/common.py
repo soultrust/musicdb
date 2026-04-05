@@ -143,15 +143,6 @@ def _normalize_mb_release(data):
     return out
 
 
-def _extract_mb_annotation_text(data):
-    ann = data.get("annotation")
-    if isinstance(ann, dict):
-        return (ann.get("text") or "").strip()
-    if isinstance(ann, str):
-        return ann.strip()
-    return ""
-
-
 def _extract_artist_image_url(data):
     for rel in data.get("relations") or []:
         if rel.get("type") == "image":
@@ -188,7 +179,6 @@ def _dedupe_releases_for_artist_albums(browse_data):
                 "id": rel_id,
                 "title": title,
                 "year": date if date else None,
-                "release_group_id": rg_id,
             }
             order.append(key)
         else:
@@ -199,70 +189,41 @@ def _dedupe_releases_for_artist_albums(browse_data):
     return [by_key[k] for k in order]
 
 
-def _build_artist_albums_from_browse(browse_data):
-    """Dedupe releases, sort by year (newest first), attach Cover Art Archive thumbs (capped)."""
+def build_artist_album_list_from_browse(browse_data):
+    """
+    Dedupe MB browse releases, sort by year (newest first).
+    Metadata only — no Cover Art calls (keeps artist detail fast).
+    """
     rows = _dedupe_releases_for_artist_albums(browse_data)
     rows.sort(key=_album_year_sort_key, reverse=True)
     max_albums = 80
-    max_thumbs = 24
-    rows = rows[:max_albums]
     out = []
-    for i, row in enumerate(rows):
-        rid = row["id"]
-        rg_id = row.get("release_group_id")
-        thumb = None
-        if i < max_thumbs:
-            cover = mb.get_cover_art(rid) if rid else None
-            if not cover and rg_id:
-                cover = mb.get_cover_art_release_group(rg_id)
-            thumb = cover.get("thumb") if cover else None
+    for row in rows[:max_albums]:
         out.append(
             {
-                "id": rid,
+                "id": row["id"],
                 "title": row["title"],
                 "year": row.get("year"),
-                "thumb": thumb,
             }
         )
     return out
 
 
 def _normalize_mb_artist(data, albums=None):
-    """Convert MusicBrainz artist JSON to frontend-friendly shape (bio, image, albums)."""
+    """Artist detail: name, MusicBrainz link, optional image, optional album list."""
     name = (data.get("name") or "").strip()
     mbid = data.get("id") or ""
     uri = f"https://musicbrainz.org/artist/{mbid}" if mbid else ""
-    disambiguation = (data.get("disambiguation") or "").strip()
-    description = _extract_mb_annotation_text(data)
     image_url = _extract_artist_image_url(data)
-
-    if description:
-        profile = description
-    elif disambiguation:
-        profile = f"({disambiguation})"
-    else:
-        profile = ""
-
-    albums = albums or []
     out = {
         "title": name,
         "artists": [],
         "uri": uri,
-        "disambiguation": disambiguation or None,
-        "description": description or None,
-        "profile": profile,
-        "albums": albums,
+        "albums": albums or [],
     }
     if image_url:
         out["thumb"] = image_url
         out["images"] = [{"uri": image_url}]
-    elif albums:
-        for al in albums:
-            t = al.get("thumb")
-            if t:
-                out["thumb"] = t
-                out["images"] = [{"uri": t}]
-                break
     return out
 
 

@@ -110,12 +110,12 @@ def search(query, search_type="album", limit=20, offset=0, year=None, year_from=
 
 
 def get_artist(mbid):
-    """GET artist/{mbid} with annotation text and URL relations (e.g. image)."""
+    """GET artist/{mbid} with URL relations (e.g. image link)."""
     url = f"{MUSICBRAINZ_API_BASE}/artist/{mbid}"
     return requests.get(
         url,
         headers=_headers(),
-        params={"fmt": "json", "inc": "annotation+url-rels"},
+        params={"fmt": "json", "inc": "url-rels"},
         timeout=15,
     )
 
@@ -159,38 +159,6 @@ def get_recording(mbid):
 
 
 COVER_ART_ARCHIVE_BASE = "https://coverartarchive.org"
-
-
-def get_cover_art_release_group(release_group_mbid):
-    """
-    Fetch cover art for a release group from Cover Art Archive (any release in the group).
-    Same return shape as get_cover_art, or None on failure/404.
-    """
-    if not release_group_mbid:
-        return None
-    url = f"{COVER_ART_ARCHIVE_BASE}/release-group/{release_group_mbid}"
-    try:
-        resp = requests.get(url, headers=_headers(), timeout=10)
-        if resp.status_code != 200:
-            return None
-        data = resp.json()
-        images = data.get("images") or []
-        front = next(
-            (img for img in images if img.get("front") or "Front" in (img.get("types") or [])),
-            images[0] if images else None,
-        )
-        if not front:
-            return None
-        thumb_url = (front.get("thumbnails") or {}).get("500") or front.get("image")
-        image_url = front.get("image") or thumb_url
-        if not thumb_url and not image_url:
-            return None
-        return {
-            "thumb": thumb_url or image_url,
-            "images": [{"uri": image_url or thumb_url}],
-        }
-    except Exception:
-        return None
 
 
 def get_cover_art(release_mbid):

@@ -8,7 +8,7 @@ from .. import musicbrainz_client as mb
 from ..models import ConsumedAlbum
 from .common import (
     _bad_request,
-    _build_artist_albums_from_browse,
+    build_artist_album_list_from_browse,
     _fetch_display_title_from_catalog,
     _normalize_mb_artist,
     _normalize_mb_recording,
@@ -173,7 +173,7 @@ class DetailAPIView(APIView):
             albums = []
             browse = mb.browse_releases_by_artist(resource_id)
             if browse.status_code == 200:
-                albums = _build_artist_albums_from_browse(browse.json())
+                albums = build_artist_album_list_from_browse(browse.json())
             return Response(_normalize_mb_artist(artist_data, albums=albums))
         if resource_type == "album":
             response = mb.get_release(resource_id)
