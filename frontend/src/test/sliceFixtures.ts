@@ -68,6 +68,7 @@ export function buildDetailShellSliceValue(
     albumArtRetryKey: 0,
     setAlbumArtRetryKey: vi.fn(),
     handleAddToList: vi.fn(),
+    handleItemClick: vi.fn(),
     ...overrides,
   };
 }

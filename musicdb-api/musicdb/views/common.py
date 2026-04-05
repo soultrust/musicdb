@@ -103,7 +103,15 @@ def _normalize_mb_release(data):
     """Convert MusicBrainz release JSON to frontend-friendly shape (title, artists, year, tracklist, uri)."""
     title = (data.get("title") or "").strip()
     artist_credit = data.get("artist-credit") or []
-    artists = [{"name": (a.get("artist", {}).get("name") or a.get("name") or "").strip()} for a in artist_credit]
+    artists = []
+    for a in artist_credit:
+        artist_obj = a.get("artist") or {}
+        name = (artist_obj.get("name") or a.get("name") or "").strip()
+        aid = (artist_obj.get("id") or "").strip()
+        entry = {"name": name}
+        if aid:
+            entry["id"] = aid
+        artists.append(entry)
     date = (data.get("date") or "")[:4]
     mbid = data.get("id") or ""
     uri = f"https://musicbrainz.org/release/{mbid}" if mbid else ""

@@ -41,6 +41,24 @@ describe("SelectedItemDetail", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Nevermind" })).toBeInTheDocument();
   });
 
+  it("navigates to artist detail when artist name is clicked on an album", () => {
+    const handleItemClick = vi.fn();
+    renderSelectedItemDetail({
+      handleItemClick,
+      detailData: {
+        title: "Album",
+        artists: [{ name: "The Band", id: "artist-mbid-1" }],
+      } as DetailData,
+      selectedItem: { id: "rel-1", type: "album", title: "Album" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "The Band" }));
+    expect(handleItemClick).toHaveBeenCalledWith({
+      id: "artist-mbid-1",
+      type: "artist",
+      title: "The Band",
+    });
+  });
+
   it("renders meta rows for artists, year, format, country, genre, style, label", () => {
     renderSelectedItemDetail({
       detailData: {
@@ -55,7 +73,9 @@ describe("SelectedItemDetail", () => {
       } as DetailData,
       selectedItem: { id: "1", type: "album", title: "Album" },
     });
-    expect(screen.getByText("Artist One, Artist Two")).toBeInTheDocument();
+    expect(
+      screen.getByText("Artist:").closest(".detail-row")?.querySelector(".detail-row-links"),
+    ).toHaveTextContent("Artist One, Artist Two");
     expect(screen.getByText("1991")).toBeInTheDocument();
     expect(screen.getByText("CD (2), Vinyl")).toBeInTheDocument();
     expect(screen.getByText("US")).toBeInTheDocument();

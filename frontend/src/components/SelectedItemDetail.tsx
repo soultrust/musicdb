@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
 import { useDetailShellContext } from "../hooks/useMusicDbApp";
@@ -52,7 +53,39 @@ export default function SelectedItemDetail() {
                   {s.detailData.artists && s.detailData.artists.length > 0 && (
                     <div className="detail-row">
                       <span className="label">Artist:</span>
-                      <span className="value">{s.detailData.artists.map((a) => a.name).join(", ")}</span>
+                      <span className="value detail-row-links">
+                        {s.detailData.artists.map((a, i) => {
+                          const name = a.name;
+                          const mbid = a.id;
+                          const isAlbumish =
+                            s.selectedItem?.type === "release" ||
+                            s.selectedItem?.type === "master" ||
+                            s.selectedItem?.type === "album";
+                          const showLink = Boolean(isAlbumish && mbid && name);
+                          return (
+                            <Fragment key={`${mbid ?? name}-${i}`}>
+                              {i > 0 ? ", " : null}
+                              {showLink ? (
+                                <button
+                                  type="button"
+                                  className="detail-link"
+                                  onClick={() =>
+                                    void s.handleItemClick({
+                                      id: mbid,
+                                      type: "artist",
+                                      title: name,
+                                    })
+                                  }
+                                >
+                                  {name}
+                                </button>
+                              ) : (
+                                <span>{name}</span>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </span>
                     </div>
                   )}
                   {s.detailData.year && (

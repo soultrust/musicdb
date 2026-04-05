@@ -24,7 +24,7 @@ export type CatalogTrack = {
   [key: string]: unknown;
 };
 
-export type SpotifyArtist = { name: string };
+export type SpotifyArtist = { name: string; id?: string };
 
 export type DetailImage = { uri?: string; [key: string]: unknown };
 
@@ -126,8 +126,6 @@ export interface SearchSidebarSliceValue {
   handleItemClick: (item: SearchResultItem) => void;
   results: SearchResultItem[];
   selectedItem: DetailItem | null;
-  detailLoading: boolean;
-  detailData: DetailData | null;
 }
 
 export type PlaylistTrackRow = {
@@ -193,6 +191,7 @@ export interface DetailShellSliceValue {
   albumArtRetryKey: number;
   setAlbumArtRetryKey: Dispatch<SetStateAction<number>>;
   handleAddToList: () => void;
+  handleItemClick: (item: SearchResultItem) => void;
 }
 
 export interface DetailTracklistSliceValue {

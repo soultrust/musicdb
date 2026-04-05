@@ -43,8 +43,6 @@ function baseCtx() {
     handleItemClick: vi.fn(),
     results: [{ id: "a1", type: "album", title: "Album One" }],
     selectedItem: null,
-    detailLoading: false,
-    detailData: null,
   };
 }
 
@@ -62,32 +60,6 @@ describe("SearchSidebar", () => {
 
     fireEvent.click(screen.getByText("Album One"));
     expect(ctx.handleItemClick).toHaveBeenCalledWith({ id: "a1", type: "album", title: "Album One" });
-  });
-
-  it("shows artist albums in the sidebar when an artist is selected", () => {
-    const ctx = {
-      ...baseCtx(),
-      selectedItem: { id: "art-1", type: "artist", title: "The Band" },
-      detailLoading: false,
-      detailData: {
-        title: "The Band",
-        albums: [
-          { id: "rel-1", title: "Music from Big Pink", year: "1968" },
-          { id: "rel-2", title: "The Band", year: "1969" },
-        ],
-      },
-    };
-    mockSearchSidebarContext.mockReturnValue(ctx);
-    render(<SearchSidebar />);
-
-    expect(screen.getByText(/Albums — The Band/)).toBeInTheDocument();
-    expect(screen.getByText(/1968 — Music from Big Pink/)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/1969 — The Band/));
-    expect(ctx.handleItemClick).toHaveBeenCalledWith({
-      id: "rel-2",
-      type: "album",
-      title: "The Band",
-    });
   });
 
   it("renders spotify playlists branch and selects playlist", () => {

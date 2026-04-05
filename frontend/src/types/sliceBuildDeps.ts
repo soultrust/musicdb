@@ -47,8 +47,6 @@ export type SearchSidebarSliceDeps = Pick<
   | "handleItemClick"
   | "results"
   | "selectedItem"
-  | "detailLoading"
-  | "detailData"
 >;
 
 export type PlaylistDetailSliceDeps = Pick<
@@ -96,6 +94,7 @@ export type DetailShellSliceDeps = Pick<
   | "albumArtRetryKey"
   | "setAlbumArtRetryKey"
   | "handleAddToList"
+  | "handleItemClick"
 >;
 
 export type DetailTracklistSliceDeps = Pick<
