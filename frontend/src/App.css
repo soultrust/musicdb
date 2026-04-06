@@ -476,6 +476,14 @@
   margin-bottom: 2rem;
 }
 
+.detail-thumb.detail-thumb-artist {
+  width: auto;
+  height: auto;
+  max-width: 200px;
+  max-height: 300px;
+  object-fit: contain;
+}
+
 .detail-thumb-placeholder {
   width: 200px;
   height: 200px;

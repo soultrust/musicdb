@@ -47,7 +47,7 @@ export default function SelectedItemDetail() {
                       key={s.albumArtRetryKey}
                       src={`${s.detailData.thumb || s.detailData.images?.[0]?.uri}${s.albumArtRetryKey ? `?retry=${s.albumArtRetryKey}` : ""}`}
                       alt={s.detailData.title || s.selectedItem?.title || ""}
-                      className="detail-thumb"
+                      className={`detail-thumb${isArtist ? " detail-thumb-artist" : ""}`}
                       onError={(e) => {
                         if (s.albumArtRetryKey < 2) {
                           s.setAlbumArtRetryKey((k) => k + 1);
