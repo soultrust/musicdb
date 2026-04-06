@@ -192,6 +192,7 @@ class ManualSpotifyArtistImageView(APIView):
                     "manual_match": False,
                     "image_url": None,
                     "spotify_artist_id": None,
+                    "discogs_artist_id": None,
                 }
             )
         return Response(
@@ -199,6 +200,7 @@ class ManualSpotifyArtistImageView(APIView):
                 "manual_match": True,
                 "image_url": link.image_url,
                 "spotify_artist_id": link.spotify_artist_id or None,
+                "discogs_artist_id": link.discogs_artist_id or None,
             }
         )
 
@@ -209,6 +211,7 @@ class ManualSpotifyArtistImageView(APIView):
         mbid = ser.validated_data["musicbrainz_artist_id"]
         image_url = ser.validated_data["image_url"]
         sid = (ser.validated_data.get("spotify_artist_id") or "").strip()
+        did = (ser.validated_data.get("discogs_artist_id") or "").strip()
 
         link, _ = ArtistSpotifyImageLink.objects.update_or_create(
             user=request.user,
@@ -216,6 +219,7 @@ class ManualSpotifyArtistImageView(APIView):
             defaults={
                 "image_url": image_url,
                 "spotify_artist_id": sid[:64] if sid else "",
+                "discogs_artist_id": did[:64] if did else "",
             },
         )
         return Response(
@@ -223,6 +227,7 @@ class ManualSpotifyArtistImageView(APIView):
                 "manual_match": True,
                 "image_url": link.image_url,
                 "spotify_artist_id": link.spotify_artist_id or None,
+                "discogs_artist_id": link.discogs_artist_id or None,
             }
         )
 

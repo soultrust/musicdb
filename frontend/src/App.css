@@ -1581,8 +1581,39 @@
   color: #e5e5e5;
 }
 
-.artist-spotify-image-modal.modal-content {
+.artist-spotify-image-modal.modal-content,
+.artist-manual-image-modal.modal-content {
   max-width: 560px;
+}
+
+.artist-image-source-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.artist-image-source-tabs button {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  border-radius: 6px;
+  border: 1px solid #404040;
+  background: #111;
+  color: #a3a3a3;
+  cursor: pointer;
+}
+
+.artist-image-source-tabs button.is-active {
+  border-color: #3b82f6;
+  background: #1e293b;
+  color: #e5e5e5;
+}
+
+.artist-manual-image-intro {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: #a3a3a3;
+  line-height: 1.45;
 }
 
 .artist-spotify-image-intro {

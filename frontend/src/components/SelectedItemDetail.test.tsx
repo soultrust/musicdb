@@ -232,7 +232,7 @@ describe("SelectedItemDetail", () => {
       selectedItem: { id: "1", type: "artist", title: "T" },
     });
     expect(screen.queryByRole("button", { name: "Manage Lists" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose Spotify image" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Choose artist image" })).toBeInTheDocument();
   });
 
   it("calls handleAddToList when Manage Lists is clicked", () => {

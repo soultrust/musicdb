@@ -58,6 +58,12 @@ class ManualSpotifyArtistImageSerializer(serializers.Serializer):
         allow_blank=True,
         default="",
     )
+    discogs_artist_id = serializers.CharField(
+        max_length=64,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
 
     def validate_musicbrainz_artist_id(self, value):
         v = (value or "").strip()

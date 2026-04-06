@@ -14,10 +14,6 @@ export function detailUrl(API_BASE: string, itemType: string, itemId: string): s
   return `${API_BASE}${SEARCH_ROOT}/detail/?type=${encodeURIComponent(itemType)}&id=${encodeURIComponent(itemId)}`;
 }
 
-export function albumOverviewUrl(API_BASE: string, album: string, artist: string): string {
-  return `${API_BASE}${SEARCH_ROOT}/album-overview/?album=${encodeURIComponent(album)}&artist=${encodeURIComponent(artist)}`;
-}
-
 export function listsIndexUrl(API_BASE: string, listType?: string | null): string {
   const base = `${API_BASE}${SEARCH_ROOT}/lists/`;
   if (listType == null || listType === "") return base;
@@ -81,6 +77,16 @@ export function spotifyArtistSearchUrl(API_BASE: string, q: string, limit?: numb
 
 export function spotifyArtistImagesUrl(API_BASE: string, spotifyArtistId: string): string {
   return `${API_BASE}${SEARCH_ROOT}/spotify-artist-images/?spotify_artist_id=${encodeURIComponent(spotifyArtistId)}`;
+}
+
+export function discogsArtistSearchUrl(API_BASE: string, q: string, limit?: number): string {
+  const params = new URLSearchParams({ q });
+  if (limit != null) params.set("limit", String(limit));
+  return `${API_BASE}${SEARCH_ROOT}/discogs-artist-search/?${params.toString()}`;
+}
+
+export function discogsArtistImagesUrl(API_BASE: string, discogsArtistId: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/discogs-artist-images/?discogs_artist_id=${encodeURIComponent(discogsArtistId)}`;
 }
 
 export function manualSpotifyArtistImageUrl(API_BASE: string, musicbrainzArtistId?: string): string {

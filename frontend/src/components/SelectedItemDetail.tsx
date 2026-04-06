@@ -1,7 +1,7 @@
 import { Fragment, useState } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
-import ArtistSpotifyImageModal from "./ArtistSpotifyImageModal";
+import ArtistManualImageModal from "./ArtistManualImageModal";
 import { useDetailShellContext } from "../hooks/useMusicDbApp";
 import { manualSpotifyArtistImageUrl } from "../services/searchApi";
 
@@ -14,7 +14,7 @@ function titleCaseDisplay(value: string): string {
 
 export default function SelectedItemDetail() {
   const s = useDetailShellContext();
-  const [showArtistImageModal, setShowArtistImageModal] = useState(false);
+  const [showArtistManualImageModal, setShowArtistManualImageModal] = useState(false);
   const [removeManualImageLoading, setRemoveManualImageLoading] = useState(false);
 
   const isArtist = s.selectedItem?.type === "artist";
@@ -75,9 +75,9 @@ export default function SelectedItemDetail() {
                     <button
                       type="button"
                       className="add-to-list-btn"
-                      onClick={() => setShowArtistImageModal(true)}
+                      onClick={() => setShowArtistManualImageModal(true)}
                     >
-                      Choose Spotify image
+                      Choose artist image
                     </button>
                     {s.detailData?.manual_spotify_artist_image ? (
                       <button
@@ -222,13 +222,13 @@ export default function SelectedItemDetail() {
           </div>
         </div>
       )}
-      {showArtistImageModal && isArtist && mbArtistId && (
-        <ArtistSpotifyImageModal
+      {showArtistManualImageModal && isArtist && mbArtistId && (
+        <ArtistManualImageModal
           API_BASE={s.API_BASE}
           authFetch={s.authFetch}
           musicbrainzArtistId={mbArtistId}
           artistTitle={s.detailData?.title || s.selectedItem?.title || ""}
-          onClose={() => setShowArtistImageModal(false)}
+          onClose={() => setShowArtistManualImageModal(false)}
           onSaved={s.refreshDetail}
         />
       )}

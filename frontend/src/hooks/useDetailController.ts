@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
-import { albumOverviewUrl, detailUrl } from "../services/searchApi";
+import { detailUrl } from "../services/searchApi";
 import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import type {
   DetailData,
@@ -96,45 +96,6 @@ export function useDetailController({
             console.error("Failed to match tracks:", err);
           } finally {
             setSpotifyMatching(false);
-          }
-        }
-
-        // Fetch album overview only for album/release types (cache or Wikipedia)
-        const isAlbumType =
-          item.type === "release" || item.type === "master" || item.type === "album";
-        const album = data.title || "";
-        const artist = data.artists?.length
-          ? data.artists.map((a: SpotifyArtist) => a.name).join(", ")
-          : "";
-
-        if (isAlbumType && album && artist) {
-          setOverviewLoading(true);
-          setOverviewError(null);
-          try {
-            const ovRes = await authFetch(albumOverviewUrl(API_BASE, album, artist));
-            const text = await ovRes.text();
-
-            if (text.trim().startsWith("<")) {
-              setOverviewError("Overview unavailable (server error). Is the Django API running?");
-            } else {
-              try {
-                const ovData = JSON.parse(text) as {
-                  data?: { overview?: string };
-                  error?: string;
-                };
-                if (ovRes.ok && ovData?.data?.overview) {
-                  setOverview(ovData.data.overview);
-                } else if (!ovRes.ok && ovData?.error) {
-                  setOverviewError(ovData.error);
-                }
-              } catch {
-                setOverviewError("Could not load overview.");
-              }
-            }
-          } catch (err: unknown) {
-            setOverviewError(errorMessage(err, "Failed to load overview"));
-          } finally {
-            setOverviewLoading(false);
           }
         }
       } catch (err: unknown) {

@@ -28,7 +28,7 @@ describe("useDetailController", () => {
     };
   }
 
-  it("handles successful detail + spotify matching + overview fetch", async () => {
+  it("handles successful detail + spotify matching", async () => {
     const setters = makeSetters();
     const detailPayload = {
       title: "Paranoid",
@@ -39,12 +39,6 @@ describe("useDetailController", () => {
       vi.fn(async (url: string) => {
         if (url.includes("/detail/")) {
           return { ok: true, json: async () => detailPayload };
-        }
-        if (url.includes("/album-overview/")) {
-          return {
-            ok: true,
-            text: async () => JSON.stringify({ data: { overview: "Classic heavy metal landmark." } }),
-          };
         }
         throw new Error(`Unexpected URL: ${url}`);
       }),
@@ -72,7 +66,6 @@ describe("useDetailController", () => {
     expect(setters.setSpotifyMatches).toHaveBeenCalledWith([
       { catalog_title: "War Pigs", spotify_track: { id: "sp1" } },
     ]);
-    expect(setters.setOverview).toHaveBeenCalledWith("Classic heavy metal landmark.");
     expect(setters.setDetailLoading).toHaveBeenLastCalledWith(false);
   });
 
@@ -91,42 +84,5 @@ describe("useDetailController", () => {
     expect(setters.setDetailError).toHaveBeenCalledWith("Item missing id or type");
   });
 
-  it("sets overview html error when overview endpoint returns html", async () => {
-    const setters = makeSetters();
-    const authFetch = asAuthFetch(
-      vi.fn(async (url: string) => {
-        if (url.includes("/detail/")) {
-          return {
-            ok: true,
-            json: async () => ({
-              title: "Album",
-              artists: [{ name: "Artist" }],
-              tracklist: [],
-            }),
-          };
-        }
-        if (url.includes("/album-overview/")) {
-          return {
-            ok: true,
-            text: async () => "<!doctype html><html>Error</html>",
-          };
-        }
-        throw new Error(`Unexpected URL: ${url}`);
-      }),
-    );
-    const { result } = renderHook(() =>
-      useDetailController({
-        API_BASE,
-        authFetch,
-        syncEspeciallyLikedForItem: vi.fn(async () => {}),
-        ...setters,
-      }),
-    );
-
-    await result.current.handleItemClick({ id: "x", type: "album", title: "Album" });
-    expect(setters.setOverviewError).toHaveBeenCalledWith(
-      "Overview unavailable (server error). Is the Django API running?",
-    );
-  });
 });
 

@@ -110,8 +110,8 @@ class TrackSpotifyLink(models.Model):
 
 class ArtistSpotifyImageLink(models.Model):
     """
-    User's chosen Spotify image URL for a MusicBrainz artist (detail page thumb).
-    Overrides automatic MusicBrainz / Spotify search image for that artist.
+    User's chosen image URL for a MusicBrainz artist (detail page thumb).
+    Source may be Spotify or Discogs (manual picker). Overrides automatic chain.
     """
 
     user = models.ForeignKey(
@@ -122,6 +122,7 @@ class ArtistSpotifyImageLink(models.Model):
     musicbrainz_artist_id = models.CharField(max_length=64)
     image_url = models.TextField()
     spotify_artist_id = models.CharField(max_length=64, blank=True)
+    discogs_artist_id = models.CharField(max_length=64, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

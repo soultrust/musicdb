@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  albumOverviewUrl,
   detailUrl,
   listItemsCheckUrl,
   listsIndexUrl,
@@ -22,13 +21,6 @@ describe("searchApi URL builders", () => {
     const url = detailUrl(API_BASE, "release", "1111-2222");
     expect(url).toBe(
       "http://localhost:8000/api/search/detail/?type=release&id=1111-2222",
-    );
-  });
-
-  it("builds album overview URL with encoded album/artist", () => {
-    const url = albumOverviewUrl(API_BASE, "Kind of Blue", "Miles Davis");
-    expect(url).toBe(
-      "http://localhost:8000/api/search/album-overview/?album=Kind%20of%20Blue&artist=Miles%20Davis",
     );
   });
 

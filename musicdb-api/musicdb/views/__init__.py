@@ -8,6 +8,7 @@ from .search_views import (
     DetailAPIView,
     SearchAPIView,
 )
+from .discogs_artist_views import DiscogsArtistImagesView, DiscogsArtistSearchView
 from .spotify_views import (
     ManualSpotifyArtistImageView,
     ManualSpotifyMatchView,
@@ -28,6 +29,8 @@ __all__ = [
     "ListItemsCheckView",
     "ListItemsView",
     "ListsView",
+    "DiscogsArtistImagesView",
+    "DiscogsArtistSearchView",
     "ManualSpotifyArtistImageView",
     "ManualSpotifyMatchView",
     "ManualSpotifyMatchesView",

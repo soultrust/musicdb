@@ -1,6 +1,6 @@
 """Tests for Spotify artist search, images list, and manual artist image override."""
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
@@ -95,3 +95,38 @@ class SpotifyArtistImageEndpointsTests(TestCase):
             "/api/search/manual-spotify-artist-image/?musicbrainz_artist_id=missing-mbid"
         )
         self.assertEqual(res.status_code, status.HTTP_404_NOT_FOUND)
+
+    @patch("musicdb.views.discogs_artist_views.search")
+    def test_discogs_artist_search_returns_artists(self, mock_search):
+        mock_search.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "results": [
+                    {"type": "artist", "id": 99, "title": "Band", "thumb": "https://img.discogs.com/t.jpg"},
+                ]
+            },
+        )
+        res = self.client.get("/api/search/discogs-artist-search/", {"q": "Band"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        artists = res.json().get("artists", [])
+        self.assertEqual(len(artists), 1)
+        self.assertEqual(artists[0]["id"], 99)
+        self.assertEqual(artists[0]["name"], "Band")
+
+    @patch("musicdb.views.discogs_artist_views.get_artist")
+    def test_discogs_artist_images_returns_images(self, mock_get):
+        mock_get.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "id": 42,
+                "name": "Artist",
+                "images": [
+                    {"uri": "https://img.discogs.com/a.jpg", "width": 600, "type": "primary"},
+                ],
+            },
+        )
+        res = self.client.get("/api/search/discogs-artist-images/", {"discogs_artist_id": "42"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        body = res.json()
+        self.assertEqual(len(body.get("images", [])), 1)
+        self.assertEqual(body["images"][0]["url"], "https://img.discogs.com/a.jpg")

@@ -5,6 +5,8 @@ from .views import (
     ConsumedListView,
     ConsumedTitlesView,
     DetailAPIView,
+    DiscogsArtistImagesView,
+    DiscogsArtistSearchView,
     EspeciallyLikedTrackView,
     EspeciallyLikedTracksView,
     ListDetailView,
@@ -39,6 +41,8 @@ urlpatterns = [
     ),
     path("spotify-artist-search/", SpotifyArtistSearchView.as_view(), name="spotify-artist-search"),
     path("spotify-artist-images/", SpotifyArtistImagesView.as_view(), name="spotify-artist-images"),
+    path("discogs-artist-search/", DiscogsArtistSearchView.as_view(), name="discogs-artist-search"),
+    path("discogs-artist-images/", DiscogsArtistImagesView.as_view(), name="discogs-artist-images"),
     path("especially-liked-tracks/", EspeciallyLikedTracksView.as_view(), name="especially-liked-tracks"),
     path("especially-liked-track/", EspeciallyLikedTrackView.as_view(), name="especially-liked-track"),
 ]

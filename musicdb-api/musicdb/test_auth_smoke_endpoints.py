@@ -87,6 +87,12 @@ class AuthSmokeEndpointsTests(TestCase):
         )
         self.assertNoAuth(res)
 
+        res = self.noauth_client.get("/api/search/discogs-artist-search/?q=test")
+        self.assertNoAuth(res)
+
+        res = self.noauth_client.get("/api/search/discogs-artist-images/?discogs_artist_id=1")
+        self.assertNoAuth(res)
+
     def test_especially_liked_endpoints_require_auth(self):
         res = self.noauth_client.get(
             "/api/search/especially-liked-tracks/?item_type=release&item_id=11111111-1111-1111-1111-111111111111"

@@ -1,20 +1,24 @@
 import { useCallback, useState, type FormEvent } from "react";
 import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import {
+  discogsArtistImagesUrl,
+  discogsArtistSearchUrl,
   manualSpotifyArtistImageUrl,
   spotifyArtistImagesUrl,
   spotifyArtistSearchUrl,
 } from "../services/searchApi";
 
-type SpotifyArtistHit = {
-  id?: string;
-  name?: string;
-  images?: Array<{ url?: string; width?: number; height?: number }>;
+export type ImageSource = "spotify" | "discogs";
+
+type ImageRow = { url: string; width?: number | null; height?: number | null };
+
+type ArtistRow = {
+  id: string;
+  name: string;
+  thumbUrl?: string | null;
 };
 
-type SpotifyImageRow = { url: string; width?: number | null; height?: number | null };
-
-export default function ArtistSpotifyImageModal({
+export default function ArtistManualImageModal({
   API_BASE,
   authFetch,
   musicbrainzArtistId,
@@ -29,18 +33,29 @@ export default function ArtistSpotifyImageModal({
   onClose: () => void;
   onSaved: () => void | Promise<void>;
 }) {
+  const [source, setSource] = useState<ImageSource>("spotify");
   const [searchQuery, setSearchQuery] = useState(artistTitle);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [artists, setArtists] = useState<SpotifyArtistHit[]>([]);
+  const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  const [pickedArtist, setPickedArtist] = useState<SpotifyArtistHit | null>(null);
+  const [pickedArtist, setPickedArtist] = useState<ArtistRow | null>(null);
   const [imagesLoading, setImagesLoading] = useState(false);
-  const [images, setImages] = useState<SpotifyImageRow[]>([]);
+  const [images, setImages] = useState<ImageRow[]>([]);
   const [imagesError, setImagesError] = useState<string | null>(null);
 
   const [saveLoading, setSaveLoading] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const resetAfterSourceChange = useCallback((next: ImageSource) => {
+    setSource(next);
+    setArtists([]);
+    setPickedArtist(null);
+    setImages([]);
+    setSearchError(null);
+    setImagesError(null);
+    setSaveError(null);
+  }, []);
 
   const runSearch = useCallback(
     async (e?: FormEvent) => {
@@ -53,24 +68,50 @@ export default function ArtistSpotifyImageModal({
       setPickedArtist(null);
       setImages([]);
       try {
-        const res = await authFetch(spotifyArtistSearchUrl(API_BASE, q, 12));
-        const data = (await res.json()) as { artists?: SpotifyArtistHit[]; error?: string };
-        if (!res.ok) {
-          setSearchError(data.error || `Search failed (${res.status})`);
-          return;
+        if (source === "spotify") {
+          const res = await authFetch(spotifyArtistSearchUrl(API_BASE, q, 12));
+          const data = (await res.json()) as {
+            artists?: Array<{ id?: string; name?: string; images?: Array<{ url?: string }> }>;
+            error?: string;
+          };
+          if (!res.ok) {
+            setSearchError(data.error || `Search failed (${res.status})`);
+            return;
+          }
+          const rows: ArtistRow[] = (data.artists || []).map((a) => ({
+            id: String(a.id ?? ""),
+            name: a.name || "",
+            thumbUrl: a.images?.[0]?.url || null,
+          }));
+          setArtists(rows.filter((r) => r.id));
+        } else {
+          const res = await authFetch(discogsArtistSearchUrl(API_BASE, q, 12));
+          const data = (await res.json()) as {
+            artists?: Array<{ id?: number | string; name?: string; thumb?: string }>;
+            error?: string;
+          };
+          if (!res.ok) {
+            setSearchError(data.error || `Search failed (${res.status})`);
+            return;
+          }
+          const rows: ArtistRow[] = (data.artists || []).map((a) => ({
+            id: String(a.id ?? ""),
+            name: a.name || "",
+            thumbUrl: a.thumb || null,
+          }));
+          setArtists(rows.filter((r) => r.id));
         }
-        setArtists(data.artists || []);
       } catch {
         setSearchError("Search failed.");
       } finally {
         setSearchLoading(false);
       }
     },
-    [API_BASE, authFetch, searchQuery],
+    [API_BASE, authFetch, searchQuery, source],
   );
 
   const pickArtist = useCallback(
-    async (artist: SpotifyArtistHit) => {
+    async (artist: ArtistRow) => {
       const id = artist.id;
       if (!id) return;
       setPickedArtist(artist);
@@ -78,9 +119,12 @@ export default function ArtistSpotifyImageModal({
       setImagesError(null);
       setImages([]);
       try {
-        const res = await authFetch(spotifyArtistImagesUrl(API_BASE, id));
+        const res =
+          source === "spotify"
+            ? await authFetch(spotifyArtistImagesUrl(API_BASE, id))
+            : await authFetch(discogsArtistImagesUrl(API_BASE, id));
         const data = (await res.json()) as {
-          images?: SpotifyImageRow[];
+          images?: ImageRow[];
           error?: string;
         };
         if (!res.ok) {
@@ -95,7 +139,7 @@ export default function ArtistSpotifyImageModal({
         setImagesLoading(false);
       }
     },
-    [API_BASE, authFetch],
+    [API_BASE, authFetch, source],
   );
 
   const saveImage = useCallback(
@@ -109,7 +153,8 @@ export default function ArtistSpotifyImageModal({
           body: JSON.stringify({
             musicbrainz_artist_id: musicbrainzArtistId,
             image_url: imageUrl,
-            spotify_artist_id: pickedArtist?.id || "",
+            spotify_artist_id: source === "spotify" && pickedArtist?.id ? pickedArtist.id : "",
+            discogs_artist_id: source === "discogs" && pickedArtist?.id ? pickedArtist.id : "",
           }),
         });
         const data = (await res.json()) as { error?: string };
@@ -125,29 +170,50 @@ export default function ArtistSpotifyImageModal({
         setSaveLoading(false);
       }
     },
-    [API_BASE, authFetch, musicbrainzArtistId, onClose, onSaved, pickedArtist?.id],
+    [API_BASE, authFetch, musicbrainzArtistId, onClose, onSaved, pickedArtist?.id, source],
   );
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content artist-spotify-image-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content artist-manual-image-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Artist image (Spotify)</h2>
+          <h2>Choose artist image</h2>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
         <div className="modal-body">
-          <p className="artist-spotify-image-intro">
-            Search Spotify for <strong>{artistTitle}</strong>, pick the correct artist, then choose an
-            image size. This overrides the automatic image for your account only.
+          <p className="artist-manual-image-intro">
+            Search <strong>{artistTitle}</strong> on Spotify or Discogs, pick the artist, then choose
+            an image. This overrides the automatic image for your account only.
           </p>
 
+          <div className="artist-image-source-tabs" role="tablist" aria-label="Image source">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === "spotify"}
+              className={source === "spotify" ? "is-active" : ""}
+              onClick={() => resetAfterSourceChange("spotify")}
+            >
+              Spotify
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={source === "discogs"}
+              className={source === "discogs" ? "is-active" : ""}
+              onClick={() => resetAfterSourceChange("discogs")}
+            >
+              Discogs
+            </button>
+          </div>
+
           <form onSubmit={runSearch} className="artist-spotify-image-search">
-            <label htmlFor="artist-spotify-search-q">Search</label>
+            <label htmlFor="artist-manual-search-q">Search</label>
             <div className="artist-spotify-image-search-row">
               <input
-                id="artist-spotify-search-q"
+                id="artist-manual-search-q"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -166,7 +232,7 @@ export default function ArtistSpotifyImageModal({
               <h3>Artists</h3>
               <ul className="artist-spotify-artist-picks">
                 {artists.map((a) => (
-                  <li key={a.id}>
+                  <li key={`${source}-${a.id}`}>
                     <button
                       type="button"
                       className={
@@ -176,8 +242,8 @@ export default function ArtistSpotifyImageModal({
                       }
                       onClick={() => void pickArtist(a)}
                     >
-                      {a.images?.[0]?.url ? (
-                        <img src={a.images[0].url} alt="" className="artist-spotify-artist-thumb" />
+                      {a.thumbUrl ? (
+                        <img src={a.thumbUrl} alt="" className="artist-spotify-artist-thumb" />
                       ) : (
                         <span className="artist-spotify-artist-thumb-placeholder">No img</span>
                       )}
