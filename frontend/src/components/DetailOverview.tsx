@@ -31,7 +31,7 @@ export default function DetailOverview() {
       {overviewError && !overviewLoading && (
         <p className="error">
           {overviewError.includes("Wikipedia") && overviewError.toLowerCase().includes("no ")
-            ? "No overview available for this album."
+            ? `No overview available for this ${selectedItem?.type === "artist" ? "artist" : "album"}.`
             : overviewError}
         </p>
       )}

@@ -1,3 +1,4 @@
+from .artist_overview_views import ArtistOverviewView
 from .liked_views import EspeciallyLikedTrackView, EspeciallyLikedTracksView
 from .list_views import ListDetailView, ListItemsCheckView, ListItemsView, ListsView
 from .search_views import (
@@ -18,6 +19,7 @@ from .spotify_views import (
 )
 
 __all__ = [
+    "ArtistOverviewView",
     "ConsumedAlbumView",
     "ConsumedBackfillView",
     "ConsumedListView",

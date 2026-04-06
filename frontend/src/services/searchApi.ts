@@ -89,6 +89,10 @@ export function discogsArtistImagesUrl(API_BASE: string, discogsArtistId: string
   return `${API_BASE}${SEARCH_ROOT}/discogs-artist-images/?discogs_artist_id=${encodeURIComponent(discogsArtistId)}`;
 }
 
+export function artistOverviewUrl(API_BASE: string, mbid: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/artist-overview/?mbid=${encodeURIComponent(mbid)}`;
+}
+
 export function manualSpotifyArtistImageUrl(API_BASE: string, musicbrainzArtistId?: string): string {
   const base = `${API_BASE}${SEARCH_ROOT}/manual-spotify-artist-image/`;
   if (musicbrainzArtistId == null || musicbrainzArtistId === "") return base;

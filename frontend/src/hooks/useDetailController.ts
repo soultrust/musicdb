@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
-import { detailUrl } from "../services/searchApi";
+import { artistOverviewUrl, detailUrl } from "../services/searchApi";
 import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import type {
   DetailData,
@@ -76,6 +76,23 @@ export function useDetailController({
         }
 
         setDetailData(data);
+
+        if (item.type === "artist" && item.id) {
+          setOverviewLoading(true);
+          authFetch(artistOverviewUrl(API_BASE, item.id))
+            .then(async (r) => {
+              const body = (await r.json()) as { overview?: string | null; reason?: string; error?: string };
+              if (!r.ok) {
+                setOverviewError(body.error || `Overview request failed (${r.status})`);
+              } else if (body.overview) {
+                setOverview(body.overview);
+              } else {
+                setOverviewError("No Wikipedia overview found for this artist.");
+              }
+            })
+            .catch(() => setOverviewError("Failed to load artist overview."))
+            .finally(() => setOverviewLoading(false));
+        }
 
         await syncEspeciallyLikedForItem(item as DetailItem, data);
 

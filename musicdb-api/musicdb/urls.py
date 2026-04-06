@@ -1,5 +1,6 @@
 from django.urls import path
 from .views import (
+    ArtistOverviewView,
     ConsumedAlbumView,
     ConsumedBackfillView,
     ConsumedListView,
@@ -45,4 +46,5 @@ urlpatterns = [
     path("discogs-artist-images/", DiscogsArtistImagesView.as_view(), name="discogs-artist-images"),
     path("especially-liked-tracks/", EspeciallyLikedTracksView.as_view(), name="especially-liked-tracks"),
     path("especially-liked-track/", EspeciallyLikedTrackView.as_view(), name="especially-liked-track"),
+    path("artist-overview/", ArtistOverviewView.as_view(), name="artist-overview"),
 ]
