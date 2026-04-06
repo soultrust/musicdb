@@ -8,6 +8,7 @@ from spotify.client import artist_image_url_for_musicbrainz_name
 
 from .. import musicbrainz_client as mb
 from ..models import ArtistSpotifyImageLink, ConsumedAlbum
+from .discogs_artist_image import discogs_artist_image_url
 from .common import (
     _bad_request,
     build_artist_album_list_from_browse,
@@ -184,6 +185,14 @@ class DetailAPIView(APIView):
                 if spotify_url:
                     normalized["thumb"] = spotify_url
                     normalized["images"] = [{"uri": spotify_url}]
+            if not normalized.get("thumb"):
+                discogs_url = discogs_artist_image_url(
+                    normalized.get("title") or (artist_data.get("name") or ""),
+                    artist_data,
+                )
+                if discogs_url:
+                    normalized["thumb"] = discogs_url
+                    normalized["images"] = [{"uri": discogs_url}]
             link = ArtistSpotifyImageLink.objects.filter(
                 user=request.user,
                 musicbrainz_artist_id=resource_id,

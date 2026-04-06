@@ -70,7 +70,7 @@ class SearchEndpointsTests(TestCase):
             "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
-        ):
+        ), patch("musicdb.views.search_views.discogs_artist_image_url", return_value=None):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "artist-id"})
             self.assertEqual(res.status_code, 200)
             body = res.json()
@@ -96,7 +96,9 @@ class SearchEndpointsTests(TestCase):
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name",
             return_value=spotify_url,
-        ) as mock_spotify_img:
+        ) as mock_spotify_img, patch(
+            "musicdb.views.search_views.discogs_artist_image_url", return_value=None
+        ):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "mbid-1"})
         self.assertEqual(res.status_code, 200)
         body = res.json()
@@ -125,7 +127,9 @@ class SearchEndpointsTests(TestCase):
             "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name"
-        ) as mock_spotify_img:
+        ) as mock_spotify_img, patch(
+            "musicdb.views.search_views.discogs_artist_image_url", return_value=None
+        ):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "mbid-1"})
         self.assertEqual(res.status_code, 200)
         body = res.json()
@@ -156,7 +160,9 @@ class SearchEndpointsTests(TestCase):
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name",
             return_value=spotify_url,
-        ) as mock_spotify_img:
+        ) as mock_spotify_img, patch(
+            "musicdb.views.search_views.discogs_artist_image_url", return_value=None
+        ):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "mbid-pf"})
         self.assertEqual(res.status_code, 200)
         body = res.json()
@@ -185,12 +191,38 @@ class SearchEndpointsTests(TestCase):
             "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
-        ):
+        ), patch("musicdb.views.search_views.discogs_artist_image_url", return_value=None):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": mbid})
         self.assertEqual(res.status_code, 200)
         body = res.json()
         self.assertEqual(body.get("thumb"), override_url)
         self.assertIs(body.get("manual_spotify_artist_image"), True)
+
+    def test_artist_detail_discogs_fallback_when_mb_and_spotify_empty(self):
+        mock_artist_res = Mock(status_code=200)
+        mock_artist_res.json.return_value = {
+            "name": "Discogs Only",
+            "id": "mbid-dc",
+        }
+        mock_browse = Mock(status_code=200)
+        mock_browse.json.return_value = {"releases": []}
+        discogs_url = "https://img.discogs.com/primary.jpg"
+        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
+            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+        ), patch(
+            "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
+        ), patch(
+            "musicdb.views.search_views.discogs_artist_image_url", return_value=discogs_url
+        ) as mock_dc:
+            res = self.client.get("/api/search/detail/", {"type": "artist", "id": "mbid-dc"})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(body.get("thumb"), discogs_url)
+        self.assertEqual(body.get("images"), [{"uri": discogs_url}])
+        mock_dc.assert_called_once()
+        call_name, call_data = mock_dc.call_args[0]
+        self.assertEqual(call_name, "Discogs Only")
+        self.assertEqual(call_data["name"], "Discogs Only")
 
 
 class ArtistImageUrlUsabilityTests(TestCase):
