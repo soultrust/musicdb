@@ -123,6 +123,7 @@ export interface SearchSidebarSliceValue {
   spotifyPlaylists: Array<{ id: string; name: string; owner?: string; [key: string]: unknown }>;
   selectedPlaylistId: string | null;
   setSelectedPlaylistId: (id: string | null) => void;
+  handlePlaylistClick: (playlistId: string) => void;
   setSelectedItem: (item: DetailItem | null) => void;
   setDetailData: (data: DetailData | null) => void;
   listViewData: ListViewData | null;

@@ -83,11 +83,7 @@ export default function SearchSidebar() {
               <li
                 key={playlist.id}
                 className={s.selectedPlaylistId === playlist.id ? "selected" : ""}
-                onClick={() => {
-                  s.setSelectedPlaylistId(playlist.id);
-                  s.setSelectedItem(null);
-                  s.setDetailData(null);
-                }}
+                onClick={() => s.handlePlaylistClick(playlist.id)}
               >
                 {playlist.name}
                 {playlist.owner && <span className="playlist-owner"> by {playlist.owner}</span>}

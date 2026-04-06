@@ -20,6 +20,7 @@ const stableFns = {
   setFilterYearFrom: fn,
   setFilterYearTo: fn,
   setSelectedPlaylistId: fn,
+  handlePlaylistClick: fn,
   setSelectedItem: fn,
   setDetailData: fn,
   handleItemClick: fn,

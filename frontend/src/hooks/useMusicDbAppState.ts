@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { DetailData, DetailItem, SearchResultItem } from "../types/musicDbSlices";
 import { authFetchWithRefresh } from "../services/authFetch";
 import { useAuth } from "./useAuth";
@@ -16,6 +17,9 @@ import { useManualSpotifyUnmatch } from "./useManualSpotifyUnmatch";
 import { useSpotifyMatchSync } from "./useSpotifyMatchSync";
 import { useAlbumArtReveal } from "./useAlbumArtReveal";
 
+const ITEM_ROUTE_RE = /^\/(artist|album|song)\/(.+)$/;
+const PLAYLIST_ROUTE_RE = /^\/playlist\/(.+)$/;
+
 /**
  * Wires all authenticated-app hooks: search, detail, lists, Spotify, likes, context value.
  * Keeps `App.jsx` focused on layout and the auth gate.
@@ -31,6 +35,9 @@ export function useMusicDbAppState({
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_REDIRECT_URI: string;
 }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isProgrammaticNavRef = useRef(false);
   const resetPlayerStateRef = useRef<() => void>(() => {});
 
   const [spotifyToken, setSpotifyToken] = useState<string | null>(null);
@@ -131,7 +138,7 @@ export function useMusicDbAppState({
     spotifyToken,
   });
 
-  const { handleItemClick } = useDetailController({
+  const { handleItemClick: fetchItemDetail } = useDetailController({
     API_BASE,
     authFetch,
     syncEspeciallyLikedForItem,
@@ -149,10 +156,20 @@ export function useMusicDbAppState({
     setSpotifyMatching,
   });
 
+  const handleItemClick = useCallback(
+    async (item: SearchResultItem) => {
+      const type = item.type || "album";
+      isProgrammaticNavRef.current = true;
+      navigate(`/${encodeURIComponent(type)}/${encodeURIComponent(item.id)}`);
+      await fetchItemDetail(item);
+    },
+    [navigate, fetchItemDetail],
+  );
+
   const refreshDetail = useCallback(async () => {
     if (!selectedItem?.id || !selectedItem?.type) return;
-    await handleItemClick(selectedItem as SearchResultItem);
-  }, [selectedItem, handleItemClick]);
+    await fetchItemDetail(selectedItem as SearchResultItem);
+  }, [selectedItem, fetchItemDetail]);
 
   const {
     showListModal,
@@ -190,7 +207,7 @@ export function useMusicDbAppState({
     handleItemClick,
   });
 
-  const resetOnViewSwitch = useViewSwitchReset({
+  const resetOnViewSwitchRaw = useViewSwitchReset({
     setViewListId,
     setListViewData,
     setSelectedItem,
@@ -198,6 +215,55 @@ export function useMusicDbAppState({
     setSelectedPlaylistId,
     setPlaylistTracksData,
   });
+
+  const resetOnViewSwitch = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      isProgrammaticNavRef.current = true;
+      navigate("/");
+      resetOnViewSwitchRaw(e);
+    },
+    [navigate, resetOnViewSwitchRaw],
+  );
+
+  const handlePlaylistClick = useCallback(
+    (playlistId: string) => {
+      isProgrammaticNavRef.current = true;
+      navigate(`/playlist/${encodeURIComponent(playlistId)}`);
+      setSelectedPlaylistId(playlistId);
+      setSelectedItem(null);
+      setDetailData(null);
+    },
+    [navigate, setSelectedPlaylistId, setSelectedItem, setDetailData],
+  );
+
+  // Sync URL → app state for bookmarks, back/forward, and direct URL entry.
+  useEffect(() => {
+    if (isProgrammaticNavRef.current) {
+      isProgrammaticNavRef.current = false;
+      return;
+    }
+    const path = location.pathname;
+
+    const itemMatch = path.match(ITEM_ROUTE_RE);
+    if (itemMatch) {
+      const type = itemMatch[1];
+      const id = decodeURIComponent(itemMatch[2]);
+      setSelectedPlaylistId(null);
+      setPlaylistTracksData(null);
+      void fetchItemDetail({ type, id, title: "" });
+      return;
+    }
+
+    const playlistMatch = path.match(PLAYLIST_ROUTE_RE);
+    if (playlistMatch) {
+      const pid = decodeURIComponent(playlistMatch[1]);
+      setSelectedItem(null);
+      setDetailData(null);
+      setSelectedPlaylistId(pid);
+      return;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
 
   const handleSubmit = useSearchSubmit({
     API_BASE,
@@ -321,6 +387,7 @@ export function useMusicDbAppState({
     spotifyPlaylists,
     selectedPlaylistId,
     setSelectedPlaylistId,
+    handlePlaylistClick,
     setSelectedItem,
     setDetailData,
     listViewData,

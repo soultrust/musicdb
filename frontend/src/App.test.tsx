@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MusicDbAppSlices } from "./context/musicDbSliceContexts";
 import App from "./App";
@@ -66,7 +67,7 @@ describe("App", () => {
       accessToken: null,
     });
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(screen.getByRole("heading", { name: "MusicDB" })).toBeInTheDocument();
     expect(screen.getByText(/Sign in to search and manage your music lists/i)).toBeInTheDocument();
@@ -76,7 +77,7 @@ describe("App", () => {
   it("renders main shell when authenticated", () => {
     vi.mocked(useMusicDbAppState).mockReturnValue(authenticatedState());
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(screen.getByTestId("app-header")).toBeInTheDocument();
     expect(screen.getByTestId("search-sidebar")).toBeInTheDocument();
@@ -92,7 +93,7 @@ describe("App", () => {
       }),
     );
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(screen.getByTestId("playlist-detail")).toBeInTheDocument();
     expect(screen.queryByTestId("selected-item-detail")).not.toBeInTheDocument();
@@ -105,7 +106,7 @@ describe("App", () => {
       }),
     );
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(screen.getByTestId("selected-item-detail")).toBeInTheDocument();
     expect(screen.queryByTestId("playlist-detail")).not.toBeInTheDocument();
@@ -121,7 +122,7 @@ describe("App", () => {
       }),
     );
 
-    render(<App />);
+    render(<MemoryRouter><App /></MemoryRouter>);
 
     expect(screen.getByTestId("list-modal")).toBeInTheDocument();
     expect(screen.getByTestId("spotify-search-modal")).toBeInTheDocument();

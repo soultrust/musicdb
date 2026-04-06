@@ -40,6 +40,7 @@ export type SearchSidebarSliceDeps = Pick<
   | "spotifyPlaylists"
   | "selectedPlaylistId"
   | "setSelectedPlaylistId"
+  | "handlePlaylistClick"
   | "setSelectedItem"
   | "setDetailData"
   | "listViewData"

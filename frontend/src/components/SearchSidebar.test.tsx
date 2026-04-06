@@ -36,6 +36,7 @@ function baseCtx() {
     spotifyPlaylists: [],
     selectedPlaylistId: null,
     setSelectedPlaylistId: vi.fn(),
+    handlePlaylistClick: vi.fn(),
     setSelectedItem: vi.fn(),
     setDetailData: vi.fn(),
     listViewData: null,
@@ -73,9 +74,7 @@ describe("SearchSidebar", () => {
     render(<SearchSidebar />);
 
     fireEvent.click(screen.getByText("Road Trip"));
-    expect(ctx.setSelectedPlaylistId).toHaveBeenCalledWith("p1");
-    expect(ctx.setSelectedItem).toHaveBeenCalledWith(null);
-    expect(ctx.setDetailData).toHaveBeenCalledWith(null);
+    expect(ctx.handlePlaylistClick).toHaveBeenCalledWith("p1");
   });
 });
 
