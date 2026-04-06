@@ -75,9 +75,11 @@ export default function ArtistManualImageModal({
           const data = (await res.json()) as {
             artists?: Array<{ id?: string; name?: string; images?: Array<{ url?: string }> }>;
             error?: string;
+            detail?: string;
           };
           if (!res.ok) {
-            setSearchError(data.error || `Search failed (${res.status})`);
+            const hint = data.detail ? `${data.error ?? "Error"}: ${data.detail}` : data.error;
+            setSearchError(hint || `Search failed (${res.status})`);
             return;
           }
           const rows: ArtistRowWithThumb[] = (data.artists || [])
@@ -93,9 +95,11 @@ export default function ArtistManualImageModal({
           const data = (await res.json()) as {
             artists?: Array<{ id?: number | string; name?: string; thumb?: string }>;
             error?: string;
+            detail?: string;
           };
           if (!res.ok) {
-            setSearchError(data.error || `Search failed (${res.status})`);
+            const hint = data.detail ? `${data.error ?? "Error"}: ${data.detail}` : data.error;
+            setSearchError(hint || `Search failed (${res.status})`);
             return;
           }
           const rows: ArtistRowWithThumb[] = (data.artists || [])

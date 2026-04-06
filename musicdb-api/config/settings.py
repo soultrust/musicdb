@@ -12,7 +12,8 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 # Initialize environ
 env = environ.Env(
     DEBUG=(bool, False),
-    DISCOGS_USER_AGENT=(str, ""),
+    # Discogs rejects requests without a proper User-Agent (403 / "authentication" errors).
+    DISCOGS_USER_AGENT=(str, "SoulTrustMusicDB/1.0"),
     DISCOGS_TOKEN=(str, ""),
     MUSICBRAINZ_USER_AGENT=(str, "SoulTrustMusicDB/1.0"),
     SPOTIFY_CLIENT_ID=(str, ""),
@@ -187,8 +188,8 @@ STORAGES = {
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Discogs API (legacy / lists)
-DISCOGS_USER_AGENT = env("DISCOGS_USER_AGENT")
+# Discogs API (legacy / lists). Empty .env value would break all Discogs calls.
+DISCOGS_USER_AGENT = (env("DISCOGS_USER_AGENT", default="SoulTrustMusicDB/1.0") or "").strip() or "SoulTrustMusicDB/1.0"
 DISCOGS_TOKEN = env("DISCOGS_TOKEN")
 DISCOGS_API_BASE_URL = "https://api.discogs.com"
 

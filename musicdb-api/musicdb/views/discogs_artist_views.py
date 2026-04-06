@@ -8,6 +8,19 @@ from rest_framework.views import APIView
 from ..client import get_artist, search
 
 
+def _discogs_http_error_payload(resp):
+    """Discogs returns JSON like {\"message\": \"...\"} on 401/403; surface it for debugging."""
+    try:
+        data = resp.json()
+    except (TypeError, ValueError):
+        return None
+    if isinstance(data, dict):
+        msg = data.get("message")
+        if msg:
+            return str(msg)[:500]
+    return None
+
+
 class DiscogsArtistSearchView(APIView):
     """
     GET /api/search/discogs-artist-search/?q=...
@@ -33,10 +46,11 @@ class DiscogsArtistSearchView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         if resp.status_code != 200:
-            return Response(
-                {"error": "Discogs search failed"},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            detail = _discogs_http_error_payload(resp)
+            body = {"error": "Discogs search failed"}
+            if detail:
+                body["detail"] = detail
+            return Response(body, status=status.HTTP_502_BAD_GATEWAY)
         try:
             payload = resp.json()
         except (TypeError, ValueError):
@@ -84,10 +98,11 @@ class DiscogsArtistImagesView(APIView):
                 status=status.HTTP_502_BAD_GATEWAY,
             )
         if resp.status_code != 200:
-            return Response(
-                {"error": "Discogs artist not found"},
-                status=status.HTTP_502_BAD_GATEWAY,
-            )
+            detail = _discogs_http_error_payload(resp)
+            body = {"error": "Discogs artist not found"}
+            if detail:
+                body["detail"] = detail
+            return Response(body, status=status.HTTP_502_BAD_GATEWAY)
         try:
             data = resp.json()
         except (TypeError, ValueError):
