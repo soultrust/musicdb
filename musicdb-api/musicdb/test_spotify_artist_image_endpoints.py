@@ -33,7 +33,19 @@ class SpotifyArtistImageEndpointsTests(TestCase):
         artists = res.json().get("artists", [])
         self.assertEqual(len(artists), 1)
         self.assertEqual(artists[0]["id"], "s1")
-        mock_search.assert_called_once()
+        mock_search.assert_called_once_with("Band", limit=50)
+
+    @patch("musicdb.views.spotify_views.search_artists")
+    def test_spotify_artist_search_skips_artists_without_images(self, mock_search):
+        mock_search.return_value = [
+            {"id": "noimg", "name": "No Pic", "images": []},
+            {"id": "s2", "name": "Has Pic", "images": [{"url": "https://i.scdn.co/y"}]},
+        ]
+        res = self.client.get("/api/search/spotify-artist-search/", {"q": "x"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        artists = res.json().get("artists", [])
+        self.assertEqual(len(artists), 1)
+        self.assertEqual(artists[0]["id"], "s2")
 
     def test_spotify_artist_search_requires_q(self):
         res = self.client.get("/api/search/spotify-artist-search/")
@@ -112,6 +124,26 @@ class SpotifyArtistImageEndpointsTests(TestCase):
         self.assertEqual(len(artists), 1)
         self.assertEqual(artists[0]["id"], 99)
         self.assertEqual(artists[0]["name"], "Band")
+        mock_search.assert_called_once()
+        _, kwargs = mock_search.call_args
+        self.assertEqual(kwargs.get("per_page"), 100)
+
+    @patch("musicdb.views.discogs_artist_views.search")
+    def test_discogs_artist_search_skips_artists_without_thumb(self, mock_search):
+        mock_search.return_value = Mock(
+            status_code=200,
+            json=lambda: {
+                "results": [
+                    {"type": "artist", "id": 1, "title": "No Thumb", "thumb": ""},
+                    {"type": "artist", "id": 2, "title": "Has Thumb", "thumb": "https://img.discogs.com/x.jpg"},
+                ]
+            },
+        )
+        res = self.client.get("/api/search/discogs-artist-search/", {"q": "x"})
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        artists = res.json().get("artists", [])
+        self.assertEqual(len(artists), 1)
+        self.assertEqual(artists[0]["id"], 2)
 
     @patch("musicdb.views.discogs_artist_views.get_artist")
     def test_discogs_artist_images_returns_images(self, mock_get):

@@ -110,15 +110,21 @@ class SpotifyArtistSearchView(APIView):
                 {"error": "Missing query parameter: q"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit = min(20, max(1, int(request.GET.get("limit", 10))))
+        limit = min(50, max(1, int(request.GET.get("limit", 50))))
         items = search_artists(q, limit=limit)
         artists = []
         for a in items:
+            images = a.get("images") or []
+            if not any(
+                isinstance(img, dict) and (str(img.get("url") or "").strip())
+                for img in images
+            ):
+                continue
             artists.append(
                 {
                     "id": a.get("id"),
                     "name": a.get("name"),
-                    "images": a.get("images") or [],
+                    "images": images,
                 }
             )
         return Response({"artists": artists})

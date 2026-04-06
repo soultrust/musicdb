@@ -23,7 +23,8 @@ class DiscogsArtistSearchView(APIView):
                 {"error": "Missing query parameter: q"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        limit = min(20, max(1, int(request.GET.get("limit", 10))))
+        # Discogs database/search allows up to 100 results per page.
+        limit = min(100, max(1, int(request.GET.get("limit", 100))))
         try:
             resp = search(q, per_page=limit, page=1, resource_type="artist")
         except Exception:
@@ -47,11 +48,14 @@ class DiscogsArtistSearchView(APIView):
         for r in payload.get("results") or []:
             if (r.get("type") or "").lower() != "artist":
                 continue
+            thumb = (r.get("thumb") or "").strip()
+            if not thumb:
+                continue
             artists.append(
                 {
                     "id": r.get("id"),
                     "name": (r.get("title") or "").strip(),
-                    "thumb": (r.get("thumb") or "").strip(),
+                    "thumb": thumb,
                 }
             )
         return Response({"artists": artists})

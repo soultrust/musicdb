@@ -18,6 +18,8 @@ type ArtistRow = {
   thumbUrl?: string | null;
 };
 
+type ArtistRowWithThumb = ArtistRow & { thumbUrl: string };
+
 export default function ArtistManualImageModal({
   API_BASE,
   authFetch,
@@ -36,7 +38,7 @@ export default function ArtistManualImageModal({
   const [source, setSource] = useState<ImageSource>("spotify");
   const [searchQuery, setSearchQuery] = useState(artistTitle);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [artists, setArtists] = useState<ArtistRow[]>([]);
+  const [artists, setArtists] = useState<ArtistRowWithThumb[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [pickedArtist, setPickedArtist] = useState<ArtistRow | null>(null);
@@ -69,7 +71,7 @@ export default function ArtistManualImageModal({
       setImages([]);
       try {
         if (source === "spotify") {
-          const res = await authFetch(spotifyArtistSearchUrl(API_BASE, q, 12));
+          const res = await authFetch(spotifyArtistSearchUrl(API_BASE, q, 50));
           const data = (await res.json()) as {
             artists?: Array<{ id?: string; name?: string; images?: Array<{ url?: string }> }>;
             error?: string;
@@ -78,14 +80,16 @@ export default function ArtistManualImageModal({
             setSearchError(data.error || `Search failed (${res.status})`);
             return;
           }
-          const rows: ArtistRow[] = (data.artists || []).map((a) => ({
-            id: String(a.id ?? ""),
-            name: a.name || "",
-            thumbUrl: a.images?.[0]?.url || null,
-          }));
-          setArtists(rows.filter((r) => r.id));
+          const rows: ArtistRowWithThumb[] = (data.artists || [])
+            .map((a) => ({
+              id: String(a.id ?? ""),
+              name: a.name || "",
+              thumbUrl: a.images?.find((im) => im?.url)?.url ?? null,
+            }))
+            .filter((r): r is ArtistRowWithThumb => Boolean(r.id && r.thumbUrl));
+          setArtists(rows);
         } else {
-          const res = await authFetch(discogsArtistSearchUrl(API_BASE, q, 12));
+          const res = await authFetch(discogsArtistSearchUrl(API_BASE, q, 100));
           const data = (await res.json()) as {
             artists?: Array<{ id?: number | string; name?: string; thumb?: string }>;
             error?: string;
@@ -94,12 +98,14 @@ export default function ArtistManualImageModal({
             setSearchError(data.error || `Search failed (${res.status})`);
             return;
           }
-          const rows: ArtistRow[] = (data.artists || []).map((a) => ({
-            id: String(a.id ?? ""),
-            name: a.name || "",
-            thumbUrl: a.thumb || null,
-          }));
-          setArtists(rows.filter((r) => r.id));
+          const rows: ArtistRowWithThumb[] = (data.artists || [])
+            .map((a) => ({
+              id: String(a.id ?? ""),
+              name: a.name || "",
+              thumbUrl: a.thumb || null,
+            }))
+            .filter((r): r is ArtistRowWithThumb => Boolean(r.id && r.thumbUrl));
+          setArtists(rows);
         }
       } catch {
         setSearchError("Search failed.");
@@ -242,11 +248,7 @@ export default function ArtistManualImageModal({
                       }
                       onClick={() => void pickArtist(a)}
                     >
-                      {a.thumbUrl ? (
-                        <img src={a.thumbUrl} alt="" className="artist-spotify-artist-thumb" />
-                      ) : (
-                        <span className="artist-spotify-artist-thumb-placeholder">No img</span>
-                      )}
+                      <img src={a.thumbUrl} alt="" className="artist-spotify-artist-thumb" />
                       <span className="artist-spotify-artist-name">{a.name}</span>
                     </button>
                   </li>
