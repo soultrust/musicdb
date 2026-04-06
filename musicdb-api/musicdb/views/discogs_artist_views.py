@@ -62,14 +62,11 @@ class DiscogsArtistSearchView(APIView):
         for r in payload.get("results") or []:
             if (r.get("type") or "").lower() != "artist":
                 continue
-            thumb = (r.get("thumb") or "").strip()
-            if not thumb:
-                continue
             artists.append(
                 {
                     "id": r.get("id"),
                     "name": (r.get("title") or "").strip(),
-                    "thumb": thumb,
+                    "thumb": (r.get("thumb") or "").strip(),
                 }
             )
         return Response({"artists": artists})

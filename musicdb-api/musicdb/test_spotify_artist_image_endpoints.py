@@ -129,7 +129,7 @@ class SpotifyArtistImageEndpointsTests(TestCase):
         self.assertEqual(kwargs.get("per_page"), 100)
 
     @patch("musicdb.views.discogs_artist_views.search")
-    def test_discogs_artist_search_skips_artists_without_thumb(self, mock_search):
+    def test_discogs_artist_search_includes_artists_without_thumb(self, mock_search):
         mock_search.return_value = Mock(
             status_code=200,
             json=lambda: {
@@ -142,8 +142,9 @@ class SpotifyArtistImageEndpointsTests(TestCase):
         res = self.client.get("/api/search/discogs-artist-search/", {"q": "x"})
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         artists = res.json().get("artists", [])
-        self.assertEqual(len(artists), 1)
-        self.assertEqual(artists[0]["id"], 2)
+        self.assertEqual(len(artists), 2)
+        self.assertEqual(artists[0]["thumb"], "")
+        self.assertEqual(artists[1]["thumb"], "https://img.discogs.com/x.jpg")
 
     @patch("musicdb.views.discogs_artist_views.get_artist")
     def test_discogs_artist_images_returns_images(self, mock_get):

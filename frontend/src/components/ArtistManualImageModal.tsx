@@ -18,8 +18,6 @@ type ArtistRow = {
   thumbUrl?: string | null;
 };
 
-type ArtistRowWithThumb = ArtistRow & { thumbUrl: string };
-
 export default function ArtistManualImageModal({
   API_BASE,
   authFetch,
@@ -38,7 +36,7 @@ export default function ArtistManualImageModal({
   const [source, setSource] = useState<ImageSource>("spotify");
   const [searchQuery, setSearchQuery] = useState(artistTitle);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [artists, setArtists] = useState<ArtistRowWithThumb[]>([]);
+  const [artists, setArtists] = useState<ArtistRow[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
 
   const [pickedArtist, setPickedArtist] = useState<ArtistRow | null>(null);
@@ -82,13 +80,13 @@ export default function ArtistManualImageModal({
             setSearchError(hint || `Search failed (${res.status})`);
             return;
           }
-          const rows: ArtistRowWithThumb[] = (data.artists || [])
+          const rows: ArtistRow[] = (data.artists || [])
             .map((a) => ({
               id: String(a.id ?? ""),
               name: a.name || "",
               thumbUrl: a.images?.find((im) => im?.url)?.url ?? null,
             }))
-            .filter((r): r is ArtistRowWithThumb => Boolean(r.id && r.thumbUrl));
+            .filter((r) => r.id);
           setArtists(rows);
         } else {
           const res = await authFetch(discogsArtistSearchUrl(API_BASE, q, 100));
@@ -102,13 +100,13 @@ export default function ArtistManualImageModal({
             setSearchError(hint || `Search failed (${res.status})`);
             return;
           }
-          const rows: ArtistRowWithThumb[] = (data.artists || [])
+          const rows: ArtistRow[] = (data.artists || [])
             .map((a) => ({
               id: String(a.id ?? ""),
               name: a.name || "",
               thumbUrl: a.thumb || null,
             }))
-            .filter((r): r is ArtistRowWithThumb => Boolean(r.id && r.thumbUrl));
+            .filter((r) => r.id);
           setArtists(rows);
         }
       } catch {
@@ -252,7 +250,9 @@ export default function ArtistManualImageModal({
                       }
                       onClick={() => void pickArtist(a)}
                     >
-                      <img src={a.thumbUrl} alt="" className="artist-spotify-artist-thumb" />
+                      {a.thumbUrl && (
+                        <img src={a.thumbUrl} alt="" className="artist-spotify-artist-thumb" />
+                      )}
                       <span className="artist-spotify-artist-name">{a.name}</span>
                     </button>
                   </li>
