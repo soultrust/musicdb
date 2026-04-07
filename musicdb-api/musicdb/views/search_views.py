@@ -12,6 +12,7 @@ from .discogs_artist_image import discogs_artist_image_url
 from .common import (
     _bad_request,
     build_artist_album_list_from_browse,
+    build_artist_album_list_from_release_groups,
     _fetch_display_title_from_catalog,
     _normalize_mb_artist,
     _normalize_mb_recording,
@@ -174,9 +175,9 @@ class DetailAPIView(APIView):
                 return _upstream_error("MusicBrainz", response.status_code)
             artist_data = response.json()
             albums = []
-            browse = mb.browse_releases_by_artist(resource_id)
-            if browse.status_code == 200:
-                albums = build_artist_album_list_from_browse(browse.json())
+            rg_browse = mb.browse_release_groups_by_artist(resource_id)
+            if rg_browse.status_code == 200:
+                albums = build_artist_album_list_from_release_groups(rg_browse.json())
             normalized = _normalize_mb_artist(artist_data, albums=albums)
             if not normalized.get("thumb"):
                 spotify_url = artist_image_url_for_musicbrainz_name(
@@ -206,9 +207,15 @@ class DetailAPIView(APIView):
             return Response(normalized)
         if resource_type == "album":
             response = mb.get_release(resource_id)
-            if response.status_code != 200:
-                return _upstream_error("MusicBrainz", response.status_code)
-            return Response(_normalize_mb_release(response.json()))
+            if response.status_code == 200:
+                return Response(_normalize_mb_release(response.json()))
+            # ID might be a release-group; find a release inside it
+            rg_resp = mb.browse_releases_by_release_group(resource_id, limit=1)
+            if rg_resp.status_code == 200:
+                releases = (rg_resp.json() or {}).get("releases") or []
+                if releases:
+                    return Response(_normalize_mb_release(releases[0]))
+            return _upstream_error("MusicBrainz", response.status_code)
         response = mb.get_recording(resource_id)
         if response.status_code != 200:
             return _upstream_error("MusicBrainz", response.status_code)

@@ -65,9 +65,9 @@ class SearchEndpointsTests(TestCase):
             "disambiguation": "",
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
         ), patch("musicdb.views.search_views.discogs_artist_image_url", return_value=None):
@@ -89,10 +89,10 @@ class SearchEndpointsTests(TestCase):
             "id": "mbid-1",
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         spotify_url = "https://i.scdn.co/image/abc123"
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name",
             return_value=spotify_url,
@@ -122,9 +122,9 @@ class SearchEndpointsTests(TestCase):
             ],
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name"
         ) as mock_spotify_img, patch(
@@ -153,10 +153,10 @@ class SearchEndpointsTests(TestCase):
             ],
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         spotify_url = "https://i.scdn.co/image/spotify123"
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name",
             return_value=spotify_url,
@@ -186,9 +186,9 @@ class SearchEndpointsTests(TestCase):
             "id": mbid,
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
         ), patch("musicdb.views.search_views.discogs_artist_image_url", return_value=None):
@@ -205,10 +205,10 @@ class SearchEndpointsTests(TestCase):
             "id": "mbid-dc",
         }
         mock_browse = Mock(status_code=200)
-        mock_browse.json.return_value = {"releases": []}
+        mock_browse.json.return_value = {"release-groups": []}
         discogs_url = "https://img.discogs.com/primary.jpg"
         with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
-            "musicdb.views.search_views.mb.browse_releases_by_artist", return_value=mock_browse
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
         ), patch(
             "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
         ), patch(

@@ -136,6 +136,21 @@ def browse_releases_by_artist(artist_mbid, limit=100):
     )
 
 
+def browse_release_groups_by_artist(artist_mbid, limit=100):
+    """Browse release groups (albums/singles/EPs) for an artist — one entry per album concept."""
+    url = f"{MUSICBRAINZ_API_BASE}/release-group"
+    return requests.get(
+        url,
+        headers=_headers(),
+        params={
+            "artist": artist_mbid,
+            "fmt": "json",
+            "limit": min(int(limit), 100),
+        },
+        timeout=30,
+    )
+
+
 def get_release(mbid):
     """GET release/{mbid} with recordings and artist-credits for tracklist."""
     url = f"{MUSICBRAINZ_API_BASE}/release/{mbid}"
@@ -143,6 +158,22 @@ def get_release(mbid):
         url,
         headers=_headers(),
         params={"fmt": "json", "inc": "recordings+artist-credits"},
+        timeout=15,
+    )
+
+
+def browse_releases_by_release_group(rg_mbid, limit=1):
+    """Find releases belonging to a release group (pick the first one for tracklist)."""
+    url = f"{MUSICBRAINZ_API_BASE}/release"
+    return requests.get(
+        url,
+        headers=_headers(),
+        params={
+            "release-group": rg_mbid,
+            "fmt": "json",
+            "limit": min(int(limit), 100),
+            "inc": "recordings+artist-credits",
+        },
         timeout=15,
     )
 

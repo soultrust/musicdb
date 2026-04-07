@@ -242,6 +242,29 @@ def build_artist_album_list_from_browse(browse_data):
     return out
 
 
+def build_artist_album_list_from_release_groups(rg_data):
+    """
+    Build album list from MusicBrainz release-group browse (one entry per
+    album concept).  Sorted newest-first.
+    """
+    rgs = rg_data.get("release-groups") or []
+    rows = []
+    for rg in rgs:
+        rgid = rg.get("id")
+        if not rgid:
+            continue
+        title = (rg.get("title") or "").strip() or rgid
+        date = (rg.get("first-release-date") or "")[:4]
+        rows.append({
+            "id": rgid,
+            "title": title,
+            "year": date if date else None,
+            "type": rg.get("primary-type") or None,
+        })
+    rows.sort(key=_album_year_sort_key, reverse=True)
+    return rows
+
+
 def _normalize_mb_artist(data, albums=None):
     """Artist detail: name, MusicBrainz link, optional image, optional album list."""
     name = (data.get("name") or "").strip()
