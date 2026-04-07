@@ -13,6 +13,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 from .client import search_track, find_best_match
+from .models import SpotifyUserToken
 
 logger = logging.getLogger(__name__)
 
@@ -169,10 +170,13 @@ class SpotifyCallbackAPIView(View):
                     status=502,
                 )
 
-            return JsonResponse({
+            result = {
                 "access_token": access_token,
                 "expires_in": data.get("expires_in"),
-            })
+            }
+            if data.get("refresh_token"):
+                result["refresh_token"] = data["refresh_token"]
+            return JsonResponse(result)
         except requests.exceptions.RequestException as e:
             logger.error(f"Spotify token exchange request failed: {e}")
             return JsonResponse(
@@ -320,3 +324,94 @@ class SpotifyPlaylistTracksView(APIView):
                 {"error": f"Failed to fetch playlist tracks: {str(e)}"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SpotifyStoreRefreshTokenView(APIView):
+    """POST — save the user's Spotify refresh token for silent re-auth."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = (request.data.get("refresh_token") or "").strip()
+        if not refresh_token:
+            return Response(
+                {"error": "Missing refresh_token"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        SpotifyUserToken.objects.update_or_create(
+            user=request.user,
+            defaults={"refresh_token": refresh_token},
+        )
+        return Response({"stored": True})
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class SpotifyRefreshAccessTokenView(APIView):
+    """POST — use stored refresh token to get a fresh Spotify access token."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            token_obj = SpotifyUserToken.objects.get(user=request.user)
+        except SpotifyUserToken.DoesNotExist:
+            return Response(
+                {"error": "No stored Spotify refresh token"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        client_id = getattr(settings, "SPOTIFY_CLIENT_ID", None)
+        client_secret = getattr(settings, "SPOTIFY_CLIENT_SECRET", None)
+        if not client_id or not client_secret:
+            return Response(
+                {"error": "Spotify credentials not configured"},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        credentials = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+        try:
+            resp = requests.post(
+                "https://accounts.spotify.com/api/token",
+                headers={
+                    "Authorization": f"Basic {credentials}",
+                    "Content-Type": "application/x-www-form-urlencoded",
+                },
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": token_obj.refresh_token,
+                },
+                timeout=10,
+            )
+        except requests.exceptions.RequestException as e:
+            logger.error("Spotify refresh request failed: %s", e)
+            return Response(
+                {"error": "Spotify token refresh request failed"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if resp.status_code != 200:
+            logger.error("Spotify refresh failed: %s %s", resp.status_code, resp.text[:200])
+            if resp.status_code in (400, 401):
+                token_obj.delete()
+            return Response(
+                {"error": "Spotify token refresh failed"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        data = resp.json()
+        access_token = data.get("access_token")
+        if not access_token:
+            return Response(
+                {"error": "Spotify returned no access_token"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        if data.get("refresh_token"):
+            token_obj.refresh_token = data["refresh_token"]
+            token_obj.save(update_fields=["refresh_token", "updated_at"])
+
+        return Response({
+            "access_token": access_token,
+            "expires_in": data.get("expires_in", 3600),
+        })

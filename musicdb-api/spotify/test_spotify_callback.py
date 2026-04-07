@@ -24,7 +24,7 @@ class SpotifyCallbackAPITests(TestCase):
     def test_token_exchange_success(self, mock_post):
         mock_resp = Mock()
         mock_resp.status_code = 200
-        mock_resp.json = lambda: {"access_token": "test-access", "expires_in": 3600}
+        mock_resp.json = lambda: {"access_token": "test-access", "refresh_token": "test-refresh", "expires_in": 3600}
         mock_post.return_value = mock_resp
 
         res = self.client.get(
@@ -34,6 +34,7 @@ class SpotifyCallbackAPITests(TestCase):
         self.assertEqual(res.status_code, 200)
         body = res.json()
         self.assertEqual(body["access_token"], "test-access")
+        self.assertEqual(body["refresh_token"], "test-refresh")
         self.assertEqual(body["expires_in"], 3600)
         mock_post.assert_called_once()
         _, kwargs = mock_post.call_args
