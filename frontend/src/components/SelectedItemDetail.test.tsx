@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { DetailShellSliceContext } from "../context/musicDbSliceContexts";
-import { buildDetailShellSliceValue } from "../test/sliceFixtures";
+import { DetailShellSliceContext, DetailOverviewSliceContext } from "../context/musicDbSliceContexts";
+import { buildDetailShellSliceValue, buildDetailOverviewSliceValue } from "../test/sliceFixtures";
 import type { DetailData, DetailItem, DetailShellSliceValue } from "../types/musicDbSlices";
 import SelectedItemDetail from "./SelectedItemDetail";
 
@@ -14,11 +14,21 @@ vi.mock("./DetailOverview", () => ({
 
 function renderSelectedItemDetail(overrides: Partial<DetailShellSliceValue> = {}) {
   const value = buildDetailShellSliceValue(overrides);
-  render(
+  const isArtist = overrides.selectedItem?.type === "artist";
+  const ovValue = buildDetailOverviewSliceValue();
+
+  const tree = (
     <DetailShellSliceContext.Provider value={value}>
-      <SelectedItemDetail />
-    </DetailShellSliceContext.Provider>,
+      {isArtist ? (
+        <DetailOverviewSliceContext.Provider value={ovValue}>
+          <SelectedItemDetail />
+        </DetailOverviewSliceContext.Provider>
+      ) : (
+        <SelectedItemDetail />
+      )}
+    </DetailShellSliceContext.Provider>
   );
+  render(tree);
   return value;
 }
 
