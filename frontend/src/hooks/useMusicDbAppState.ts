@@ -16,6 +16,7 @@ import { useAppContextSlices } from "./useAppContextSlices";
 import { useManualSpotifyUnmatch } from "./useManualSpotifyUnmatch";
 import { useSpotifyMatchSync } from "./useSpotifyMatchSync";
 import { useAlbumArtReveal } from "./useAlbumArtReveal";
+import { useSpotifyTokenRefresh } from "./useSpotifyTokenRefresh";
 
 const ITEM_ROUTE_RE = /^\/(artist|album|song)\/(.+)$/;
 const PLAYLIST_ROUTE_RE = /^\/playlist\/(.+)$/;
@@ -110,6 +111,12 @@ export function useMusicDbAppState({
       }),
     [API_BASE, AUTH_REFRESH_KEY, accessToken, logout, setAccessToken],
   );
+
+  const {
+    refreshSpotifyToken,
+    handleTokenReceived,
+    isTokenFresh,
+  } = useSpotifyTokenRefresh({ API_BASE, authFetch, spotifyToken, setSpotifyToken });
 
   const {
     spotifyMatches,
@@ -302,6 +309,8 @@ export function useMusicDbAppState({
     visibleTracklist,
     isTrackVisible,
     tracklistFilter,
+    refreshSpotifyToken,
+    isTokenFresh,
   });
 
   useEffect(() => {
@@ -314,6 +323,7 @@ export function useMusicDbAppState({
     SPOTIFY_REDIRECT_URI,
     setSpotifyToken,
     resetPlayerState,
+    handleTokenReceived,
   });
 
   const {

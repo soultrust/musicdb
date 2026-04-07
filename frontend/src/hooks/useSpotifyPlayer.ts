@@ -24,6 +24,8 @@ export type UseSpotifyPlayerParams = {
   visibleTracklist: CatalogTrack[];
   isTrackVisible: (track: CatalogTrack) => boolean;
   tracklistFilter: string | null;
+  refreshSpotifyToken: () => Promise<string | null>;
+  isTokenFresh: () => boolean;
 };
 
 export function useSpotifyPlayer({
@@ -33,12 +35,21 @@ export function useSpotifyPlayer({
   visibleTracklist,
   isTrackVisible,
   tracklistFilter,
+  refreshSpotifyToken,
+  isTokenFresh,
 }: UseSpotifyPlayerParams) {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playerRef = useRef<SpotifyWebPlayer | null>(null);
   const attemptSpotifyReconnectRef = useRef<((n: number) => void) | null>(null);
   const autoplayTriggeredRef = useRef(false);
   const lastPlayedTrackRef = useRef<SpotifyTrackRef | null>(null);
+  const spotifyTokenRef = useRef(spotifyToken);
+  const refreshRef = useRef(refreshSpotifyToken);
+  const isTokenFreshRef = useRef(isTokenFresh);
+
+  useEffect(() => { spotifyTokenRef.current = spotifyToken; }, [spotifyToken]);
+  useEffect(() => { refreshRef.current = refreshSpotifyToken; }, [refreshSpotifyToken]);
+  useEffect(() => { isTokenFreshRef.current = isTokenFresh; }, [isTokenFresh]);
 
   const [spotifyConnectionStatus, setSpotifyConnectionStatus] = useState("disconnected");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -90,7 +101,13 @@ export function useSpotifyPlayer({
 
         const newPlayer = new window.Spotify.Player({
           name: "Discogs Music DB",
-          getOAuthToken: (cb: (token: string) => void) => cb(spotifyToken),
+          getOAuthToken: (cb: (token: string) => void) => {
+            if (isTokenFreshRef.current()) {
+              cb(spotifyTokenRef.current ?? "");
+            } else {
+              void refreshRef.current().then((t) => cb(t ?? spotifyTokenRef.current ?? ""));
+            }
+          },
           volume: 0.5,
         });
 
@@ -171,7 +188,13 @@ export function useSpotifyPlayer({
     if (!window.Spotify || playerRef.current) return;
     const newPlayer = new window.Spotify.Player({
       name: "Discogs Music DB",
-      getOAuthToken: (cb: (token: string) => void) => cb(spotifyToken ?? ""),
+      getOAuthToken: (cb: (token: string) => void) => {
+        if (isTokenFreshRef.current()) {
+          cb(spotifyTokenRef.current ?? "");
+        } else {
+          void refreshRef.current().then((t) => cb(t ?? spotifyTokenRef.current ?? ""));
+        }
+      },
       volume: 0.5,
     });
 

@@ -7,12 +7,14 @@ export function useSpotifyAuth({
   SPOTIFY_REDIRECT_URI,
   setSpotifyToken,
   resetPlayerState,
+  handleTokenReceived,
 }: {
   API_BASE: string;
   SPOTIFY_CLIENT_ID: string;
   SPOTIFY_REDIRECT_URI: string;
   setSpotifyToken: (token: string | null) => void;
   resetPlayerState: () => void;
+  handleTokenReceived: (accessToken: string, refreshToken: string | null, expiresIn: number | null) => void;
 }) {
   function handleSpotifyLogin(e?: SyntheticEvent) {
     e?.preventDefault?.();
@@ -78,27 +80,27 @@ export function useSpotifyAuth({
         })
         .then((data) => {
           if (data.access_token) {
+            const msg = {
+              type: "spotify-token",
+              token: data.access_token,
+              refresh_token: data.refresh_token || null,
+              expires_in: data.expires_in || null,
+            };
             if (isPopup && window.opener) {
               const storedOrigin = sessionStorage.getItem("spotify_auth_origin");
               const openerOrigin = storedOrigin || window.location.origin;
-              window.opener.postMessage(
-                { type: "spotify-token", token: data.access_token },
-                openerOrigin,
-              );
+              window.opener.postMessage(msg, openerOrigin);
               if (openerOrigin !== window.location.origin) {
-                window.opener.postMessage(
-                  { type: "spotify-token", token: data.access_token },
-                  window.location.origin,
-                );
+                window.opener.postMessage(msg, window.location.origin);
               }
               try {
-                window.opener.postMessage({ type: "spotify-token", token: data.access_token }, "*");
+                window.opener.postMessage(msg, "*");
               } catch {
                 // Some browsers don't allow wildcard
               }
               window.close();
             } else {
-              setSpotifyToken(data.access_token);
+              handleTokenReceived(data.access_token, data.refresh_token || null, data.expires_in || null);
             }
           } else if (isPopup && window.opener) {
             const storedOrigin = sessionStorage.getItem("spotify_auth_origin") || window.location.origin;
@@ -135,12 +137,9 @@ export function useSpotifyAuth({
       return;
     }
 
-    if (!isPopup) {
-      setSpotifyToken(null);
-      resetPlayerState();
-      localStorage.removeItem("spotify_token");
-    }
-  }, [API_BASE, SPOTIFY_REDIRECT_URI, resetPlayerState, setSpotifyToken]);
+    // No code, not a popup — nothing to do here.
+    // Auto-connect is handled by useSpotifyTokenRefresh.
+  }, [API_BASE, SPOTIFY_REDIRECT_URI, handleTokenReceived, resetPlayerState, setSpotifyToken]);
 
   useEffect(() => {
     function onMessage(e: MessageEvent) {
@@ -164,7 +163,7 @@ export function useSpotifyAuth({
       if (!isSameOrigin && !isLocalDev && !isRailwayDomainPair) return;
 
       if (e.data.type === "spotify-token") {
-        setSpotifyToken(e.data.token);
+        handleTokenReceived(e.data.token, e.data.refresh_token || null, e.data.expires_in || null);
         sessionStorage.removeItem("spotify_auth_origin");
       } else if (e.data.type === "spotify-auth-error") {
         console.error("Spotify auth error:", e.data.error);
@@ -174,7 +173,7 @@ export function useSpotifyAuth({
 
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [setSpotifyToken]);
+  }, [handleTokenReceived, setSpotifyToken]);
 
   return { handleSpotifyLogin };
 }

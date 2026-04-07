@@ -62,6 +62,8 @@ describe("useSpotifyPlayer", () => {
         visibleTracklist: [{ title: "A" }],
         isTrackVisible: () => true,
         tracklistFilter: null,
+        refreshSpotifyToken: vi.fn().mockResolvedValue("refreshed-token"),
+        isTokenFresh: vi.fn().mockReturnValue(true),
       }),
     );
   }

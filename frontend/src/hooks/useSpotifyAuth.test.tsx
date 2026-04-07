@@ -24,6 +24,7 @@ describe("useSpotifyAuth", () => {
   it("handleSpotifyLogin logs error when client id is missing", () => {
     const setSpotifyToken = vi.fn();
     const resetPlayerState = vi.fn();
+    const handleTokenReceived = vi.fn();
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
     const { result } = renderHook(() =>
@@ -33,6 +34,7 @@ describe("useSpotifyAuth", () => {
         SPOTIFY_REDIRECT_URI,
         setSpotifyToken,
         resetPlayerState,
+        handleTokenReceived,
       }),
     );
 
@@ -47,6 +49,7 @@ describe("useSpotifyAuth", () => {
   it("handleSpotifyLogin opens popup and stores origin", () => {
     const setSpotifyToken = vi.fn();
     const resetPlayerState = vi.fn();
+    const handleTokenReceived = vi.fn();
     const openSpy = vi.spyOn(window, "open").mockImplementation(() => ({}) as unknown as Window);
 
     const { result } = renderHook(() =>
@@ -56,6 +59,7 @@ describe("useSpotifyAuth", () => {
         SPOTIFY_REDIRECT_URI,
         setSpotifyToken,
         resetPlayerState,
+        handleTokenReceived,
       }),
     );
 
@@ -67,9 +71,10 @@ describe("useSpotifyAuth", () => {
     expect(sessionStorage.getItem("spotify_auth_origin")).toBe(window.location.origin);
   });
 
-  it("on mount without code in non-popup clears token and resets player", async () => {
+  it("on mount without code in non-popup does not clear token", async () => {
     const setSpotifyToken = vi.fn();
     const resetPlayerState = vi.fn();
+    const handleTokenReceived = vi.fn();
 
     renderHook(() =>
       useSpotifyAuth({
@@ -78,18 +83,20 @@ describe("useSpotifyAuth", () => {
         SPOTIFY_REDIRECT_URI,
         setSpotifyToken,
         resetPlayerState,
+        handleTokenReceived,
       }),
     );
 
     await waitFor(() => {
-      expect(setSpotifyToken).toHaveBeenCalledWith(null);
-      expect(resetPlayerState).toHaveBeenCalledTimes(1);
+      expect(setSpotifyToken).not.toHaveBeenCalledWith(null);
+      expect(resetPlayerState).not.toHaveBeenCalled();
     });
   });
 
-  it("accepts spotify-token postMessage from same origin", async () => {
+  it("accepts spotify-token postMessage and calls handleTokenReceived", async () => {
     const setSpotifyToken = vi.fn();
     const resetPlayerState = vi.fn();
+    const handleTokenReceived = vi.fn();
 
     renderHook(() =>
       useSpotifyAuth({
@@ -98,6 +105,7 @@ describe("useSpotifyAuth", () => {
         SPOTIFY_REDIRECT_URI,
         setSpotifyToken,
         resetPlayerState,
+        handleTokenReceived,
       }),
     );
 
@@ -105,14 +113,18 @@ describe("useSpotifyAuth", () => {
       window.dispatchEvent(
         new MessageEvent("message", {
           origin: window.location.origin,
-          data: { type: "spotify-token", token: "sp-token-xyz" },
+          data: {
+            type: "spotify-token",
+            token: "sp-token-xyz",
+            refresh_token: "rt-abc",
+            expires_in: 3600,
+          },
         }),
       );
     });
 
     await waitFor(() => {
-      expect(setSpotifyToken).toHaveBeenCalledWith("sp-token-xyz");
+      expect(handleTokenReceived).toHaveBeenCalledWith("sp-token-xyz", "rt-abc", 3600);
     });
   });
 });
-
