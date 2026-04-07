@@ -60,13 +60,15 @@ function ArtistDetailLayout({
   return (
     <>
       <div className="detail-main">
-        <h2 className="detail-title">
-          {titleCaseDisplay(s.detailData?.title || s.selectedItem?.title || "")}
-        </h2>
-        <div className="artist-detail-body">
+        <div className="artist-detail-header">
           <div className="artist-detail-image-float">
             <ArtistImage s={s} isArtist />
           </div>
+          <h2 className="detail-title">
+            {titleCaseDisplay(s.detailData?.title || s.selectedItem?.title || "")}
+          </h2>
+        </div>
+        <div className="artist-detail-body">
           {ov.overviewLoading && <p className="detail-loading">Loading overview…</p>}
           {ov.overviewError && !ov.overviewLoading && (
             <p className="error overview-error">

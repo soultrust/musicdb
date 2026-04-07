@@ -482,6 +482,7 @@
   max-width: 40%;
   max-height: 400px;
   object-fit: contain;
+  border: 1px solid #fff;
 }
 
 .detail-thumb-placeholder {
@@ -1019,6 +1020,19 @@
 }
 
 /* ─── Artist detail float layout ─── */
+
+.artist-detail-header {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.artist-detail-header .artist-detail-image-float {
+  float: none;
+  margin: 0;
+  flex-shrink: 0;
+}
 
 .artist-detail-body {
   overflow: hidden;
