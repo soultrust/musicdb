@@ -100,10 +100,12 @@
 }
 
 @keyframes pulse {
+
   0%,
   100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -278,7 +280,8 @@
   display: flex;
   gap: 1rem;
   flex: 1;
-  height: 0; /* Force flex child to respect parent height */
+  height: 0;
+  /* Force flex child to respect parent height */
   padding-top: 1rem;
 }
 
@@ -477,9 +480,8 @@
 }
 
 .detail-thumb.detail-thumb-artist {
-  width: auto;
+  width: 100%;
   height: auto;
-  max-width: 40%;
   max-height: 400px;
   object-fit: contain;
   border: 1px solid #fff;
@@ -511,7 +513,7 @@
 .detail h2.detail-title {
   font-family: "Roboto Condensed", sans-serif;
   font-weight: 400;
-  font-size: 1.7rem;
+  font-size: 2.5rem;
   text-transform: none;
 }
 
@@ -593,7 +595,7 @@
 }
 
 /* No gap between the three star buttons; overlap by 1px so shared edge shows one border */
-.tracklist-filter-star + .tracklist-filter-star {
+.tracklist-filter-star+.tracklist-filter-star {
   margin-left: calc(-0.35rem - 1px);
 }
 
@@ -620,16 +622,13 @@
 /* Hover overrides selected state. First hover = all 3 group; 2nd hover = 2nd+3rd; 3rd hover = 3rd only. */
 
 /* When 2nd star is hovered: no border on 1st (so only 2nd+3rd show) */
-.tracklist-filter:has(.tracklist-filter-star:nth-of-type(2):hover)
-  .tracklist-filter-star:first-of-type {
+.tracklist-filter:has(.tracklist-filter-star:nth-of-type(2):hover) .tracklist-filter-star:first-of-type {
   border-color: transparent;
 }
 
 /* When 3rd star is hovered: no border on 1st or 2nd (so only 3rd shows) */
-.tracklist-filter:has(.tracklist-filter-star:nth-of-type(3):hover)
-  .tracklist-filter-star:first-of-type,
-.tracklist-filter:has(.tracklist-filter-star:nth-of-type(3):hover)
-  .tracklist-filter-star:nth-of-type(2) {
+.tracklist-filter:has(.tracklist-filter-star:nth-of-type(3):hover) .tracklist-filter-star:first-of-type,
+.tracklist-filter:has(.tracklist-filter-star:nth-of-type(3):hover) .tracklist-filter-star:nth-of-type(2) {
   border-color: transparent;
 }
 
@@ -638,12 +637,14 @@
   border-color: #737373;
   border-right-color: transparent;
 }
-.tracklist-filter-star:first-of-type:hover + .tracklist-filter-star {
+
+.tracklist-filter-star:first-of-type:hover+.tracklist-filter-star {
   border-color: #737373;
   border-left-color: transparent;
   border-right-color: transparent;
 }
-.tracklist-filter-star:first-of-type:hover + .tracklist-filter-star + .tracklist-filter-star {
+
+.tracklist-filter-star:first-of-type:hover+.tracklist-filter-star+.tracklist-filter-star {
   border-color: #737373;
   border-left-color: transparent;
 }
@@ -656,7 +657,8 @@
   border-left-color: #737373;
   border-right-color: transparent;
 }
-.tracklist-filter-star:nth-of-type(2):hover ~ .tracklist-filter-star {
+
+.tracklist-filter-star:nth-of-type(2):hover~.tracklist-filter-star {
   border-color: #737373;
   border-left-color: transparent;
 }
@@ -674,11 +676,13 @@
   border-color: #737373;
   border-right-color: transparent;
 }
+
 .tracklist-filter-all-active .tracklist-filter-star:nth-of-type(2) {
   border-color: #737373;
   border-left-color: transparent;
   border-right-color: transparent;
 }
+
 .tracklist-filter-all-active .tracklist-filter-star:nth-of-type(3) {
   border-color: #737373;
   border-left-color: transparent;
@@ -688,10 +692,12 @@
 .tracklist-filter-both-active .tracklist-filter-star:first-of-type {
   border-color: transparent;
 }
+
 .tracklist-filter-both-active .tracklist-filter-star:nth-of-type(2) {
   border-color: #737373;
   border-right-color: transparent;
 }
+
 .tracklist-filter-both-active .tracklist-filter-star:nth-of-type(3) {
   border-color: #737373;
   border-left-color: transparent;
@@ -843,7 +849,8 @@
   padding: 0.5rem;
   border-radius: 4px;
   background: #1a1a1a;
-  min-width: 0; /* Allow flex items to shrink */
+  min-width: 0;
+  /* Allow flex items to shrink */
   position: relative;
   overflow: hidden;
 }
@@ -883,7 +890,8 @@
 .track-title {
   flex: 1;
   color: #e5e5e5;
-  min-width: 0; /* Allow text to truncate */
+  min-width: 0;
+  /* Allow text to truncate */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -905,7 +913,8 @@
   color: #000;
   cursor: pointer;
   margin-left: auto;
-  flex-shrink: 0; /* Prevent button from shrinking */
+  flex-shrink: 0;
+  /* Prevent button from shrinking */
   white-space: nowrap;
 }
 
@@ -1029,9 +1038,9 @@
 }
 
 .artist-detail-header .artist-detail-image-float {
-  float: none;
   margin: 0;
   flex-shrink: 0;
+  max-width: 40%;
 }
 
 .artist-detail-body {
