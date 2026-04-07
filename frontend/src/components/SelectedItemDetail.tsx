@@ -118,7 +118,7 @@ export default function SelectedItemDetail() {
                                   className="detail-link"
                                   onClick={() =>
                                     void s.handleItemClick({
-                                      id: mbid,
+                                      id: mbid ?? "",
                                       type: "artist",
                                       title: name,
                                     })
