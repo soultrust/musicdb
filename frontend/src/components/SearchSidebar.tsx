@@ -135,7 +135,15 @@ export default function SearchSidebar() {
                 }
                 onClick={() => s.handleItemClick(item)}
               >
-                {item.title}
+                {item.thumb ? (
+                  <img
+                    src={item.thumb as string}
+                    alt=""
+                    className="sidebar-album-thumb"
+                    loading="lazy"
+                  />
+                ) : null}
+                <span>{item.title}</span>
               </li>
             ))}
           </ul>

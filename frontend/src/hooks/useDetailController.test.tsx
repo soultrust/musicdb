@@ -25,6 +25,7 @@ describe("useDetailController", () => {
       setAlbumArtRetryKey: vi.fn(),
       setSpotifyMatches: vi.fn(),
       setSpotifyMatching: vi.fn(),
+      setResults: vi.fn(),
     };
   }
 

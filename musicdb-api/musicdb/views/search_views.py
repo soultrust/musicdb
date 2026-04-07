@@ -9,10 +9,12 @@ from spotify.client import artist_image_url_for_musicbrainz_name
 from .. import musicbrainz_client as mb
 from ..models import ArtistSpotifyImageLink, ConsumedAlbum
 from .discogs_artist_image import discogs_artist_image_url
+from ..lastfm_client import get_artist_top_albums
 from .common import (
     _bad_request,
     build_artist_album_list_from_browse,
     build_artist_album_list_from_release_groups,
+    merge_lastfm_popularity,
     _fetch_display_title_from_catalog,
     _normalize_mb_artist,
     _normalize_mb_recording,
@@ -178,6 +180,9 @@ class DetailAPIView(APIView):
             rg_browse = mb.browse_release_groups_by_artist(resource_id)
             if rg_browse.status_code == 200:
                 albums = build_artist_album_list_from_release_groups(rg_browse.json())
+            artist_name = (artist_data.get("name") or "").strip()
+            lastfm_albums = get_artist_top_albums(artist_name) if artist_name else None
+            albums = merge_lastfm_popularity(albums, lastfm_albums)
             normalized = _normalize_mb_artist(artist_data, albums=albums)
             if not normalized.get("thumb"):
                 spotify_url = artist_image_url_for_musicbrainz_name(

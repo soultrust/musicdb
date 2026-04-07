@@ -265,6 +265,42 @@ def build_artist_album_list_from_release_groups(rg_data):
     return rows
 
 
+def merge_lastfm_popularity(mb_albums, lastfm_albums):
+    """
+    Enrich MusicBrainz album rows with Last.fm playcount data.
+    Matches on release-group mbid first, then case-insensitive title.
+    Returns albums sorted by playcount desc (most popular first).
+    Albums not found on Last.fm keep playcount=0 and sort to the end.
+    """
+    if not lastfm_albums:
+        return mb_albums
+
+    by_mbid = {}
+    by_title = {}
+    for lfm in lastfm_albums:
+        mbid = (lfm.get("mbid") or "").strip()
+        if mbid:
+            by_mbid[mbid] = lfm
+        name = (lfm.get("name") or "").strip().lower()
+        if name and name not in by_title:
+            by_title[name] = lfm
+
+    for album in mb_albums:
+        lfm = by_mbid.get(album["id"]) or by_title.get(
+            (album.get("title") or "").strip().lower()
+        )
+        if lfm:
+            album["playcount"] = lfm.get("playcount") or 0
+            album["listeners"] = lfm.get("listeners") or 0
+            album["thumb"] = lfm.get("image_url") or None
+        else:
+            album["playcount"] = 0
+            album["listeners"] = 0
+
+    mb_albums.sort(key=lambda a: a["playcount"], reverse=True)
+    return mb_albums
+
+
 def _normalize_mb_artist(data, albums=None):
     """Artist detail: name, MusicBrainz link, optional image, optional album list."""
     name = (data.get("name") or "").strip()

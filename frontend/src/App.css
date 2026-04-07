@@ -306,6 +306,17 @@
   border-radius: 4px;
   margin-bottom: 0.25rem;
   transition: background-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sidebar-album-thumb {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
 }
 
 .results li:hover {
@@ -1090,10 +1101,48 @@
   margin-top: 2rem;
 }
 
-.detail-artist-albums h3 {
+.detail-artist-albums-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.detail-artist-albums-header h3 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin: 0 0 0.75rem;
+  margin: 0;
+}
+
+.album-sort-toggle {
+  display: flex;
+  gap: 0;
+  border: 1px solid #404040;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.album-sort-btn {
+  background: transparent;
+  border: none;
+  color: #737373;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.album-sort-btn:not(:last-child) {
+  border-right: 1px solid #404040;
+}
+
+.album-sort-btn--active {
+  background: #262626;
+  color: #e5e5e5;
+}
+
+.album-sort-btn:hover:not(.album-sort-btn--active) {
+  color: #a3a3a3;
 }
 
 .detail-artist-albums-list {
@@ -1107,6 +1156,15 @@
 
 .detail-artist-albums-list li {
   margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.album-playcount {
+  color: #525252;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .detail-profile {

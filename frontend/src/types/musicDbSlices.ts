@@ -49,7 +49,7 @@ export type DetailData = {
   description?: string | null;
   disambiguation?: string | null;
   /** Artist releases (deduped), for sidebar + main panel */
-  albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null }>;
+  albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null; playcount?: number; listeners?: number; type?: string | null }>;
   /** True when thumb comes from user's saved Spotify image pick */
   manual_spotify_artist_image?: boolean;
   [key: string]: unknown;

@@ -56,6 +56,7 @@ function ArtistDetailLayout({
   handleRemoveManualArtistImage: () => Promise<void>;
 }) {
   const ov = useDetailOverviewContext();
+  const [albumSort, setAlbumSort] = useState<"popularity" | "year">("popularity");
 
   return (
     <>
@@ -119,26 +120,58 @@ function ArtistDetailLayout({
         </div>
         {Array.isArray(s.detailData?.albums) && s.detailData!.albums!.length > 0 && (
           <div className="detail-artist-albums">
-            <h3>Albums</h3>
+            <div className="detail-artist-albums-header">
+              <h3>Albums</h3>
+              <div className="album-sort-toggle">
+                <button
+                  type="button"
+                  className={`album-sort-btn${albumSort === "popularity" ? " album-sort-btn--active" : ""}`}
+                  onClick={() => setAlbumSort("popularity")}
+                >
+                  Popular
+                </button>
+                <button
+                  type="button"
+                  className={`album-sort-btn${albumSort === "year" ? " album-sort-btn--active" : ""}`}
+                  onClick={() => setAlbumSort("year")}
+                >
+                  Year
+                </button>
+              </div>
+            </div>
             <ul className="detail-artist-albums-list">
-              {s.detailData!.albums!.map((al) => (
-                <li key={al.id}>
-                  <button
-                    type="button"
-                    className="detail-link"
-                    onClick={() =>
-                      void s.handleItemClick({
-                        id: String(al.id),
-                        type: "album",
-                        title: al.title ?? "",
-                      })
-                    }
-                  >
-                    {al.year ? `${al.year} — ` : ""}
-                    {al.title ? titleCaseDisplay(al.title) : al.id}
-                  </button>
-                </li>
-              ))}
+              {[...s.detailData!.albums!]
+                .sort((a, b) => {
+                  if (albumSort === "year") {
+                    const ya = parseInt(a.year ?? "", 10) || 0;
+                    const yb = parseInt(b.year ?? "", 10) || 0;
+                    return yb - ya;
+                  }
+                  return (b.playcount ?? 0) - (a.playcount ?? 0);
+                })
+                .map((al) => (
+                  <li key={al.id}>
+                    <button
+                      type="button"
+                      className="detail-link"
+                      onClick={() =>
+                        void s.handleItemClick({
+                          id: String(al.id),
+                          type: "album",
+                          title: al.title ?? "",
+                        })
+                      }
+                    >
+                      {al.year ? `${al.year} — ` : ""}
+                      {al.title ? titleCaseDisplay(al.title) : al.id}
+                    </button>
+                    {al.playcount ? (
+                      <span className="album-playcount">
+                        {al.playcount.toLocaleString()} plays
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
             </ul>
           </div>
         )}

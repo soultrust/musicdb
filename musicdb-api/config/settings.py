@@ -18,6 +18,7 @@ env = environ.Env(
     MUSICBRAINZ_USER_AGENT=(str, "SoulTrustMusicDB/1.0"),
     SPOTIFY_CLIENT_ID=(str, ""),
     SPOTIFY_CLIENT_SECRET=(str, ""),
+    LASTFM_API_KEY=(str, ""),
 )
 # Load environment variables from .env file
 environ.Env.read_env(BASE_DIR / '.env')
@@ -199,6 +200,9 @@ MUSICBRAINZ_USER_AGENT = env("MUSICBRAINZ_USER_AGENT")
 # Spotify API
 SPOTIFY_CLIENT_ID = env("SPOTIFY_CLIENT_ID")
 SPOTIFY_CLIENT_SECRET = env("SPOTIFY_CLIENT_SECRET")
+
+# Last.fm API
+LASTFM_API_KEY = env("LASTFM_API_KEY")
 
 # Auth (for admin)
 ROOT_URLCONF = 'config.urls'

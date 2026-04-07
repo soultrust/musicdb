@@ -34,6 +34,7 @@ export function useDetailController({
 
   setSpotifyMatches,
   setSpotifyMatching,
+  setResults,
 }: {
   API_BASE: string;
   authFetch: AuthFetchFn;
@@ -49,6 +50,7 @@ export function useDetailController({
   setAlbumArtRetryKey: Dispatch<SetStateAction<number>>;
   setSpotifyMatches: Dispatch<SetStateAction<SpotifyMatchRow[]>>;
   setSpotifyMatching: Dispatch<SetStateAction<boolean>>;
+  setResults: Dispatch<SetStateAction<SearchResultItem[]>>;
 }) {
   const handleItemClick = useCallback(
     async (item: SearchResultItem) => {
@@ -76,6 +78,19 @@ export function useDetailController({
         }
 
         setDetailData(data);
+
+        if (item.type === "artist" && Array.isArray(data.albums) && data.albums.length > 0) {
+          setResults(
+            data.albums.map((al: { id: string; title?: string; year?: string | null; playcount?: number; thumb?: string | null }) => ({
+              id: al.id,
+              type: "album",
+              title: al.title
+                ? `${al.year ? `${al.year} — ` : ""}${al.title}`
+                : al.id,
+              thumb: al.thumb || undefined,
+            })),
+          );
+        }
 
         if (item.type === "artist" && item.id) {
           setOverviewLoading(true);
@@ -132,6 +147,7 @@ export function useDetailController({
       setOverview,
       setOverviewError,
       setOverviewLoading,
+      setResults,
       setSelectedItem,
       setSpotifyMatching,
       setSpotifyMatches,

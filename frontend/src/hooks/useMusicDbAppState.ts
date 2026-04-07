@@ -161,6 +161,7 @@ export function useMusicDbAppState({
     setAlbumArtRetryKey,
     setSpotifyMatches,
     setSpotifyMatching,
+    setResults,
   });
 
   const handleItemClick = useCallback(
