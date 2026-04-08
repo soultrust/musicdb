@@ -74,7 +74,7 @@ function ArtistDetailLayout({
           {ov.overviewError && !ov.overviewLoading && (
             <p className="error overview-error">
               {ov.overviewError.includes("Wikipedia") &&
-              ov.overviewError.toLowerCase().includes("no ")
+                ov.overviewError.toLowerCase().includes("no ")
                 ? "No overview available for this artist."
                 : ov.overviewError}
             </p>
@@ -198,13 +198,7 @@ function AlbumDetailLayout({
         <div className="detail-header">
           <div className="detail-thumb-container">
             <ArtistImage s={s} isArtist={false} />
-            {(s.selectedItem?.type === "release" ||
-              s.selectedItem?.type === "master" ||
-              s.selectedItem?.type === "album") && (
-              <button onClick={s.handleAddToList} className="add-to-list-btn">
-                Manage Lists
-              </button>
-            )}
+
           </div>
           <div className="detail-content">
             <h2 className="detail-title">
@@ -295,6 +289,13 @@ function AlbumDetailLayout({
               )}
             </div>
           </div>
+          {(s.selectedItem?.type === "release" ||
+            s.selectedItem?.type === "master" ||
+            s.selectedItem?.type === "album") && (
+              <button onClick={s.handleAddToList} className="add-to-list-btn">
+                Manage Lists
+              </button>
+            )}
         </div>
         {s.detailData?.tracklist && s.detailData.tracklist.length > 0 && <TrackList />}
         {s.detailData?.profile && (
