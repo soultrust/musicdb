@@ -289,14 +289,15 @@ function AlbumDetailLayout({
               )}
             </div>
           </div>
-          {(s.selectedItem?.type === "release" ||
-            s.selectedItem?.type === "master" ||
-            s.selectedItem?.type === "album") && (
-              <button onClick={s.handleAddToList} className="add-to-list-btn">
-                Manage Lists
-              </button>
-            )}
+
         </div>
+        {(s.selectedItem?.type === "release" ||
+          s.selectedItem?.type === "master" ||
+          s.selectedItem?.type === "album") && (
+            <button onClick={s.handleAddToList} className="add-to-list-btn">
+              Manage Lists
+            </button>
+          )}
         {s.detailData?.tracklist && s.detailData.tracklist.length > 0 && <TrackList />}
         {s.detailData?.profile && (
           <div className="detail-profile">
