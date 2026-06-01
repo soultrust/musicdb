@@ -1,4 +1,4 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
 import ArtistManualImageModal from "./ArtistManualImageModal";
@@ -56,7 +56,16 @@ function ArtistDetailLayout({
   handleRemoveManualArtistImage: () => Promise<void>;
 }) {
   const ov = useDetailOverviewContext();
-  const [albumSort, setAlbumSort] = useState<"popularity" | "year">("popularity");
+  const [showAllAlbums, setShowAllAlbums] = useState(false);
+  useEffect(() => {
+    setShowAllAlbums(false);
+  }, [mbArtistId]);
+  const artistAlbums = s.detailData?.albums ?? [];
+  const albumsPreviewLimit = 25;
+  const visibleAlbums = showAllAlbums
+    ? artistAlbums
+    : artistAlbums.slice(0, albumsPreviewLimit);
+  const hiddenAlbumCount = Math.max(0, artistAlbums.length - albumsPreviewLimit);
 
   return (
     <>
@@ -118,61 +127,38 @@ function ArtistDetailLayout({
             )}
           </div>
         </div>
-        {Array.isArray(s.detailData?.albums) && s.detailData!.albums!.length > 0 && (
+        {artistAlbums.length > 0 && (
           <div className="detail-artist-albums">
-            <div className="detail-artist-albums-header">
-              <h3>Albums</h3>
-              <div className="album-sort-toggle">
-                <button
-                  type="button"
-                  className={`album-sort-btn${albumSort === "popularity" ? " album-sort-btn--active" : ""}`}
-                  onClick={() => setAlbumSort("popularity")}
-                >
-                  Popular
-                </button>
-                <button
-                  type="button"
-                  className={`album-sort-btn${albumSort === "year" ? " album-sort-btn--active" : ""}`}
-                  onClick={() => setAlbumSort("year")}
-                >
-                  Year
-                </button>
-              </div>
-            </div>
+            <h3>Studio albums</h3>
             <ul className="detail-artist-albums-list">
-              {[...s.detailData!.albums!]
-                .sort((a, b) => {
-                  if (albumSort === "year") {
-                    const ya = parseInt(a.year ?? "", 10) || 0;
-                    const yb = parseInt(b.year ?? "", 10) || 0;
-                    return yb - ya;
-                  }
-                  return (b.playcount ?? 0) - (a.playcount ?? 0);
-                })
-                .map((al) => (
-                  <li key={al.id}>
-                    <button
-                      type="button"
-                      className="detail-link"
-                      onClick={() =>
-                        void s.handleItemClick({
-                          id: String(al.id),
-                          type: "album",
-                          title: al.title ?? "",
-                        })
-                      }
-                    >
-                      {al.year ? `${al.year} — ` : ""}
-                      {al.title ? titleCaseDisplay(al.title) : al.id}
-                    </button>
-                    {al.playcount ? (
-                      <span className="album-playcount">
-                        {al.playcount.toLocaleString()} plays
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
+              {visibleAlbums.map((al) => (
+                <li key={al.id}>
+                  <button
+                    type="button"
+                    className="detail-link"
+                    onClick={() =>
+                      void s.handleItemClick({
+                        id: String(al.id),
+                        type: "album",
+                        title: al.title ?? "",
+                      })
+                    }
+                  >
+                    {al.year ? `${al.year} — ` : ""}
+                    {al.title ? titleCaseDisplay(al.title) : al.id}
+                  </button>
+                </li>
+              ))}
             </ul>
+            {!showAllAlbums && hiddenAlbumCount > 0 ? (
+              <button
+                type="button"
+                className="detail-link artist-albums-show-more"
+                onClick={() => setShowAllAlbums(true)}
+              >
+                Show {hiddenAlbumCount} more album{hiddenAlbumCount === 1 ? "" : "s"}
+              </button>
+            ) : null}
           </div>
         )}
         {s.detailData?.profile && (

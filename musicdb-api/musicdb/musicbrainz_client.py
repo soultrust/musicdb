@@ -137,7 +137,10 @@ def browse_releases_by_artist(artist_mbid, limit=100):
 
 
 def browse_release_groups_by_artist(artist_mbid, limit=100):
-    """Browse release groups (albums/singles/EPs) for an artist — one entry per album concept."""
+    """
+    Browse studio-oriented release groups for an artist (primary type album,
+    website-default status — excludes promo/bootleg-only groups).
+    """
     url = f"{MUSICBRAINZ_API_BASE}/release-group"
     return requests.get(
         url,
@@ -146,6 +149,8 @@ def browse_release_groups_by_artist(artist_mbid, limit=100):
             "artist": artist_mbid,
             "fmt": "json",
             "limit": min(int(limit), 100),
+            "type": "album",
+            "release-group-status": "website-default",
         },
         timeout=30,
     )

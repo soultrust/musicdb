@@ -81,13 +81,12 @@ export function useDetailController({
 
         if (item.type === "artist" && Array.isArray(data.albums) && data.albums.length > 0) {
           setResults(
-            data.albums.map((al: { id: string; title?: string; year?: string | null; playcount?: number; thumb?: string | null }) => ({
+            data.albums.map((al: { id: string; title?: string; year?: string | null }) => ({
               id: al.id,
               type: "album",
               title: al.title
                 ? `${al.year ? `${al.year} — ` : ""}${al.title}`
                 : al.id,
-              thumb: al.thumb || undefined,
             })),
           );
         }

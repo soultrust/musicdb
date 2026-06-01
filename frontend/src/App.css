@@ -1101,6 +1101,17 @@
   margin-top: 2rem;
 }
 
+.detail-artist-albums h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.artist-albums-show-more {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+
 .detail-artist-albums-header {
   display: flex;
   align-items: center;

@@ -242,14 +242,44 @@ def build_artist_album_list_from_browse(browse_data):
     return out
 
 
-def build_artist_album_list_from_release_groups(rg_data):
+# Secondary types to drop from artist discography lists (live boots, comps, etc.)
+_ARTIST_ALBUM_EXCLUDED_SECONDARY_TYPES = frozenset({
+    "Live",
+    "Compilation",
+    "DJ-mix",
+    "Mixtape/Street",
+    "Remix",
+    "Interview",
+    "Spokenword",
+    "Audiobook",
+    "Soundtrack",
+    "Audio drama",
+    "Field recording",
+})
+
+# Max studio albums returned on artist detail (after filters)
+ARTIST_STUDIO_ALBUMS_MAX = 50
+
+
+def _release_group_is_studio_album(rg):
+    """True if this release group should appear on the artist studio-album list."""
+    secondary = rg.get("secondary-types") or []
+    if any(s in _ARTIST_ALBUM_EXCLUDED_SECONDARY_TYPES for s in secondary):
+        return False
+    return True
+
+
+def build_artist_album_list_from_release_groups(rg_data, max_albums=ARTIST_STUDIO_ALBUMS_MAX):
     """
     Build album list from MusicBrainz release-group browse (one entry per
-    album concept).  Sorted newest-first.
+    album concept). Filters out live/compilation/etc. secondary types.
+    Sorted newest-first, capped at *max_albums*.
     """
     rgs = rg_data.get("release-groups") or []
     rows = []
     for rg in rgs:
+        if not _release_group_is_studio_album(rg):
+            continue
         rgid = rg.get("id")
         if not rgid:
             continue
@@ -262,7 +292,7 @@ def build_artist_album_list_from_release_groups(rg_data):
             "type": rg.get("primary-type") or None,
         })
     rows.sort(key=_album_year_sort_key, reverse=True)
-    return rows
+    return rows[:max_albums]
 
 
 def merge_lastfm_popularity(mb_albums, lastfm_albums):

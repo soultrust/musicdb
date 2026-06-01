@@ -82,7 +82,7 @@ describe("SelectedItemDetail", () => {
       } as DetailData,
       selectedItem: { id: "art-1", type: "artist", title: "The Artist" },
     });
-    expect(screen.getByRole("heading", { name: "Albums" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Studio albums" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "2020 — First Album" }));
     expect(handleItemClick).toHaveBeenCalledWith({
       id: "rel-1",
