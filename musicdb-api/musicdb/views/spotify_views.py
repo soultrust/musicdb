@@ -3,10 +3,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from spotify.client import get_spotify_artist, search_artists
+from spotify.client import (
+    get_spotify_album,
+    get_spotify_artist,
+    search_albums,
+    search_artists,
+)
 
-from ..models import ArtistSpotifyImageLink, TrackSpotifyLink
-from ..serializers import ManualSpotifyArtistImageSerializer, ManualSpotifyMatchSerializer
+from ..models import ArtistSpotifyImageLink, ReleaseGroupImageLink, TrackSpotifyLink
+from ..serializers import (
+    ManualAlbumImageSerializer,
+    ManualSpotifyArtistImageSerializer,
+    ManualSpotifyMatchSerializer,
+)
 from .common import _bad_request, _validate_required, _validation_error_response
 
 
@@ -244,6 +253,160 @@ class ManualSpotifyArtistImageView(APIView):
         deleted, _ = ArtistSpotifyImageLink.objects.filter(
             user=request.user,
             musicbrainz_artist_id=mbid,
+        ).delete()
+        if deleted == 0:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SpotifyAlbumSearchView(APIView):
+    """
+    GET /api/search/spotify-album-search/?q=... — search Spotify albums by name (manual cover picker).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        q = (request.GET.get("q") or "").strip()
+        if not q:
+            return Response(
+                {"error": "Missing query parameter: q"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        limit = min(50, max(1, int(request.GET.get("limit", 50))))
+        items = search_albums(q, limit=limit)
+        albums = []
+        for a in items:
+            images = a.get("images") or []
+            if not any(
+                isinstance(img, dict) and (str(img.get("url") or "").strip())
+                for img in images
+            ):
+                continue
+            albums.append(
+                {
+                    "id": a.get("id"),
+                    "name": a.get("name"),
+                    "images": images,
+                }
+            )
+        return Response({"albums": albums})
+
+
+class SpotifyAlbumImagesView(APIView):
+    """
+    GET /api/search/spotify-album-images/?spotify_album_id=...
+    Returns all image sizes for that Spotify album.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        spotify_album_id = (request.GET.get("spotify_album_id") or "").strip()
+        if not spotify_album_id:
+            return Response(
+                {"error": "Missing query parameter: spotify_album_id"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        data = get_spotify_album(spotify_album_id)
+        if not data:
+            return Response(
+                {"error": "Spotify album not found or unavailable"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        images = data.get("images") or []
+        out = []
+        for img in images:
+            if not isinstance(img, dict):
+                continue
+            url = (img.get("url") or "").strip()
+            if url:
+                out.append(
+                    {
+                        "url": url,
+                        "width": img.get("width"),
+                        "height": img.get("height"),
+                    }
+                )
+        return Response(
+            {
+                "spotify_album_id": data.get("id"),
+                "name": data.get("name"),
+                "images": out,
+            }
+        )
+
+
+class ManualAlbumImageView(APIView):
+    """
+    GET — current user's manual cover for a MusicBrainz release group (if any).
+    POST — save manual image URL (+ optional spotify_album_id / discogs_release_id).
+    DELETE — remove manual override.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        rgid = (request.GET.get("musicbrainz_release_group_id") or "").strip()
+        required_error = _validate_required({"musicbrainz_release_group_id": rgid})
+        if required_error:
+            return required_error
+        link = ReleaseGroupImageLink.objects.filter(
+            user=request.user,
+            musicbrainz_release_group_id=rgid,
+        ).first()
+        if not link:
+            return Response(
+                {
+                    "manual_match": False,
+                    "image_url": None,
+                    "spotify_album_id": None,
+                    "discogs_release_id": None,
+                }
+            )
+        return Response(
+            {
+                "manual_match": True,
+                "image_url": link.image_url,
+                "spotify_album_id": link.spotify_album_id or None,
+                "discogs_release_id": link.discogs_release_id or None,
+            }
+        )
+
+    def post(self, request):
+        ser = ManualAlbumImageSerializer(data=request.data)
+        if not ser.is_valid():
+            return _validation_error_response(ser)
+        rgid = ser.validated_data["musicbrainz_release_group_id"]
+        image_url = ser.validated_data["image_url"]
+        sid = (ser.validated_data.get("spotify_album_id") or "").strip()
+        did = (ser.validated_data.get("discogs_release_id") or "").strip()
+
+        link, _ = ReleaseGroupImageLink.objects.update_or_create(
+            user=request.user,
+            musicbrainz_release_group_id=rgid,
+            defaults={
+                "image_url": image_url,
+                "spotify_album_id": sid[:64] if sid else "",
+                "discogs_release_id": did[:64] if did else "",
+            },
+        )
+        return Response(
+            {
+                "manual_match": True,
+                "image_url": link.image_url,
+                "spotify_album_id": link.spotify_album_id or None,
+                "discogs_release_id": link.discogs_release_id or None,
+            }
+        )
+
+    def delete(self, request):
+        rgid = (request.query_params.get("musicbrainz_release_group_id") or "").strip()
+        if not rgid:
+            return _bad_request("Query parameter musicbrainz_release_group_id is required")
+        deleted, _ = ReleaseGroupImageLink.objects.filter(
+            user=request.user,
+            musicbrainz_release_group_id=rgid,
         ).delete()
         if deleted == 0:
             return Response(status=status.HTTP_404_NOT_FOUND)

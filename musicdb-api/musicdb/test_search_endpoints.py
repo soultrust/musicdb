@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from musicdb.models import ArtistSpotifyImageLink
+from musicdb.models import ArtistSpotifyImageLink, ReleaseGroupImageLink
 from musicdb.views.common import _is_usable_artist_image_url
 
 
@@ -223,6 +223,37 @@ class SearchEndpointsTests(TestCase):
         call_name, call_data = mock_dc.call_args[0]
         self.assertEqual(call_name, "Discogs Only")
         self.assertEqual(call_data["name"], "Discogs Only")
+
+    def test_album_detail_manual_cover_override_wins(self):
+        user = get_user_model().objects.get(username="searchuser")
+        rgid = "33333333-3333-3333-3333-333333333333"
+        override_url = "https://i.scdn.co/image/manual-album"
+        ReleaseGroupImageLink.objects.create(
+            user=user,
+            musicbrainz_release_group_id=rgid,
+            image_url=override_url,
+            spotify_album_id="sp-album-1",
+        )
+        mock_release = {
+            "id": "rel-1",
+            "title": "Test Album",
+            "artist-credit": [],
+            "date": "1973",
+            "release-group": {"id": rgid, "title": "Test Album"},
+            "media": [],
+        }
+        mock_res = Mock(status_code=200)
+        mock_res.json.return_value = mock_release
+        with patch("musicdb.views.search_views.mb.get_release", return_value=mock_res), patch(
+            "musicdb.views.search_views.mb.get_cover_art",
+            return_value={"thumb": "https://coverartarchive.org/default.jpg", "images": []},
+        ):
+            res = self.client.get("/api/search/detail/", {"type": "album", "id": rgid})
+        self.assertEqual(res.status_code, 200)
+        body = res.json()
+        self.assertEqual(body.get("thumb"), override_url)
+        self.assertEqual(body.get("release_group_id"), rgid)
+        self.assertIs(body.get("manual_album_image"), True)
 
 
 class ArtistImageUrlUsabilityTests(TestCase):

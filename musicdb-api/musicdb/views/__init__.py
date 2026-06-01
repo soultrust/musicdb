@@ -10,10 +10,14 @@ from .search_views import (
     SearchAPIView,
 )
 from .discogs_artist_views import DiscogsArtistImagesView, DiscogsArtistSearchView
+from .discogs_release_views import DiscogsReleaseImagesView, DiscogsReleaseSearchView
 from .spotify_views import (
+    ManualAlbumImageView,
     ManualSpotifyArtistImageView,
     ManualSpotifyMatchView,
     ManualSpotifyMatchesView,
+    SpotifyAlbumImagesView,
+    SpotifyAlbumSearchView,
     SpotifyArtistImagesView,
     SpotifyArtistSearchView,
 )
@@ -33,9 +37,14 @@ __all__ = [
     "ListsView",
     "DiscogsArtistImagesView",
     "DiscogsArtistSearchView",
+    "DiscogsReleaseImagesView",
+    "DiscogsReleaseSearchView",
+    "ManualAlbumImageView",
     "ManualSpotifyArtistImageView",
     "ManualSpotifyMatchView",
     "ManualSpotifyMatchesView",
+    "SpotifyAlbumImagesView",
+    "SpotifyAlbumSearchView",
     "SpotifyArtistImagesView",
     "SpotifyArtistSearchView",
     "SearchAPIView",

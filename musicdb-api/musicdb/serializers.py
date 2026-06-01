@@ -80,6 +80,37 @@ class ManualSpotifyArtistImageSerializer(serializers.Serializer):
         return url
 
 
+class ManualAlbumImageSerializer(serializers.Serializer):
+    musicbrainz_release_group_id = serializers.CharField(max_length=64)
+    image_url = serializers.CharField()
+    spotify_album_id = serializers.CharField(
+        max_length=64,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+    discogs_release_id = serializers.CharField(
+        max_length=64,
+        required=False,
+        allow_blank=True,
+        default="",
+    )
+
+    def validate_musicbrainz_release_group_id(self, value):
+        v = (value or "").strip()
+        if not v:
+            raise serializers.ValidationError("This field may not be blank.")
+        return v
+
+    def validate_image_url(self, value):
+        url = (value or "").strip()
+        if not url:
+            raise serializers.ValidationError("This field may not be blank.")
+        if not url.lower().startswith(("http://", "https://")):
+            raise serializers.ValidationError("Image URL must be http(s).")
+        return url
+
+
 class EspeciallyLikedTrackWriteSerializer(serializers.Serializer):
     item_type = serializers.ChoiceField(choices=["release", "master", "album"])
     item_id = serializers.CharField()

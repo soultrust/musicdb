@@ -133,6 +133,31 @@ class ArtistSpotifyImageLink(models.Model):
         return f"{self.musicbrainz_artist_id} → {self.image_url[:48]}…"
 
 
+class ReleaseGroupImageLink(models.Model):
+    """
+    User's chosen cover image URL for a MusicBrainz release group (album detail thumb).
+    Source may be Spotify or Discogs (manual picker). Overrides Cover Art Archive.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="release_group_image_links",
+    )
+    musicbrainz_release_group_id = models.CharField(max_length=64)
+    image_url = models.TextField()
+    spotify_album_id = models.CharField(max_length=64, blank=True)
+    discogs_release_id = models.CharField(max_length=64, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("user", "musicbrainz_release_group_id")
+        ordering = ["musicbrainz_release_group_id"]
+
+    def __str__(self):
+        return f"{self.musicbrainz_release_group_id} → {self.image_url[:48]}…"
+
+
 class TrackEspeciallyLiked(models.Model):
     """
     User's "especially liked" track preference (state 2) for a specific item track.

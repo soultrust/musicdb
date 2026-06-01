@@ -481,3 +481,62 @@ def get_spotify_artist(spotify_artist_id):
     if response.status_code != 200:
         return None
     return response.json()
+
+
+def search_albums(query, limit=10):
+    """
+    Search Spotify for albums by name. Returns list of album objects (id, name, images, ...).
+    """
+    q = (query or "").strip()
+    if not q:
+        return []
+    try:
+        access_token = _get_access_token()
+    except ValueError:
+        return []
+
+    try:
+        response = requests.get(
+            "https://api.spotify.com/v1/search",
+            headers={"Authorization": f"Bearer {access_token}"},
+            params={
+                "q": q,
+                "type": "album",
+                "limit": min(max(1, int(limit)), 50),
+            },
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        logger.debug("Spotify album search failed: %s", e)
+        return []
+
+    if response.status_code != 200:
+        return []
+    return (response.json() or {}).get("albums", {}).get("items") or []
+
+
+def get_spotify_album(spotify_album_id):
+    """
+    GET /v1/albums/{id}. Returns parsed JSON dict or None on failure.
+    """
+    aid = (spotify_album_id or "").strip()
+    if not aid:
+        return None
+    try:
+        access_token = _get_access_token()
+    except ValueError:
+        return None
+
+    try:
+        response = requests.get(
+            f"https://api.spotify.com/v1/albums/{aid}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=10,
+        )
+    except requests.RequestException as e:
+        logger.debug("Spotify get album failed: %s", e)
+        return None
+
+    if response.status_code != 200:
+        return None
+    return response.json()

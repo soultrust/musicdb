@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from spotify.client import artist_image_url_for_musicbrainz_name
 
 from .. import musicbrainz_client as mb
-from ..models import ArtistSpotifyImageLink, ConsumedAlbum
+from ..models import ArtistSpotifyImageLink, ConsumedAlbum, ReleaseGroupImageLink
 from .discogs_artist_image import discogs_artist_image_url
 from .common import (
     _bad_request,
@@ -22,6 +22,30 @@ from .common import (
     _validate_choice,
     _validate_required,
 )
+
+
+def _release_group_id_from_release_data(release_data, fallback_id=""):
+    """MusicBrainz release JSON → release-group MBID."""
+    rg = release_data.get("release-group") or {}
+    return (rg.get("id") or "").strip() or (fallback_id or "").strip()
+
+
+def _apply_manual_album_image(user, release_group_id, normalized):
+    normalized["release_group_id"] = release_group_id or None
+    if not release_group_id:
+        normalized["manual_album_image"] = False
+        return normalized
+    link = ReleaseGroupImageLink.objects.filter(
+        user=user,
+        musicbrainz_release_group_id=release_group_id,
+    ).first()
+    if link:
+        normalized["thumb"] = link.image_url
+        normalized["images"] = [{"uri": link.image_url}]
+        normalized["manual_album_image"] = True
+    else:
+        normalized["manual_album_image"] = False
+    return normalized
 
 
 class SearchAPIView(APIView):
@@ -206,16 +230,30 @@ class DetailAPIView(APIView):
                 normalized["manual_spotify_artist_image"] = False
             return Response(normalized)
         if resource_type == "album":
+            release_data = None
+            release_group_id = ""
             response = mb.get_release(resource_id)
             if response.status_code == 200:
-                return Response(_normalize_mb_release(response.json()))
-            # ID might be a release-group; find a release inside it
-            rg_resp = mb.browse_releases_by_release_group(resource_id, limit=1)
-            if rg_resp.status_code == 200:
-                releases = (rg_resp.json() or {}).get("releases") or []
-                if releases:
-                    return Response(_normalize_mb_release(releases[0]))
-            return _upstream_error("MusicBrainz", response.status_code)
+                release_data = response.json()
+                release_group_id = _release_group_id_from_release_data(
+                    release_data, fallback_id=resource_id
+                )
+            else:
+                rg_resp = mb.browse_releases_by_release_group(resource_id, limit=1)
+                if rg_resp.status_code == 200:
+                    releases = (rg_resp.json() or {}).get("releases") or []
+                    if releases:
+                        release_data = releases[0]
+                        release_group_id = _release_group_id_from_release_data(
+                            release_data, fallback_id=resource_id
+                        )
+                if not release_data:
+                    return _upstream_error("MusicBrainz", response.status_code)
+            normalized = _normalize_mb_release(release_data)
+            normalized = _apply_manual_album_image(
+                request.user, release_group_id, normalized
+            )
+            return Response(normalized)
         response = mb.get_recording(resource_id)
         if response.status_code != 200:
             return _upstream_error("MusicBrainz", response.status_code)

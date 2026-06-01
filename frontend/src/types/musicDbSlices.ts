@@ -52,6 +52,10 @@ export type DetailData = {
   albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null; playcount?: number; listeners?: number; type?: string | null }>;
   /** True when thumb comes from user's saved Spotify image pick */
   manual_spotify_artist_image?: boolean;
+  /** MusicBrainz release-group id for album detail (stable key for manual cover) */
+  release_group_id?: string | null;
+  /** True when thumb comes from user's saved manual album cover */
+  manual_album_image?: boolean;
   [key: string]: unknown;
 };
 

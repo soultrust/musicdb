@@ -1,9 +1,10 @@
 import { Fragment, useEffect, useState } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
+import AlbumManualImageModal from "./AlbumManualImageModal";
 import ArtistManualImageModal from "./ArtistManualImageModal";
 import { useDetailShellContext, useDetailOverviewContext } from "../hooks/useMusicDbApp";
-import { manualSpotifyArtistImageUrl } from "../services/searchApi";
+import { manualAlbumImageUrl, manualSpotifyArtistImageUrl } from "../services/searchApi";
 
 /** Title case for display (MusicBrainz often returns ALL CAPS). */
 function titleCaseDisplay(value: string): string {
@@ -175,16 +176,49 @@ function ArtistDetailLayout({
 
 function AlbumDetailLayout({
   s,
+  mbReleaseGroupId,
+  setShowAlbumManualImageModal,
+  removeManualAlbumImageLoading,
+  handleRemoveManualAlbumImage,
 }: {
   s: ReturnType<typeof useDetailShellContext>;
+  mbReleaseGroupId: string;
+  setShowAlbumManualImageModal: (v: boolean) => void;
+  removeManualAlbumImageLoading: boolean;
+  handleRemoveManualAlbumImage: () => Promise<void>;
 }) {
+  const isAlbumish =
+    s.selectedItem?.type === "release" ||
+    s.selectedItem?.type === "master" ||
+    s.selectedItem?.type === "album";
+
   return (
     <>
       <div className="detail-main">
         <div className="detail-header">
           <div className="detail-thumb-container">
             <ArtistImage s={s} isArtist={false} />
-
+            {isAlbumish && mbReleaseGroupId && (
+              <div className="detail-artist-image-actions">
+                <button
+                  type="button"
+                  className="add-to-list-btn"
+                  onClick={() => setShowAlbumManualImageModal(true)}
+                >
+                  Choose album cover
+                </button>
+                {s.detailData?.manual_album_image ? (
+                  <button
+                    type="button"
+                    className="detail-remove-manual-artist-image-btn"
+                    onClick={() => void handleRemoveManualAlbumImage()}
+                    disabled={removeManualAlbumImageLoading}
+                  >
+                    {removeManualAlbumImageLoading ? "Removing…" : "Remove manual cover"}
+                  </button>
+                ) : null}
+              </div>
+            )}
           </div>
           <div className="detail-content">
             <h2 className="detail-title">
@@ -302,10 +336,15 @@ function AlbumDetailLayout({
 export default function SelectedItemDetail() {
   const s = useDetailShellContext();
   const [showArtistManualImageModal, setShowArtistManualImageModal] = useState(false);
+  const [showAlbumManualImageModal, setShowAlbumManualImageModal] = useState(false);
   const [removeManualImageLoading, setRemoveManualImageLoading] = useState(false);
+  const [removeManualAlbumImageLoading, setRemoveManualAlbumImageLoading] = useState(false);
 
   const isArtist = s.selectedItem?.type === "artist";
   const mbArtistId = isArtist ? String(s.selectedItem?.id ?? "") : "";
+  const mbReleaseGroupId = String(
+    s.detailData?.release_group_id ?? (s.selectedItem?.type === "album" ? s.selectedItem?.id : "") ?? "",
+  );
 
   const handleRemoveManualArtistImage = async () => {
     if (!mbArtistId) return;
@@ -317,6 +356,19 @@ export default function SelectedItemDetail() {
       if (res.ok || res.status === 404) await s.refreshDetail();
     } finally {
       setRemoveManualImageLoading(false);
+    }
+  };
+
+  const handleRemoveManualAlbumImage = async () => {
+    if (!mbReleaseGroupId) return;
+    setRemoveManualAlbumImageLoading(true);
+    try {
+      const res = await s.authFetch(manualAlbumImageUrl(s.API_BASE, mbReleaseGroupId), {
+        method: "DELETE",
+      });
+      if (res.ok || res.status === 404) await s.refreshDetail();
+    } finally {
+      setRemoveManualAlbumImageLoading(false);
     }
   };
 
@@ -334,7 +386,13 @@ export default function SelectedItemDetail() {
               handleRemoveManualArtistImage={handleRemoveManualArtistImage}
             />
           ) : (
-            <AlbumDetailLayout s={s} />
+            <AlbumDetailLayout
+              s={s}
+              mbReleaseGroupId={mbReleaseGroupId}
+              setShowAlbumManualImageModal={setShowAlbumManualImageModal}
+              removeManualAlbumImageLoading={removeManualAlbumImageLoading}
+              handleRemoveManualAlbumImage={handleRemoveManualAlbumImage}
+            />
           )}
         </div>
       )}
@@ -345,6 +403,16 @@ export default function SelectedItemDetail() {
           musicbrainzArtistId={mbArtistId}
           artistTitle={s.detailData?.title || s.selectedItem?.title || ""}
           onClose={() => setShowArtistManualImageModal(false)}
+          onSaved={s.refreshDetail}
+        />
+      )}
+      {showAlbumManualImageModal && !isArtist && mbReleaseGroupId && (
+        <AlbumManualImageModal
+          API_BASE={s.API_BASE}
+          authFetch={s.authFetch}
+          musicbrainzReleaseGroupId={mbReleaseGroupId}
+          albumTitle={s.detailData?.title || s.selectedItem?.title || ""}
+          onClose={() => setShowAlbumManualImageModal(false)}
           onSaved={s.refreshDetail}
         />
       )}

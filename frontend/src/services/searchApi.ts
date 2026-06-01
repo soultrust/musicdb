@@ -98,3 +98,30 @@ export function manualSpotifyArtistImageUrl(API_BASE: string, musicbrainzArtistI
   if (musicbrainzArtistId == null || musicbrainzArtistId === "") return base;
   return `${base}?musicbrainz_artist_id=${encodeURIComponent(musicbrainzArtistId)}`;
 }
+
+export function spotifyAlbumSearchUrl(API_BASE: string, q: string, limit = 50): string {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return `${API_BASE}${SEARCH_ROOT}/spotify-album-search/?${params.toString()}`;
+}
+
+export function spotifyAlbumImagesUrl(API_BASE: string, spotifyAlbumId: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/spotify-album-images/?spotify_album_id=${encodeURIComponent(spotifyAlbumId)}`;
+}
+
+export function discogsReleaseSearchUrl(API_BASE: string, q: string, limit = 100): string {
+  const params = new URLSearchParams({ q, limit: String(limit) });
+  return `${API_BASE}${SEARCH_ROOT}/discogs-release-search/?${params.toString()}`;
+}
+
+export function discogsReleaseImagesUrl(API_BASE: string, discogsReleaseId: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/discogs-release-images/?discogs_release_id=${encodeURIComponent(discogsReleaseId)}`;
+}
+
+export function manualAlbumImageUrl(
+  API_BASE: string,
+  musicbrainzReleaseGroupId?: string,
+): string {
+  const base = `${API_BASE}${SEARCH_ROOT}/manual-album-image/`;
+  if (musicbrainzReleaseGroupId == null || musicbrainzReleaseGroupId === "") return base;
+  return `${base}?musicbrainz_release_group_id=${encodeURIComponent(musicbrainzReleaseGroupId)}`;
+}
