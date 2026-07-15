@@ -78,3 +78,26 @@ export function spotifyPlayerPlayUris(
     body: JSON.stringify({ uris: spotifyUris }),
   });
 }
+
+/** Lists the user's available Spotify Connect devices (this browser plus any other active clients). */
+export function spotifyGetDevices(token: string): Promise<Response> {
+  return fetch(`${SPOTIFY_API_BASE}/me/player/devices`, {
+    headers: bearerHeaders(token),
+  });
+}
+
+/** Transfers playback to another device. Passing `play: true` resumes playback there. */
+export function spotifyTransferPlayback(
+  deviceId: string,
+  token: string,
+  play = true,
+): Promise<Response> {
+  return fetch(`${SPOTIFY_API_BASE}/me/player`, {
+    method: "PUT",
+    headers: {
+      ...bearerHeaders(token),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ device_ids: [deviceId], play }),
+  });
+}

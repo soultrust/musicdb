@@ -15,6 +15,10 @@ function buildHeaderContext(args: HeaderSliceDeps) {
     onViewListChange: args.resetOnViewSwitch,
     allListsForView: args.allListsForView,
     logout: args.logout,
+    spotifyDevices: args.spotifyDevices,
+    activeSpotifyDeviceId: args.activeSpotifyDeviceId,
+    switchSpotifyDevice: args.switchSpotifyDevice,
+    refreshSpotifyDevices: args.refreshSpotifyDevices,
   };
 }
 
@@ -33,6 +37,10 @@ export function useHeaderContextValue(args: AppContextSliceArgs) {
         resetOnViewSwitch: args.resetOnViewSwitch,
         allListsForView: args.allListsForView,
         logout: args.logout,
+        spotifyDevices: args.spotifyDevices,
+        activeSpotifyDeviceId: args.activeSpotifyDeviceId,
+        switchSpotifyDevice: args.switchSpotifyDevice,
+        refreshSpotifyDevices: args.refreshSpotifyDevices,
       }),
     [
       args.spotifyToken,
@@ -46,6 +54,10 @@ export function useHeaderContextValue(args: AppContextSliceArgs) {
       args.resetOnViewSwitch,
       args.allListsForView,
       args.logout,
+      args.spotifyDevices,
+      args.activeSpotifyDeviceId,
+      args.switchSpotifyDevice,
+      args.refreshSpotifyDevices,
     ],
   );
 }

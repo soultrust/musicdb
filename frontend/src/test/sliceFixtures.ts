@@ -24,6 +24,10 @@ export function buildHeaderSliceValue(overrides: Partial<HeaderSliceValue> = {})
     onViewListChange: vi.fn(),
     allListsForView: [],
     logout: vi.fn(),
+    spotifyDevices: [],
+    activeSpotifyDeviceId: null,
+    switchSpotifyDevice: vi.fn(),
+    refreshSpotifyDevices: vi.fn(),
     ...overrides,
   };
 }

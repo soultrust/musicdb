@@ -14,6 +14,10 @@ export type HeaderSliceDeps = Pick<
   | "resetOnViewSwitch"
   | "allListsForView"
   | "logout"
+  | "spotifyDevices"
+  | "activeSpotifyDeviceId"
+  | "switchSpotifyDevice"
+  | "refreshSpotifyDevices"
 >;
 
 export type SearchSidebarSliceDeps = Pick<

@@ -15,6 +15,7 @@ import type {
   ListViewData,
   PlaylistTracksData,
   SearchResultItem,
+  SpotifyDevice,
   SpotifyMatchRow,
   SpotifyTrackRef,
 } from "./musicDbSlices";
@@ -32,6 +33,10 @@ export interface AppContextSliceArgs {
   resetOnViewSwitch: (e: ChangeEvent<HTMLSelectElement>) => void;
   allListsForView: ListForView[];
   logout: () => void;
+  spotifyDevices: SpotifyDevice[];
+  activeSpotifyDeviceId: string | null;
+  switchSpotifyDevice: (deviceId: string) => void;
+  refreshSpotifyDevices: () => void;
   handleSubmit: (e?: FormEvent<Element>) => void | Promise<void>;
   searchType: string;
   setSearchType: (v: string) => void;

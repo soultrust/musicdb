@@ -66,6 +66,25 @@
   box-sizing: border-box;
 }
 
+.spotify-device-select {
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid #333;
+  border-radius: 6px;
+  background: #1a1a1a;
+  color: #e5e5e5;
+  cursor: pointer;
+  max-width: 160px;
+}
+
+.spotify-device-select:hover,
+.spotify-device-select:focus {
+  outline: none;
+  border-color: #1db954;
+}
+
 .spotify-status {
   font-size: 0.875rem;
   padding: 0.25rem 0.5rem;

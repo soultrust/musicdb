@@ -78,6 +78,16 @@ export type SpotifyMatchRow = {
 
 export type ListForView = { id: number; name: string; list_type?: string; [key: string]: unknown };
 
+/** A Spotify Connect playback device, as returned by `/me/player/devices` */
+export type SpotifyDevice = {
+  id: string | null;
+  name: string;
+  type: string;
+  is_active: boolean;
+  is_restricted?: boolean;
+  [key: string]: unknown;
+};
+
 export interface HeaderSliceValue {
   spotifyToken: string | null;
   spotifyConnectionStatus: string;
@@ -91,6 +101,10 @@ export interface HeaderSliceValue {
   onViewListChange: (e: ChangeEvent<HTMLSelectElement>) => void;
   allListsForView: ListForView[];
   logout: () => void;
+  spotifyDevices: SpotifyDevice[];
+  activeSpotifyDeviceId: string | null;
+  switchSpotifyDevice: (deviceId: string) => void;
+  refreshSpotifyDevices: () => void;
 }
 
 export type SearchResultItem = { id: string; title?: string; name?: string; type?: string; [key: string]: unknown };

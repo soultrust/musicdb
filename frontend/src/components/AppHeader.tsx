@@ -10,6 +10,23 @@ export default function AppHeader() {
       <div className="app-header-right">
         {h.spotifyToken ? (
           <div className="spotify-controls">
+            {h.spotifyDevices.length > 0 && (
+              <select
+                className="spotify-device-select"
+                value={h.activeSpotifyDeviceId ?? ""}
+                onFocus={h.refreshSpotifyDevices}
+                onChange={(e) => h.switchSpotifyDevice(e.target.value)}
+                title="Switch playback device"
+              >
+                {h.activeSpotifyDeviceId == null && <option value="">Select a device…</option>}
+                {h.spotifyDevices.map((d) => (
+                  <option key={d.id ?? d.name} value={d.id ?? ""}>
+                    {d.name}
+                    {d.type && d.type !== "Computer" ? ` (${d.type})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
             <span
               className={`spotify-status ${
                 h.spotifyConnectionStatus === "connected"

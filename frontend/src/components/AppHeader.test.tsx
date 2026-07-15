@@ -132,4 +132,57 @@ describe("AppHeader", () => {
     fireEvent.click(screen.getByRole("button", { name: /log out/i }));
     expect(logout).toHaveBeenCalledTimes(1);
   });
+
+  it("does not show a device switcher when no devices are known", () => {
+    renderAppHeader({ spotifyToken: "sp", spotifyDevices: [] });
+    expect(screen.queryByTitle("Switch playback device")).not.toBeInTheDocument();
+  });
+
+  it("shows a device switcher to the left of the status when devices are available", () => {
+    renderAppHeader({
+      spotifyToken: "sp",
+      spotifyConnectionStatus: "connected",
+      deviceId: "d1",
+      spotifyDevices: [
+        { id: "d1", name: "This Browser", type: "Computer", is_active: true },
+        { id: "d2", name: "Kitchen Speaker", type: "Speaker", is_active: false },
+      ],
+      activeSpotifyDeviceId: "d1",
+    });
+    const select = screen.getByTitle("Switch playback device") as HTMLSelectElement;
+    expect(select.value).toBe("d1");
+    expect(screen.getByRole("option", { name: "This Browser" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Kitchen Speaker (Speaker)" })).toBeInTheDocument();
+
+    const controls = select.closest(".spotify-controls");
+    expect(controls?.firstElementChild).toBe(select);
+  });
+
+  it("calls switchSpotifyDevice when a different device is selected", () => {
+    const switchSpotifyDevice = vi.fn();
+    renderAppHeader({
+      spotifyToken: "sp",
+      spotifyDevices: [
+        { id: "d1", name: "This Browser", type: "Computer", is_active: true },
+        { id: "d2", name: "Kitchen Speaker", type: "Speaker", is_active: false },
+      ],
+      activeSpotifyDeviceId: "d1",
+      switchSpotifyDevice,
+    });
+    const select = screen.getByTitle("Switch playback device");
+    fireEvent.change(select, fakeSelectChange("d2"));
+    expect(switchSpotifyDevice).toHaveBeenCalledWith("d2");
+  });
+
+  it("refreshes devices when the switcher gains focus", () => {
+    const refreshSpotifyDevices = vi.fn();
+    renderAppHeader({
+      spotifyToken: "sp",
+      spotifyDevices: [{ id: "d1", name: "This Browser", type: "Computer", is_active: true }],
+      activeSpotifyDeviceId: "d1",
+      refreshSpotifyDevices,
+    });
+    fireEvent.focus(screen.getByTitle("Switch playback device"));
+    expect(refreshSpotifyDevices).toHaveBeenCalledTimes(1);
+  });
 });

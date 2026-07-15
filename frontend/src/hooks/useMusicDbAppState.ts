@@ -7,6 +7,7 @@ import { useSearchState } from "./useSearchState";
 import { useLists } from "./useLists";
 import { useLikedTracks } from "./useLikedTracks";
 import { useSpotifyPlayer } from "./useSpotifyPlayer";
+import { useSpotifyDevices } from "./useSpotifyDevices";
 import { useSpotifyAuth } from "./useSpotifyAuth";
 import { useSpotifySearchModal } from "./useSpotifySearchModal";
 import { useDetailController } from "./useDetailController";
@@ -318,6 +319,16 @@ export function useMusicDbAppState({
     resetPlayerStateRef.current = resetPlayerState;
   }, [resetPlayerState]);
 
+  const {
+    devices: spotifyDevices,
+    activeSpotifyDeviceId,
+    switchSpotifyDevice,
+    refreshDevices: refreshSpotifyDevices,
+  } = useSpotifyDevices({
+    spotifyToken,
+    localDeviceId: deviceId,
+  });
+
   const { handleSpotifyLogin } = useSpotifyAuth({
     API_BASE,
     SPOTIFY_CLIENT_ID,
@@ -378,6 +389,10 @@ export function useMusicDbAppState({
     resetOnViewSwitch,
     allListsForView,
     logout,
+    spotifyDevices,
+    activeSpotifyDeviceId,
+    switchSpotifyDevice,
+    refreshSpotifyDevices,
     handleSubmit,
     searchType,
     setSearchType,
