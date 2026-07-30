@@ -1,7 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import { matchTracksToSpotifyApi } from "../services/trackMatchingApi";
-import { artistOverviewUrl, detailUrl } from "../services/searchApi";
+import { albumOverviewUrl, artistOverviewUrl, detailUrl } from "../services/searchApi";
 import type { AuthFetchFn } from "../services/especiallyLikedApi";
 import type {
   DetailData,
@@ -105,6 +105,28 @@ export function useDetailController({
               }
             })
             .catch(() => setOverviewError("Failed to load artist overview."))
+            .finally(() => setOverviewLoading(false));
+        }
+
+        const albumish =
+          item.type === "album" || item.type === "release" || item.type === "master";
+        const releaseGroupId =
+          (typeof data.release_group_id === "string" && data.release_group_id) ||
+          (item.type === "album" ? String(item.id) : "");
+        if (albumish && releaseGroupId) {
+          setOverviewLoading(true);
+          authFetch(albumOverviewUrl(API_BASE, releaseGroupId))
+            .then(async (r) => {
+              const body = (await r.json()) as { overview?: string | null; reason?: string; error?: string };
+              if (!r.ok) {
+                setOverviewError(body.error || `Overview request failed (${r.status})`);
+              } else if (body.overview) {
+                setOverview(body.overview);
+              } else {
+                setOverviewError("No Wikipedia overview found for this album.");
+              }
+            })
+            .catch(() => setOverviewError("Failed to load album overview."))
             .finally(() => setOverviewLoading(false));
         }
 

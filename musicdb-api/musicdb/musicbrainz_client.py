@@ -167,6 +167,17 @@ def get_release(mbid):
     )
 
 
+def get_release_group(mbid):
+    """GET release-group/{mbid} with URL relations (e.g. Wikidata link)."""
+    url = f"{MUSICBRAINZ_API_BASE}/release-group/{mbid}"
+    return requests.get(
+        url,
+        headers=_headers(),
+        params={"fmt": "json", "inc": "url-rels"},
+        timeout=15,
+    )
+
+
 def browse_releases_by_release_group(rg_mbid, limit=1):
     """Find releases belonging to a release group (pick the first one for tracklist)."""
     url = f"{MUSICBRAINZ_API_BASE}/release"

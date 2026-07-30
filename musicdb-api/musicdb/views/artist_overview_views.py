@@ -1,8 +1,8 @@
 """
-Artist overview text via MusicBrainz → Wikidata → Wikipedia.
+Overview text via MusicBrainz → Wikidata → Wikipedia.
 
 Chain:
-  1. GET MusicBrainz artist (url-rels) to find the Wikidata relation
+  1. GET MusicBrainz entity (url-rels) to find the Wikidata relation
   2. GET Wikidata entity sitelinks to find the English Wikipedia article title
   3. GET Wikipedia extracts API for a clean plaintext introduction
 """
@@ -26,9 +26,9 @@ WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 _WIKIDATA_ENTITY_RE = re.compile(r"(Q\d+)")
 
 
-def _extract_wikidata_id(artist_data: dict) -> str | None:
+def _extract_wikidata_id(entity_data: dict) -> str | None:
     """Pull the Wikidata entity ID (e.g. Q188668) from MusicBrainz url-rels."""
-    for rel in artist_data.get("relations") or []:
+    for rel in entity_data.get("relations") or []:
         if rel.get("type") != "wikidata":
             continue
         url = (rel.get("url") or {}).get("resource") or ""
@@ -83,6 +83,23 @@ def _wikipedia_extract(title: str) -> str | None:
     return None
 
 
+def _overview_from_mb_entity(entity_data: dict) -> Response:
+    """Shared Wikidata → Wikipedia resolution for artist / release-group payloads."""
+    wikidata_id = _extract_wikidata_id(entity_data)
+    if not wikidata_id:
+        return Response({"overview": None, "reason": "no_wikidata_link"})
+
+    wiki_title = _wikipedia_title_from_wikidata(wikidata_id)
+    if not wiki_title:
+        return Response({"overview": None, "reason": "no_wikipedia_article"})
+
+    extract = _wikipedia_extract(wiki_title)
+    if not extract:
+        return Response({"overview": None, "reason": "empty_extract"})
+
+    return Response({"overview": extract})
+
+
 class ArtistOverviewView(APIView):
     """GET ?mbid=<musicbrainz-artist-id> → {overview: "..."}"""
 
@@ -96,18 +113,22 @@ class ArtistOverviewView(APIView):
         artist_resp = mb.get_artist(mbid)
         if artist_resp.status_code != 200:
             return _upstream_error("MusicBrainz", artist_resp.status_code)
-        artist_data = artist_resp.json()
 
-        wikidata_id = _extract_wikidata_id(artist_data)
-        if not wikidata_id:
-            return Response({"overview": None, "reason": "no_wikidata_link"})
+        return _overview_from_mb_entity(artist_resp.json())
 
-        wiki_title = _wikipedia_title_from_wikidata(wikidata_id)
-        if not wiki_title:
-            return Response({"overview": None, "reason": "no_wikipedia_article"})
 
-        extract = _wikipedia_extract(wiki_title)
-        if not extract:
-            return Response({"overview": None, "reason": "empty_extract"})
+class AlbumOverviewView(APIView):
+    """GET ?mbid=<musicbrainz-release-group-id> → {overview: "..."}"""
 
-        return Response({"overview": extract})
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        mbid = (request.GET.get("mbid") or "").strip()
+        if not mbid:
+            return _bad_request("Missing required parameter: mbid")
+
+        rg_resp = mb.get_release_group(mbid)
+        if rg_resp.status_code != 200:
+            return _upstream_error("MusicBrainz", rg_resp.status_code)
+
+        return _overview_from_mb_entity(rg_resp.json())

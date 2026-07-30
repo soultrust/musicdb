@@ -93,6 +93,10 @@ export function artistOverviewUrl(API_BASE: string, mbid: string): string {
   return `${API_BASE}${SEARCH_ROOT}/artist-overview/?mbid=${encodeURIComponent(mbid)}`;
 }
 
+export function albumOverviewUrl(API_BASE: string, mbid: string): string {
+  return `${API_BASE}${SEARCH_ROOT}/album-overview/?mbid=${encodeURIComponent(mbid)}`;
+}
+
 export function manualSpotifyArtistImageUrl(API_BASE: string, musicbrainzArtistId?: string): string {
   const base = `${API_BASE}${SEARCH_ROOT}/manual-spotify-artist-image/`;
   if (musicbrainzArtistId == null || musicbrainzArtistId === "") return base;
