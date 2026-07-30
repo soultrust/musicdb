@@ -154,5 +154,111 @@ describe("useListModalActions", () => {
     });
     expect(result.current.showListModal).toBe(false);
   });
+
+  it("removes the item from the viewed list sidebar after unchecking that list", async () => {
+    const setListViewData = vi.fn();
+    const authFetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === "POST" && url.includes("/lists/items/")) {
+        return Promise.resolve(makeJsonResponse({ ok: true }));
+      }
+      if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [42] }));
+      if (url.includes("/lists/")) {
+        return Promise.resolve(makeJsonResponse({ lists: [{ id: 42, name: "Favs", list_type: "release" }] }));
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useListModalActions({
+        API_BASE,
+        authFetch: asAuthFetch(authFetchMock),
+        accessToken: "jwt",
+        selectedItem: { id: "rel-1", type: "album", title: "Paranoid" },
+        detailData: { title: "Paranoid" },
+        setAllListsForView: vi.fn(),
+        viewListId: 42,
+        setListViewData,
+      }),
+    );
+
+    act(() => result.current.handleAddToList());
+    await waitFor(() => expect(result.current.selectedListIds).toEqual([42]));
+
+    act(() => result.current.toggleListSelection(42));
+    expect(result.current.selectedListIds).toEqual([]);
+
+    await act(async () => {
+      await result.current.handleAddToLists();
+    });
+
+    expect(setListViewData).toHaveBeenCalledTimes(1);
+    const updater = setListViewData.mock.calls[0][0] as (prev: {
+      name: string;
+      items: Array<{ id: string; type: string; title: string }>;
+    }) => unknown;
+    const next = updater({
+      name: "Favs",
+      items: [
+        { id: "rel-1", type: "album", title: "Paranoid" },
+        { id: "rel-2", type: "album", title: "Master of Reality" },
+      ],
+    });
+    expect(next).toEqual({
+      name: "Favs",
+      items: [{ id: "rel-2", type: "album", title: "Master of Reality" }],
+    });
+  });
+
+  it("adds the item to the viewed list sidebar when that list is newly checked", async () => {
+    const setListViewData = vi.fn();
+    const authFetchMock = vi.fn((url: string, options?: RequestInit) => {
+      if (options?.method === "POST" && url.includes("/lists/items/")) {
+        return Promise.resolve(makeJsonResponse({ ok: true }));
+      }
+      if (url.includes("/lists/items/check/")) return Promise.resolve(makeJsonResponse({ list_ids: [] }));
+      if (url.includes("/lists/")) {
+        return Promise.resolve(makeJsonResponse({ lists: [{ id: 42, name: "Favs", list_type: "release" }] }));
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+
+    const { result } = renderHook(() =>
+      useListModalActions({
+        API_BASE,
+        authFetch: asAuthFetch(authFetchMock),
+        accessToken: "jwt",
+        selectedItem: { id: "rel-9", type: "album", title: "Vol. 4" },
+        detailData: { title: "Vol. 4", artists: [{ name: "Black Sabbath" }] },
+        setAllListsForView: vi.fn(),
+        viewListId: 42,
+        setListViewData,
+      }),
+    );
+
+    act(() => result.current.handleAddToList());
+    await waitFor(() => expect(result.current.listLoading).toBe(false));
+
+    act(() => result.current.toggleListSelection(42));
+    await act(async () => {
+      await result.current.handleAddToLists();
+    });
+
+    expect(setListViewData).toHaveBeenCalledTimes(1);
+    const updater = setListViewData.mock.calls[0][0] as (prev: {
+      name: string;
+      items: Array<{ id: string; type: string; title: string }>;
+    }) => unknown;
+    const next = updater({
+      name: "Favs",
+      items: [{ id: "rel-1", type: "album", title: "Paranoid" }],
+    });
+    expect(next).toEqual({
+      name: "Favs",
+      items: [
+        { id: "rel-1", type: "album", title: "Paranoid" },
+        { id: "rel-9", type: "album", title: "Black Sabbath - Vol. 4" },
+      ],
+    });
+  });
 });
 

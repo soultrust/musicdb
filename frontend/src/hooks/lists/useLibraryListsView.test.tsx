@@ -141,5 +141,58 @@ describe("useLibraryListsView", () => {
       expect.anything(),
     );
   });
+
+  it("does not re-open the first item when listViewData is updated for the same list", async () => {
+    const handleItemClick = vi.fn();
+    const authFetch = asAuthFetch(
+      vi.fn((url: string) => {
+        if (url.includes("/lists/") && !url.includes("/lists/42/")) {
+          return Promise.resolve(makeJsonResponse({ lists: [{ id: 42, name: "Favs", list_type: "release" }] }));
+        }
+        if (url.includes("/lists/42/")) {
+          return Promise.resolve(
+            makeJsonResponse({
+              id: 42,
+              items: [
+                { id: "rel-1", type: "release", title: "Paranoid" },
+                { id: "rel-2", type: "release", title: "Master of Reality" },
+              ],
+            }),
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
+
+    const { result } = renderHook(() =>
+      useLibraryListsView({
+        API_BASE,
+        accessToken: "jwt",
+        authFetch,
+        handleItemClick,
+      }),
+    );
+
+    act(() => {
+      result.current.setViewListId(42);
+    });
+
+    await waitFor(() => {
+      expect(handleItemClick).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      result.current.setListViewData({
+        id: 42,
+        items: [{ id: "rel-2", type: "release", title: "Master of Reality" }],
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(handleItemClick).toHaveBeenCalledTimes(1);
+  });
 });
 

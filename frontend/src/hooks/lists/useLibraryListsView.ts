@@ -28,6 +28,8 @@ export function useLibraryListsView({
   const authFetchRef = useRef(authFetch);
   const handleItemClickRef = useRef(handleItemClick);
   const fetchListsInFlightRef = useRef(false);
+  /** Only auto-open the first item once per selected list (not on later sidebar syncs). */
+  const autoOpenedForViewListIdRef = useRef<string | number | null>(null);
 
   useEffect(() => {
     authFetchRef.current = authFetch;
@@ -98,8 +100,14 @@ export function useLibraryListsView({
   }, [viewListId, accessToken, API_BASE]);
 
   useEffect(() => {
+    if (!viewListId || viewListId === "spotify-playlists") {
+      autoOpenedForViewListIdRef.current = null;
+      return;
+    }
     const items = listViewData?.items;
-    if (!viewListId || !items?.length) return;
+    if (!items?.length) return;
+    if (autoOpenedForViewListIdRef.current === viewListId) return;
+    autoOpenedForViewListIdRef.current = viewListId;
     const firstItem = items[0];
     const item: SearchResultItem = { id: firstItem.id, type: firstItem.type, title: firstItem.title };
     const timeoutId = setTimeout(() => {

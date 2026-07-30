@@ -2,13 +2,57 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 import { useEffect, useRef, useState } from "react";
 import { listItemsCheckUrl, listItemsUrl, listsIndexUrl } from "../../services/searchApi";
 import type { AuthFetchFn } from "../../services/especiallyLikedApi";
-import type { DetailData, DetailItem, ListForView } from "../../types/musicDbSlices";
+import type { DetailData, DetailItem, ListForView, ListViewData } from "../../types/musicDbSlices";
 
 type ListRow = { id: number; name: string; list_type?: string; [key: string]: unknown };
 
 function listErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof Error && err.message) return err.message;
   return fallback;
+}
+
+/** Keep the left-menu list view in sync after membership changes for the open list. */
+function syncViewedListSidebar({
+  viewListId,
+  selectedListIds,
+  selectedItem,
+  titleToSave,
+  setListViewData,
+}: {
+  viewListId: string | number | null;
+  selectedListIds: number[];
+  selectedItem: DetailItem;
+  titleToSave: string;
+  setListViewData: Dispatch<SetStateAction<ListViewData | null>>;
+}) {
+  if (viewListId == null || viewListId === "spotify-playlists") return;
+  const viewedId = typeof viewListId === "number" ? viewListId : Number(viewListId);
+  if (!Number.isFinite(viewedId)) return;
+
+  const itemId = String(selectedItem.id);
+  const stillInViewedList = selectedListIds.includes(viewedId);
+
+  setListViewData((prev) => {
+    if (!prev) return prev;
+    const items = prev.items || [];
+    if (!stillInViewedList) {
+      const nextItems = items.filter((it) => String(it.id) !== itemId);
+      if (nextItems.length === items.length) return prev;
+      return { ...prev, items: nextItems };
+    }
+    if (items.some((it) => String(it.id) === itemId)) return prev;
+    return {
+      ...prev,
+      items: [
+        ...items,
+        {
+          id: selectedItem.id,
+          type: selectedItem.type,
+          title: titleToSave || selectedItem.title || "",
+        },
+      ],
+    };
+  });
 }
 
 /**
@@ -23,6 +67,8 @@ export function useListModalActions({
   selectedItem,
   detailData,
   setAllListsForView,
+  viewListId = null,
+  setListViewData,
 }: {
   API_BASE: string;
   authFetch: AuthFetchFn;
@@ -30,6 +76,8 @@ export function useListModalActions({
   selectedItem: DetailItem | null;
   detailData: DetailData | null;
   setAllListsForView: Dispatch<SetStateAction<ListForView[]>>;
+  viewListId?: string | number | null;
+  setListViewData?: Dispatch<SetStateAction<ListViewData | null>>;
 }) {
   const [showListModal, setShowListModal] = useState(false);
   const [lists, setLists] = useState<ListRow[]>([]);
@@ -200,6 +248,15 @@ export function useListModalActions({
           errorMessage = `Failed to update lists (${res.status})`;
         }
         throw new Error(errorMessage);
+      }
+      if (setListViewData) {
+        syncViewedListSidebar({
+          viewListId,
+          selectedListIds,
+          selectedItem,
+          titleToSave,
+          setListViewData,
+        });
       }
       handleCloseListModal();
     } catch (err: unknown) {

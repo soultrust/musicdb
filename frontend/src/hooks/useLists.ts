@@ -77,6 +77,8 @@ export function useLists({
     selectedItem,
     detailData,
     setAllListsForView,
+    viewListId,
+    setListViewData,
   });
 
   return {
