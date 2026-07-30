@@ -91,6 +91,36 @@ describe("SelectedItemDetail", () => {
     });
   });
 
+  it("lists band members with instruments under the artist name", () => {
+    const handleItemClick = vi.fn();
+    renderSelectedItemDetail({
+      handleItemClick,
+      detailData: {
+        title: "The Beatles",
+        members: [
+          {
+            id: "paul-id",
+            name: "Paul McCartney",
+            instruments: ["bass guitar", "lead vocals"],
+          },
+          {
+            id: "john-id",
+            name: "John Lennon",
+            instruments: ["guitar", "lead vocals"],
+          },
+        ],
+      } as DetailData,
+      selectedItem: { id: "beatles", type: "artist", title: "The Beatles" },
+    });
+    expect(screen.getByText(/bass guitar, lead vocals/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Paul Mccartney" }));
+    expect(handleItemClick).toHaveBeenCalledWith({
+      id: "paul-id",
+      type: "artist",
+      title: "Paul McCartney",
+    });
+  });
+
   it("renders meta rows for artists, year, format, country, genre, style, label", () => {
     renderSelectedItemDetail({
       detailData: {

@@ -331,6 +331,64 @@ def merge_lastfm_popularity(mb_albums, lastfm_albums):
     return mb_albums
 
 
+# Membership flags on MusicBrainz "member of band" relations — not instruments/roles.
+_MEMBERSHIP_ATTRIBUTE_FLAGS = frozenset(
+    {
+        "original",
+        "founder",
+        "principal",
+        "permanent",
+        "transient",
+        "supporting",
+        "guest",
+    }
+)
+
+
+def build_artist_members_from_relations(artist_data):
+    """
+    Extract band members from MusicBrainz artist-rels.
+
+    Only includes backward "member of band" links (people who are/were members of
+    this artist/group). Instruments/roles come from relation attributes.
+    """
+    members = []
+    for rel in artist_data.get("relations") or []:
+        if (rel.get("type") or "").lower() != "member of band":
+            continue
+        if (rel.get("direction") or "").lower() != "backward":
+            continue
+        person = rel.get("artist") or {}
+        person_id = (person.get("id") or "").strip()
+        person_name = (person.get("name") or "").strip()
+        if not person_id or not person_name:
+            continue
+        raw_attrs = [str(a).strip() for a in (rel.get("attributes") or []) if str(a).strip()]
+        instruments = [a for a in raw_attrs if a.lower() not in _MEMBERSHIP_ATTRIBUTE_FLAGS]
+        members.append(
+            {
+                "id": person_id,
+                "name": person_name,
+                "instruments": instruments,
+                "begin": rel.get("begin") or None,
+                "end": rel.get("end") or None,
+                "ended": bool(rel.get("ended")),
+                "original": any(a.lower() == "original" for a in raw_attrs),
+            }
+        )
+
+    def sort_key(m):
+        return (
+            1 if m["ended"] else 0,
+            0 if m["original"] else 1,
+            m["begin"] or "9999",
+            m["name"].lower(),
+        )
+
+    members.sort(key=sort_key)
+    return members
+
+
 def _normalize_mb_artist(data, albums=None):
     """Artist detail: name, MusicBrainz link, optional image, optional album list."""
     name = (data.get("name") or "").strip()
@@ -342,6 +400,7 @@ def _normalize_mb_artist(data, albums=None):
         "artists": [],
         "uri": uri,
         "albums": albums or [],
+        "members": build_artist_members_from_relations(data),
     }
     if image_url:
         out["thumb"] = image_url

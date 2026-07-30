@@ -110,12 +110,12 @@ def search(query, search_type="album", limit=20, offset=0, year=None, year_from=
 
 
 def get_artist(mbid):
-    """GET artist/{mbid} with URL relations (e.g. image link)."""
+    """GET artist/{mbid} with URL + artist relations (image link, band members)."""
     url = f"{MUSICBRAINZ_API_BASE}/artist/{mbid}"
     return requests.get(
         url,
         headers=_headers(),
-        params={"fmt": "json", "inc": "url-rels"},
+        params={"fmt": "json", "inc": "url-rels+artist-rels"},
         timeout=15,
     )
 

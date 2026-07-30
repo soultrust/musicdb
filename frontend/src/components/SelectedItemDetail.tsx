@@ -76,9 +76,38 @@ function ArtistDetailLayout({
           <div className="artist-detail-image-float">
             <ArtistImage s={s} isArtist />
           </div>
-          <h2 className="detail-title">
-            {titleCaseDisplay(s.detailData?.title || s.selectedItem?.title || "")}
-          </h2>
+          <div className="artist-detail-heading">
+            <h2 className="detail-title">
+              {titleCaseDisplay(s.detailData?.title || s.selectedItem?.title || "")}
+            </h2>
+            {(s.detailData?.members?.length ?? 0) > 0 && (
+              <ul className="artist-members">
+                {s.detailData!.members!.map((m) => {
+                  const instruments = (m.instruments || []).join(", ");
+                  return (
+                    <li key={m.id} className="artist-member">
+                      <button
+                        type="button"
+                        className="detail-link artist-member-name"
+                        onClick={() =>
+                          void s.handleItemClick({
+                            id: m.id,
+                            type: "artist",
+                            title: m.name,
+                          })
+                        }
+                      >
+                        {titleCaseDisplay(m.name)}
+                      </button>
+                      {instruments ? (
+                        <span className="artist-member-instruments"> — {instruments}</span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
         <div className="artist-detail-body">
           {ov.overviewLoading && <p className="detail-loading">Loading overview…</p>}

@@ -50,6 +50,16 @@ export type DetailData = {
   disambiguation?: string | null;
   /** Artist releases (deduped), for sidebar + main panel */
   albums?: Array<{ id: string; title?: string; year?: string | null; thumb?: string | null; playcount?: number; listeners?: number; type?: string | null }>;
+  /** Band members from MusicBrainz artist-rels (member of band) */
+  members?: Array<{
+    id: string;
+    name: string;
+    instruments?: string[];
+    begin?: string | null;
+    end?: string | null;
+    ended?: boolean;
+    original?: boolean;
+  }>;
   /** True when thumb comes from user's saved Spotify image pick */
   manual_spotify_artist_image?: boolean;
   /** MusicBrainz release-group id for album detail (stable key for manual cover) */

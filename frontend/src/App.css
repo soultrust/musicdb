@@ -1073,6 +1073,38 @@
   margin-bottom: 1.5rem;
 }
 
+.artist-detail-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.artist-detail-heading .detail-title {
+  margin: 0 0 0.75rem;
+}
+
+.artist-members {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.artist-member {
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #a3a3a3;
+}
+
+.artist-member-name {
+  font-size: inherit;
+}
+
+.artist-member-instruments {
+  color: #a3a3a3;
+}
+
 .artist-detail-header .artist-detail-image-float {
   margin: 0;
   flex-shrink: 0;

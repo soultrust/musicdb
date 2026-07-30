@@ -76,11 +76,43 @@ class SearchEndpointsTests(TestCase):
             body = res.json()
             self.assertEqual(body.get("title"), "The Artist")
             self.assertEqual(body.get("albums"), [])
+            self.assertEqual(body.get("members"), [])
             self.assertIs(body.get("manual_spotify_artist_image"), False)
 
         with patch("musicdb.views.search_views.mb.get_artist", return_value=Mock(status_code=500)):
             res = self.client.get("/api/search/detail/", {"type": "artist", "id": "artist-id"})
             self.assertEqual(res.status_code, 502)
+
+    def test_artist_detail_includes_band_members(self):
+        mock_artist_res = Mock(status_code=200)
+        mock_artist_res.json.return_value = {
+            "name": "The Band",
+            "id": "band-id",
+            "relations": [
+                {
+                    "type": "member of band",
+                    "direction": "backward",
+                    "begin": "1960",
+                    "end": "1970",
+                    "ended": True,
+                    "attributes": ["guitar", "lead vocals", "original"],
+                    "artist": {"id": "member-1", "name": "Jane Doe"},
+                }
+            ],
+        }
+        mock_browse = Mock(status_code=200)
+        mock_browse.json.return_value = {"release-groups": []}
+        with patch("musicdb.views.search_views.mb.get_artist", return_value=mock_artist_res), patch(
+            "musicdb.views.search_views.mb.browse_release_groups_by_artist", return_value=mock_browse
+        ), patch(
+            "musicdb.views.search_views.artist_image_url_for_musicbrainz_name", return_value=None
+        ), patch("musicdb.views.search_views.discogs_artist_image_url", return_value=None):
+            res = self.client.get("/api/search/detail/", {"type": "artist", "id": "band-id"})
+        self.assertEqual(res.status_code, 200)
+        members = res.json().get("members")
+        self.assertEqual(len(members), 1)
+        self.assertEqual(members[0]["name"], "Jane Doe")
+        self.assertEqual(members[0]["instruments"], ["guitar", "lead vocals"])
 
     def test_artist_detail_spotify_fallback_fills_thumb_when_mb_has_no_image(self):
         mock_artist_res = Mock(status_code=200)
