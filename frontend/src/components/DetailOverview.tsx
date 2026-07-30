@@ -1,32 +1,14 @@
 import { useDetailOverviewContext } from "../hooks/useMusicDbApp";
+import OverviewParagraphs from "./OverviewParagraphs";
 
 export default function DetailOverview() {
-  const { detailData, selectedItem, overviewLoading, overview, overviewError } = useDetailOverviewContext();
+  const { selectedItem, overviewLoading, overview, overviewError } = useDetailOverviewContext();
 
   if (!(overviewLoading || overview || overviewError)) return null;
 
   return (
     <div className="detail-overview">
       <h3>Overview</h3>
-      {(detailData?.uri ||
-        selectedItem?.type === "release" ||
-        selectedItem?.type === "master" ||
-        selectedItem?.type === "artist" ||
-        selectedItem?.type === "album" ||
-        selectedItem?.type === "song") && (
-        <div className="detail-row detail-row-links">
-          {detailData?.uri && (
-            <a
-              href={detailData.uri}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="detail-link"
-            >
-              View on MusicBrainz →
-            </a>
-          )}
-        </div>
-      )}
       {overviewLoading && <p className="detail-loading">Loading overview…</p>}
       {overviewError && !overviewLoading && (
         <p className="error">
@@ -35,7 +17,7 @@ export default function DetailOverview() {
             : overviewError}
         </p>
       )}
-      {overview && !overviewLoading && <p className="overview-text">{overview}</p>}
+      {overview && !overviewLoading && <OverviewParagraphs overview={overview} />}
     </div>
   );
 }

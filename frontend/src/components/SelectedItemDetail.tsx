@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import TrackList from "./TrackList";
 import DetailOverview from "./DetailOverview";
+import OverviewParagraphs from "./OverviewParagraphs";
 import AlbumManualImageModal from "./AlbumManualImageModal";
 import ArtistManualImageModal from "./ArtistManualImageModal";
 import { useDetailShellContext, useDetailOverviewContext } from "../hooks/useMusicDbApp";
@@ -89,9 +90,7 @@ function ArtistDetailLayout({
                 : ov.overviewError}
             </p>
           )}
-          {ov.overview && !ov.overviewLoading && (
-            <p className="overview-text">{ov.overview}</p>
-          )}
+          {ov.overview && !ov.overviewLoading && <OverviewParagraphs overview={ov.overview} />}
           <div className="artist-detail-actions">
             {mbArtistId && (
               <div className="detail-artist-image-actions detail-artist-image-actions--inline">
@@ -319,6 +318,18 @@ function AlbumDetailLayout({
             </button>
           )}
         {s.detailData?.tracklist && s.detailData.tracklist.length > 0 && <TrackList />}
+        {s.detailData?.uri && (
+          <div className="detail-row detail-row-links detail-musicbrainz-link">
+            <a
+              href={s.detailData.uri}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="detail-link"
+            >
+              View on MusicBrainz →
+            </a>
+          </div>
+        )}
         {s.detailData?.profile && (
           <div className="detail-profile">
             <h3>Profile</h3>

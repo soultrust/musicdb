@@ -484,9 +484,16 @@
 .detail-overview .overview-text {
   color: #e5e5e5;
   line-height: 1.6;
-  white-space: pre-wrap;
-  margin: 0;
+  margin: 0 0 0.85rem;
   font-size: 0.9rem;
+}
+
+.detail-overview .overview-text:last-child {
+  margin-bottom: 0;
+}
+
+.detail-musicbrainz-link {
+  margin-top: 1rem;
 }
 
 .detail-header {
@@ -1090,9 +1097,12 @@
 .artist-detail-body .overview-text {
   color: #e5e5e5;
   line-height: 1.7;
-  white-space: pre-wrap;
-  margin: 0;
+  margin: 0 0 0.85rem;
   font-size: 0.9rem;
+}
+
+.artist-detail-body .overview-text:last-child {
+  margin-bottom: 0;
 }
 
 .artist-detail-body .overview-error {

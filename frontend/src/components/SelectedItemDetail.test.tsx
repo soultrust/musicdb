@@ -127,6 +127,23 @@ describe("SelectedItemDetail", () => {
     expect(screen.getByTestId("track-list")).toBeInTheDocument();
   });
 
+  it("shows MusicBrainz link below the track list on album detail", () => {
+    renderSelectedItemDetail({
+      detailData: {
+        title: "A",
+        uri: "https://musicbrainz.org/release/abc",
+        tracklist: [{ title: "T1" }],
+      } as DetailData,
+      selectedItem: { id: "1", type: "album", title: "A" },
+    });
+    const link = screen.getByRole("link", { name: /view on musicbrainz/i });
+    expect(link).toHaveAttribute("href", "https://musicbrainz.org/release/abc");
+    const trackList = screen.getByTestId("track-list");
+    expect(
+      trackList.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("does not mount TrackList when tracklist is empty", () => {
     renderSelectedItemDetail({
       detailData: { title: "A", tracklist: [] } as DetailData,
